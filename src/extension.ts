@@ -1,22 +1,25 @@
 import {
   commands,
   ExtensionContext,
-  extensions,
   OutputChannel,
   window,
 } from "vscode";
 import { installTslab } from "./installer";
+import { optIntoNativeNotebooks, registerWithJupyter } from "./jupyterExtension";
 import { installKernelSpec } from "./kernel";
 import { logError, setOutputWindow, showLog } from "./logger";
-import { IJupyterExtensionApi } from "./types";
 import { noop } from "./utils";
 
 export async function activate(context: ExtensionContext) {
   const outputChannel = window.createOutputChannel("TypeScript Notebook");
   setOutputWindow(outputChannel);
   // Install kernel (silently) as soon as extension activates.
-  Promise.all([installTslab(outputChannel), installKernelSpec()]).catch(noop);
-  registerWithJupyter().catch(noop);
+  Promise.all([
+	  installTslab(outputChannel),
+	  installKernelSpec(),
+	  registerWithJupyter(),
+	  optIntoNativeNotebooks(),
+	  installKernelSpec()]).catch(noop);
   registerCommands(context, outputChannel);
 }
 
@@ -49,21 +52,5 @@ async function installKernel(outputChannel: OutputChannel) {
   }
 }
 
-async function registerWithJupyter() {
-  const jupyter = extensions.getExtension<IJupyterExtensionApi>(
-    "ms-toolsai.jupyter"
-  );
-  if (!jupyter) {
-    return;
-  }
-  if (!jupyter.isActive) {
-    await jupyter.activate();
-  }
-  if (jupyter.exports.registerNewNotebookContent) {
-    jupyter.exports.registerNewNotebookContent({
-      defaultCellLanguage: "typescript",
-    });
-  }
-}
 // this method is called when your extension is deactivated
 export function deactivate() {}

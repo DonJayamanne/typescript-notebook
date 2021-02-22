@@ -2,13 +2,45 @@
 	"name": "typescript-notebook",
 	"publisher": "donjayamanne",
 	"displayName": "TypeScript Notebook",
-	"description": "TypeScript Notebook",
-	"version": "0.0.1",
+    "description": "Jupyter notebook support for TypeScript",
+	"version": "1.0.0",
 	"engines": {
 		"vscode": "^1.53.0"
 	},
-	"categories": [
-		"Other"
+    "author": {
+        "name": "Don Jayamanne"
+    },
+	"license": "MIT",
+    "homepage": "https://github.com/DonJayamanne/typescript-notebook",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DonJayamanne/typescript-notebook"
+    },
+    "bugs": {
+        "url": "https://github.com/DonJayamanne/typescript-notebook/issues"
+    },
+    "qna": "https://stackoverflow.com/questions/tagged/visual-studio-code+jupyter",
+    "icon": "icon.png",
+    "galleryBanner": {
+        "color": "#ffffff",
+        "theme": "light"
+    },
+    "keywords": [
+        "jupyter",
+        "notebook",
+        "ipynb",
+        "multi-root ready",
+        "typescript"
+    ],
+    "categories": [
+        "Programming Languages",
+        "Other",
+        "Data Science",
+        "Machine Learning",
+        "Notebooks"
+    ],
+	"extensionDependencies": [
+		"ms-toolsai.jupyter"
 	],
 	"activationEvents": [
 		"*",
