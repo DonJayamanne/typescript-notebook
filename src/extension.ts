@@ -1,11 +1,10 @@
-import {
-  commands,
-  ExtensionContext,
-  OutputChannel,
-  window,
-} from "vscode";
+import { commands, ExtensionContext, OutputChannel, window } from "vscode";
 import { installTslab } from "./installer";
-import { optIntoNativeNotebooks, registerWithJupyter } from "./jupyterExtension";
+import {
+  configureEditor,
+  optIntoNativeNotebooks,
+  registerWithJupyter,
+} from "./jupyterExtension";
 import { installKernelSpec } from "./kernel";
 import { logError, setOutputWindow, showLog } from "./logger";
 import { noop } from "./utils";
@@ -15,11 +14,13 @@ export async function activate(context: ExtensionContext) {
   setOutputWindow(outputChannel);
   // Install kernel (silently) as soon as extension activates.
   Promise.all([
-	  installTslab(outputChannel),
-	  installKernelSpec(),
-	  registerWithJupyter(),
-	  optIntoNativeNotebooks(),
-	  installKernelSpec()]).catch(noop);
+    installTslab(outputChannel),
+    installKernelSpec(),
+    registerWithJupyter(),
+    optIntoNativeNotebooks(),
+    configureEditor(),
+    installKernelSpec(),
+  ]).catch(noop);
   registerCommands(context, outputChannel);
 }
 
