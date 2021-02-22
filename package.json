@@ -1,8 +1,8 @@
 {
 	"name": "typescript-notebook",
 	"publisher": "donjayamanne",
-	"displayName": "TypeScript Notebook",
-    "description": "Jupyter notebook support for TypeScript",
+	"displayName": "TypeScript Notebooks",
+    "description": "TypeScript with Jupyter Notebooks",
 	"version": "1.0.0",
 	"engines": {
 		"vscode": "^1.53.0"
