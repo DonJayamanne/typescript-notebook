@@ -24,6 +24,9 @@ This extension will automatically install the necessary dependencies required to
 
 ## Release Notes
 
+### 1.1.0
+
+- Fix kernel registration on Windows.
 ### 1.0.0
 
-Initial release
+- Initial release

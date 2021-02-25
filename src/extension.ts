@@ -18,8 +18,7 @@ export async function activate(context: ExtensionContext) {
     installKernelSpec(),
     registerWithJupyter(),
     optIntoNativeNotebooks(),
-    configureEditor(),
-    installKernelSpec(),
+    configureEditor()
   ]).catch(noop);
   registerCommands(context, outputChannel);
 }
