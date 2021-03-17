@@ -3,7 +3,7 @@
 	"publisher": "donjayamanne",
 	"displayName": "TypeScript Notebooks",
     "description": "TypeScript with Jupyter Notebooks",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"engines": {
 		"vscode": "^1.53.0"
 	},
@@ -43,7 +43,7 @@
 		"ms-toolsai.jupyter"
 	],
 	"activationEvents": [
-		"*",
+		"onNotebook:jupyter-notebook",
 		"onCommand:typescript-notebook.install"
 	],
 	"main": "./out/extension.js",
