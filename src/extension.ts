@@ -2,8 +2,7 @@ import { commands, ExtensionContext, OutputChannel, window } from "vscode";
 import { installTslab } from "./installer";
 import {
   configureEditor,
-  optIntoNativeNotebooks,
-  registerWithJupyter,
+  optIntoNativeNotebooks
 } from "./jupyterExtension";
 import { installKernelSpec } from "./kernel";
 import { logError, setOutputWindow, showLog } from "./logger";
@@ -16,7 +15,6 @@ export async function activate(context: ExtensionContext) {
   Promise.all([
     installTslab(outputChannel),
     installKernelSpec(),
-    registerWithJupyter(),
     optIntoNativeNotebooks(),
     configureEditor()
   ]).catch(noop);
