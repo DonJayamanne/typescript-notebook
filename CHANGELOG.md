@@ -1,5 +1,9 @@
 # Change Log
 
+### 1.4.0
+
+- Update to use the latest Jupyter API.
+
 ### 1.2.0
 
 - Ensure extension activates only when opening Jupyter Notebooks.

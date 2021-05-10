@@ -1,6 +1,5 @@
 import { ConfigurationTarget, extensions, workspace } from "vscode";
 import { logMessage } from "./logger";
-import { IJupyterExtensionApi } from "./types";
 
 export async function optIntoNativeNotebooks() {
   const settings = workspace.getConfiguration("jupyter", undefined);
@@ -22,24 +21,20 @@ export async function optIntoNativeNotebooks() {
   );
 }
 
-type EditorAssociation = {
-  viewType: string;
-  filenamePattern: string;
-};
+type EditorAssociation = Record<string, string>;
 
 export async function configureEditor() {
   const settings = workspace.getConfiguration("workbench", undefined);
   const associations = settings.get<EditorAssociation[]>("editorAssociations");
   if (
     !Array.isArray(associations) ||
-    associations.find((item) => item.viewType === "jupyter-notebook")
+    associations.find((item) => item["*.ipynb"] === "jupyter-notebook")
   ) {
     logMessage("Native Notebook Editor already setup");
     return;
   }
   associations.push({
-    viewType: "jupyter-notebook",
-    filenamePattern: "*.ipynb",
+    "*.ipynb": "jupyter-notebook",
   });
   logMessage("Setting up Native Notebook Editor");
   await settings.update(
