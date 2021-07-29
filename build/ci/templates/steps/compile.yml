@@ -1,0 +1,7 @@
+# Compiles the source
+
+steps:
+  - template: initialization.yml
+
+  - bash: npm run compile
+    displayName: 'Compile'

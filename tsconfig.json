@@ -1,0 +1,17 @@
+{
+    "files": [],
+    "references": [
+        {
+            "path": "./src/client"
+        },
+        {
+            "path": "./src/server"
+        },
+        {
+            "path": "./src/extension"
+        },
+        {
+            "path": "./src/test"
+        }
+    ]
+}

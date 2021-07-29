@@ -1,0 +1,9 @@
+variables:
+  NodeVersion: '12.15.0' # Check version of node used in VS Code.
+  NpmVersion: '6.13.4'
+  MOCHA_FILE: '$(Build.ArtifactStagingDirectory)/test-junit.xml' # All test files will write their JUnit xml output to this file, clobbering the last time it was written.
+  MOCHA_REPORTER_JUNIT: true # Use the mocha-multi-reporters and send output to both console (spec) and JUnit (mocha-junit-reporter).
+  CI_BRANCH_NAME: ${Build.SourceBranchName}
+  npm_config_cache: $(Pipeline.Workspace)/.npm
+  vmImageMacOS: 'macOS-10.15'
+  TS_NODE_FILES: true # Temporarily enabled to allow using types from vscode.proposed.d.ts from ts-node (for tests).

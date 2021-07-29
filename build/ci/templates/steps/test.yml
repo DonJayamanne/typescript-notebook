@@ -1,0 +1,11 @@
+# Compiles the source
+
+steps:
+  - template: initialization.yml
+
+  - bash: npm run compile
+    displayName: 'Compile'
+
+# Temporarily disabled.
+#   - bash: npm run test
+#     displayName: 'Test'

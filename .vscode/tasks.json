@@ -1,0 +1,33 @@
+// See https://go.microsoft.com/fwlink/?LinkId=733558
+// for the documentation about the tasks.json format
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "npm",
+            "label": "Build (dev)",
+            "script": "dev",
+            "isBackground": true,
+            "problemMatcher": [
+                "$tsc-watch",
+                "$ts-checker-webpack-watch"
+            ],
+            "presentation": {
+                "reveal": "never"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "type": "npm",
+            "label": "Build (release)",
+            "script": "vscode:prepublish",
+            "problemMatcher": [
+                "$ts-checker-webpack"
+            ],
+            "group": "build"
+        }
+    ]
+}

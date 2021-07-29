@@ -1,0 +1,18 @@
+steps:
+  - template: initialization.yml
+
+  - bash: |
+      npm run package
+    displayName: 'Build VSIX'
+
+  - task: CopyFiles@2
+    inputs:
+      contents: '*.vsix'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+    displayName: 'Copy VSIX'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathtoPublish: $(Build.ArtifactStagingDirectory)
+      artifactName: VSIX
+    displayName: 'Publish VSIX to Artifacts'

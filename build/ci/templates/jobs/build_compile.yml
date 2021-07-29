@@ -1,0 +1,45 @@
+# Overview:
+# Generic jobs template to compile and build extension
+
+jobs:
+  - job: Compile
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: ../steps/compile.yml
+
+  - job: Build
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: ../steps/build.yml
+
+  - job: Test
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: ../steps/test.yml
+
+  - job: Dependencies
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: ../steps/dependencies.yml
+
+  - job: Hygiene
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: ../steps/initialization.yml
+        parameters:
+          workingDirectory: $(Build.SourcesDirectory)
+          compile: 'false'
+          installVSCEorNPX: 'false'
+
+      - bash: npm run lint
+        displayName: 'Lint'
+        workingDirectory: $(Build.SourcesDirectory)
+
+      - bash: npm run lint-format
+        displayName: 'Code Format (TypeScript & JavaScript)'
+        workingDirectory: $(Build.SourcesDirectory)

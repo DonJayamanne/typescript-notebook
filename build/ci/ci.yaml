@@ -1,0 +1,23 @@
+# CI build (PR merge)
+
+name: '$(Year:yyyy).$(Month).0.$(BuildID)-ci'
+
+# Notes: Only trigger a commit for main and release, and skip build/rebuild
+#        on changes in the news and .vscode folders.
+trigger:
+  branches:
+    include: ['main', 'release*']
+  paths:
+    exclude: ['/.vscode']
+
+# Not the PR build for merges to main and release.
+pr: none
+
+# Variables that are available for the entire pipeline.
+variables:
+  - template: templates/globals.yml
+
+stages:
+  - stage: Build
+    jobs:
+      - template: templates/jobs/build_compile.yml

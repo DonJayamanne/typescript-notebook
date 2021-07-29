@@ -1,0 +1,11 @@
+{
+    "extends": "../tsconfig-base.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "outDir": "../../out/test",
+        "lib": [
+            "ES2019",
+            "dom"
+        ],
+    }
+}

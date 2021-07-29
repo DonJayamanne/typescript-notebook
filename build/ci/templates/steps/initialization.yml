@@ -1,0 +1,46 @@
+steps:
+  - bash: |
+      printenv
+    displayName: 'Show all env vars'
+    condition: eq(variables['system.debug'], 'true')
+
+  - task: NodeTool@0
+    displayName: 'Use Node $(NodeVersion)'
+    inputs:
+      versionSpec: $(NodeVersion)
+
+  - task: Npm@1
+    displayName: 'Use NPM $(NpmVersion)'
+    inputs:
+      command: custom
+      verbose: true
+      customCommand: 'install -g npm@$(NpmVersion)'
+
+  # See the help here on how to cache npm
+  # https://docs.microsoft.com/en-us/azure/devops/pipelines/caching/?view=azure-devops#nodejsnpm
+  - task: CacheBeta@0
+    inputs:
+      key: npm | $(Agent.OS) | package-lock.json
+      path: $(npm_config_cache)
+      restoreKeys: |
+        npm | $(Agent.OS)
+      displayName: Cache npm
+
+  - task: Npm@1
+    displayName: 'npm ci'
+    inputs:
+      workingDir: $(Build.SourcesDirectory)
+      command: custom
+      verbose: true
+      customCommand: ci
+
+  - bash: |
+      npm install -g vsce
+    displayName: 'Install vsce'
+
+  # https://code.visualstudio.com/api/working-with-extensions/continuous-integration#azure-pipelines
+  - bash: |
+      /usr/bin/Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+      echo ">>> Started xvfb"
+    displayName: Start xvfb
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
