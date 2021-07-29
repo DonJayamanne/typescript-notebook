@@ -11,6 +11,7 @@ import { createDeferred, Deferred } from '../coreUtils';
 import { ServerLogger } from '../serverLogger';
 import { CellStdOutput } from './cellStdOutput';
 import { getNotebookCwd, registerDisposable } from '../utils';
+import { TensorflowVisClient } from '../tfjsvis';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
@@ -101,8 +102,8 @@ export class JavaScriptKernel implements IDisposable {
         registerDisposable(
             workspace.onDidCloseNotebookDocument((e) => {
                 const kernel = kernels.get(e);
-                kernels.delete(e);
                 kernel?.dispose();
+                kernels.delete(e);
             })
         );
     }
@@ -144,8 +145,9 @@ export class JavaScriptKernel implements IDisposable {
             });
             this.serverProcess.stderr?.on('data', (data: Buffer | string) => {
                 if (this.serverProcessInitialized) {
-                    if (this.lastStdOutput) {
-                        this.lastStdOutput.appendStdErr(data.toString());
+                    const item = this.currentTask || this.getLastUsedStdOutput();
+                    if (item?.stdOutput) {
+                        item?.stdOutput.appendStdErr(data.toString());
                     }
                 } else {
                     ServerLogger.append(data.toString());
@@ -153,8 +155,9 @@ export class JavaScriptKernel implements IDisposable {
             });
             this.serverProcess.stdout?.on('data', (data: Buffer | string) => {
                 if (this.serverProcessInitialized) {
-                    if (this.lastStdOutput) {
-                        this.lastStdOutput.appendStdOut(data.toString());
+                    const item = this.currentTask || this.getLastUsedStdOutput();
+                    if (item?.stdOutput) {
+                        item.stdOutput.appendStdOut(data.toString());
                     }
                 } else {
                     ServerLogger.append(data.toString());
@@ -185,6 +188,10 @@ export class JavaScriptKernel implements IDisposable {
             }
             case 'replRestarted': {
                 window.showErrorMessage('JavaScript/TypeScript Notebook Kernel was restarted');
+                break;
+            }
+            case 'tensorFlowVis': {
+                TensorflowVisClient.sendMessage(message);
                 break;
             }
             case 'cellExec': {

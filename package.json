@@ -63,25 +63,41 @@
                     }
                 ]
             }
-        ]
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "icon": "resources/icons/ts.svg",
+                    "id": "typescript-notebook",
+                    "title": "TypeScript Notebook"
+                }
+            ]
+        },
+        "views": {
+            "typescript-notebook": [
+                {
+                    "name": "Tensorflow Visualization",
+                    "id": "tfjs-vis",
+                    "type": "webview"
+                }
+            ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile:webpack",
-        "dev": "concurrently -r npm:compile:extension:watch npm:compile:client:watch npm:compile:server:watch npm:compile:test:watch npm:compile:extension-browser:watch",
-        "compile": "npm run compile:extension && npm run compile:test && npm run compile:client && npm run compile:extension-browser",
+        "dev": "concurrently -r npm:compile:extension:watch npm:compile:client:watch",
+        "devx": "concurrently -r npm:compile:extension:watch npm:compile:client:watch npm:compile:test:watch",
+        "compile": "npm run compile:extension && npm run compile:test && npm run compile:client",
         "compile:extension": "webpack --config=build/webpack/webpack.extension.config.js",
-        "compile:extension-browser:watch": "webpack --config=build/webpack/webpack.extension.browser.config.js --watch",
-        "compile:extension-browser": "webpack --config=build/webpack/webpack.extension.browser.config.js",
         "compile:server:watch": "tsc -p src/server --watch",
         "compile:extension:watch": "tsc -p src/extension --watch",
         "compile:test": "tsc -p src/test",
         "compile:test:watch": "tsc -p src/test --watch",
-        "compile:webpack": "npm run build:client && npm run build:extension && npm run build:server && npm run build:extension-browser",
+        "compile:webpack": "npm run build:client && npm run build:extension && npm run build:server",
         "compile:client": "webpack --config=build/webpack/webpack.client.config.js",
         "build:client": "webpack --config=build/webpack/webpack.client.config.js --mode=production",
         "build:server": "webpack --config=build/webpack/webpack.server.config.js --mode=production",
         "build:extension": "webpack --config=build/webpack/webpack.extension.config.js --mode=production",
-        "build:extension-browser": "webpack --config=build/webpack/webpack.extension.browser.config.js --mode=production",
         "compile:client:watch": "webpack --config=build/webpack/webpack.client.config.js --watch",
         "lint": "eslint src --ext ts && eslint src --ext tsx && eslint build --ext js",
         "lint-format": "npx prettier 'src/**/*.ts*' --check && npx prettier 'build/**/*.js' --check",
@@ -94,6 +110,7 @@
         "postinstall": "npm run download-api"
     },
     "dependencies": {
+        "@tensorflow/tfjs-vis": "^1.5.1",
         "file-type": "^16.5.2",
         "get-port": "^5.1.1",
         "is-base64": "^1.1.0",
@@ -112,6 +129,7 @@
         "@types/node": "^12.11.7",
         "@types/uuid": "^8.3.1",
         "@types/vscode-notebook-renderer": "^1.57.9",
+        "@types/vscode-webview": "^1.57.0",
         "@types/ws": "^7.4.7",
         "@types/yargs": "^17.0.2",
         "@typescript-eslint/eslint-plugin": "^3.1.0",

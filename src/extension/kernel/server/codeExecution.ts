@@ -7,6 +7,7 @@ import { processTopLevelAwait } from 'node-repl-await';
 import { VariableListingMagicCommandHandler } from './magics/variables';
 import { formatValue } from './format';
 import { DanfoJsFormatter } from './danfoFormatter';
+import { TensorflowJsVisualizer } from './tfjsVisProxy';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Module = require('module');
 
@@ -116,7 +117,14 @@ export async function execCode(request: RunCellRequest): Promise<void> {
 }
 
 const originalLoad = Module._load;
-Module._load = function (request: any, _parent: any) {
+Module._load = function (request: any, parent: any) {
+    if (parent && request === '@tensorflow/tfjs-core' && parent.filename.includes('@tensorflow/tfjs-vis')) {
+        return {};
+    }
+    if (request === '@tensorflow/tfjs-vis') {
+        return TensorflowJsVisualizer.intance;
+    }
+
     // eslint-disable-next-line prefer-rest-params
     const result = originalLoad.apply(this, arguments);
     if (request === 'danfojs-node') {

@@ -1,0 +1,7 @@
+#tfjs-visor-container .visor {
+    width: 100% !important;
+    /* height: 100% !important; */
+}
+#tfjs-visor-container .visor .visor-controls {
+    display:none !important;
+}

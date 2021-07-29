@@ -10,11 +10,10 @@ const isProdBuild = constants.isCI || process.argv.some((argv) => argv.includes(
 module.exports = {
     context: constants.ExtensionRootDir,
     entry: {
-        visualization: './src/client/visualization.tsx',
-        datatable: './src/client/datatable.tsx'
+        tfjsvis: './src/client/index.ts'
     },
     output: {
-        path: path.join(constants.ExtensionRootDir, 'out', 'renderer'),
+        path: path.join(constants.ExtensionRootDir, 'out', 'views'),
         filename: '[name].js',
         chunkFilename: `[name].bundle.js`,
         libraryTarget: 'module'
