@@ -195,7 +195,7 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'cellExec': {
-                const item = this.tasks.get(message.requestId);
+                const item = this.tasks.get(message.requestId ?? -1);
                 if (item) {
                     if (message.result) {
                         item.stdOutput.appendOutput(message.result);
@@ -221,11 +221,11 @@ export class JavaScriptKernel implements IDisposable {
                         item.result.resolve(state);
                     }
                 }
-                this.tasks.delete(message.requestId);
+                this.tasks.delete(message.requestId ?? -1);
                 break;
             }
             case 'output': {
-                const item = this.tasks.get(message.requestId) || this.currentTask || this.getLastUsedStdOutput();
+                const item = this.tasks.get(message.requestId ?? -1) || this.currentTask || this.getLastUsedStdOutput();
                 if (item) {
                     if (message.data) {
                         item.stdOutput.appendOutput(message.data);

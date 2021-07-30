@@ -18,14 +18,32 @@ export class JavaScriptTypeScriptCompiler {
                 compilerOptions: {
                     sourceMap: true,
                     inlineSourceMap: true,
-                    noImplicitUseStrict: true,
-                    importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Preserve,
-                    strict: false,
+                    // noImplicitUseStrict: true,
+                    // importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Preserve,
+                    // strict: false,
                     allowJs: true,
                     allowSyntheticDefaultImports: true
                 }
             })
-            .outputText.replace('Object.defineProperty(exports, "__esModule", { value: true });', '');
+            .outputText.replace('Object.defineProperty(exports, "__esModule", { value: true });', '')
+            // Remove `use strict`, this causes issues some times.
+            // E.g. this code fails (dfd not found).
+            /*
+import * as dfd from 'danfojs-node';
+const df: dfd.DataFrame = await dfd.read_csv('./finance-charts-apple.csv');
+const layout = {
+    title: 'A financial charts',
+    xaxis: {
+        title: 'Date',
+    },
+    yaxis: {
+        title: 'Count',
+    }
+}
+const newDf = df.set_index({ key: "Date" })
+newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
+            */
+            .replace('"use strict";', '');
 
         console.debug(`Compiled TS cell ${cell.index} into ${transpiledCode}`);
         const fileName = `${cell.index}_${path.basename(cell.notebook.uri.fsPath)}}`;

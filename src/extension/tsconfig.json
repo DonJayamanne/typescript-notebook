@@ -6,6 +6,7 @@
         "lib": [
             "ES2019",
             "dom"
-        ]
+        ],
+        "skipLibCheck": true
     }
 }

@@ -1,6 +1,7 @@
 import { createDeferred } from '../../coreUtils';
-import { ResponseType } from './types';
+import { RequestType, ResponseType } from './types';
 import * as WebSocket from 'ws';
+import { EventEmitter } from 'stream';
 
 const ws = createDeferred<WebSocket>();
 const messagesToSend: ResponseType[] = [];
@@ -18,4 +19,12 @@ export function sendMessage(message: ResponseType) {
             websocket.send(JSON.stringify(message));
         }
     });
+}
+
+export const emitter = new EventEmitter();
+export function addMessageHandler(type: RequestType['type'], listener: (message: any) => void) {
+    emitter.on(`onMessage_${type}`, listener);
+}
+export function removeMessageHandler(type: RequestType['type'], listener: (message: any) => void) {
+    emitter.off(`onMessage_${type}`, listener);
 }

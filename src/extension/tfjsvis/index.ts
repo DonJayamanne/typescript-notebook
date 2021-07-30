@@ -1,4 +1,4 @@
-import { ExtensionContext, Uri, Webview, WebviewView, WebviewViewProvider, window } from 'vscode';
+import { commands, ExtensionContext, Uri, Webview, WebviewView, WebviewViewProvider, window } from 'vscode';
 import { TensorFlowVis } from '../kernel/server/types';
 import { registerDisposable } from '../utils';
 
@@ -9,6 +9,20 @@ export class TensorflowVisClient implements WebviewViewProvider {
 
     constructor(private readonly extensionUri: Uri) {}
     public static sendMessage(message: TensorFlowVis) {
+        TensorflowVisClient.sendMessageInternal(message);
+    }
+    private static async sendMessageInternal(message: TensorFlowVis) {
+        if (!TensorflowVisClient.view && message.request === 'show') {
+            await commands.executeCommand(`${viewType}.focus`);
+        } else if (!TensorflowVisClient.view && message.type === 'tensorFlowVis') {
+            await commands.executeCommand(`${viewType}.focus`);
+        }
+        if (message.request == 'show' && TensorflowVisClient.view) {
+            if (!TensorflowVisClient.view.visible) {
+                TensorflowVisClient.view.show(true);
+            }
+        }
+
         TensorflowVisClient.cachedMessages.push(message);
         TensorflowVisClient.sendMessages();
     }
@@ -21,11 +35,12 @@ export class TensorflowVisClient implements WebviewViewProvider {
             if (!message) {
                 continue;
             }
+            if (message.request == 'show') {
+                if (!TensorflowVisClient.view.visible) {
+                    TensorflowVisClient.view.show(true);
+                }
+            }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (message as any)._type = message.type;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            delete (message as any).type;
             TensorflowVisClient.view.webview.postMessage(message);
         }
     }
@@ -43,6 +58,11 @@ export class TensorflowVisClient implements WebviewViewProvider {
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+        webviewView.onDidDispose(() => {
+            if (TensorflowVisClient.view === webviewView) {
+                TensorflowVisClient.view = undefined;
+            }
+        });
 
         webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {
@@ -59,22 +79,13 @@ export class TensorflowVisClient implements WebviewViewProvider {
                     window.showInformationMessage(data.data);
                     break;
                 }
+                case 'tensorFlowVis': {
+                    // Messages that need to be sent back to the kernel
+                    break;
+                }
             }
         });
     }
-
-    // public addColor() {
-    //     if (this.view) {
-    //         this.view.show?.(true); // `show` is not implemented in 1.49 but is for 1.50 insiders
-    //         this.view.webview.postMessage({ type: 'addColor' });
-    //     }
-    // }
-
-    // public clearColors() {
-    //     if (this.view) {
-    //         this.view.webview.postMessage({ type: 'clearColors' });
-    //     }
-    // }
 
     private _getHtmlForWebview(webview: Webview) {
         // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
@@ -92,16 +103,10 @@ export class TensorflowVisClient implements WebviewViewProvider {
 				-->
 				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'unsafe-eval' 'nonce-${nonce}';">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Cat Colors</title>
+				<title>Tensorflow Visualization</title>
 			</head>
 			<body>
-				<ul class="color-list">
-				</ul>
-				<button id="test">Add Color</button>
-				<script nonce="${nonce}" src="${scriptUri}"></script>
-                <div>
-                Hello World
-                </div>
+            <script nonce="${nonce}" src="${scriptUri}"></script>
                 <div id="tfjs-visor-container"></div>
 			</body>
 			</html>`;

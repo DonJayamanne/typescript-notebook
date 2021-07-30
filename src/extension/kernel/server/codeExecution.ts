@@ -89,7 +89,7 @@ async function replEvalCode(code, _context, _filename, _callback) {
 
 const magics = [new VariableListingMagicCommandHandler()];
 export async function execCode(request: RunCellRequest): Promise<void> {
-    Utils.instance.currentRequestId = request.requestId;
+    Utils.instance.currentRequestId = request.requestId ?? Utils.instance.currentRequestId;
     for (const magicHandler of magics) {
         if (magicHandler.isMagicCommand(request)) {
             return magicHandler.handleCommand(request, replServer);
@@ -122,7 +122,7 @@ Module._load = function (request: any, parent: any) {
         return {};
     }
     if (request === '@tensorflow/tfjs-vis') {
-        return TensorflowJsVisualizer.intance;
+        return TensorflowJsVisualizer.instance;
     }
 
     // eslint-disable-next-line prefer-rest-params

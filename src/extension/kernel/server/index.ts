@@ -1,9 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as yargs from 'yargs';
 import * as WebSocket from 'ws';
 import { logErrorMessage, logMessage } from './logger';
-import { RequestType } from './types';
-import { initializeComms, sendMessage } from './comms';
 import { execCode } from './codeExecution';
+import { createDeferred } from '../../coreUtils';
+import { RequestType } from './types';
+import { emitter, initializeComms, sendMessage } from './comms';
+
+const ws = createDeferred<WebSocket>();
 
 const argv = yargs(process.argv).argv;
 logMessage(`Started ${argv}`);
@@ -20,6 +24,7 @@ function connectToServer(port: number) {
     logMessage('connecting');
     connection.on('open', () => {
         logMessage('initialized');
+        ws.resolve(connection);
         initializeComms(connection);
     });
 
@@ -46,6 +51,7 @@ function connectToServer(port: number) {
                         break;
                     }
                     default:
+                        emitter.emit(`onMessage_${data.type}`, data);
                         logErrorMessage(`Unknown message ${data['type']}`);
                         break;
                 }
