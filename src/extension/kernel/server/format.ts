@@ -3,6 +3,7 @@ import * as fileType from 'file-type';
 import { logMessage } from './logger';
 import { DisplayData } from './types';
 import { DanfoJsFormatter } from './danfoFormatter';
+import { formatTensor, isTensor } from './tensorFormatter';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const isTypedArray = require('is-typed-array');
 
@@ -22,6 +23,8 @@ export async function formatValue(value: unknown) {
         } catch (ex) {
             logMessage('Unable to get type', ex);
         }
+    } else if (isTensor(value)) {
+        return formatTensor(value);
     } else if (value && Array.isArray(value)) {
         return <DisplayData>{
             type: 'array',

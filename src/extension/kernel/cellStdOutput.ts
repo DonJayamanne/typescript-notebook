@@ -80,11 +80,11 @@ export class CellStdOutput {
                     if (value && typeof value === 'object' && 'type' in value && value.type === 'image') {
                         item = new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'json') {
-                        item = NotebookCellOutputItem.json(value);
+                        item = NotebookCellOutputItem.json(value.value);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'array') {
-                        item = NotebookCellOutputItem.json(value);
+                        item = NotebookCellOutputItem.json(value.value);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'tensor') {
-                        item = NotebookCellOutputItem.json(value);
+                        item = NotebookCellOutputItem.json(value.value);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'html') {
                         item = NotebookCellOutputItem.text(value.value, 'text/html');
                     } else if (isPlainObject(value)) {

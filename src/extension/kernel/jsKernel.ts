@@ -26,6 +26,10 @@ export class JavaScriptKernel implements IDisposable {
     private serverProcess?: ChildProcess;
     private serverProcessInitialized?: boolean;
     private disposed?: boolean;
+    private readonly _debugPort = createDeferred<number>();
+    public get debugPort(): Promise<number> {
+        return this._debugPort.promise;
+    }
     private readonly mapOfCodeObjectsToCellIndex = new Map<string, number>();
     private tasks = new Map<
         number,
@@ -115,7 +119,12 @@ export class JavaScriptKernel implements IDisposable {
             ws.on('message', (message: any) => {
                 if (typeof message === 'string' && message.startsWith('{') && message.endsWith('}')) {
                     try {
-                        this.onMessage(JSON.parse(message));
+                        const msg: ResponseType = JSON.parse(message);
+                        this.onMessage(msg);
+                        if (msg.type === 'initialized') {
+                            this.serverProcessInitialized = true;
+                            this._debugPort.resolve(debugPort);
+                        }
                     } catch (ex) {
                         ServerLogger.appendLine(`Failed to handle message ${message}`);
                     }

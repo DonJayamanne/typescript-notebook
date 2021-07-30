@@ -3,14 +3,11 @@ import * as ts from 'typescript';
 import { NotebookCell, Uri } from 'vscode';
 import { EOL } from 'os';
 import { parse, print } from 'recast';
-import * as path from 'path';
+import { getTemporaryPathForCell } from './debugger/cellMap';
 
 export class JavaScriptTypeScriptCompiler {
     public getCodeObject(cell: NotebookCell): CodeObject {
         const code = cell.document.getText();
-        // if (cell.document.languageId === 'javascript') {
-        //     return this.createCodeObject(code);
-        // }
 
         // Even if the code is JS, transpile it (possibel user accidentally selected JS cell & wrote TS code)
         const transpiledCode = ts
@@ -19,8 +16,14 @@ export class JavaScriptTypeScriptCompiler {
                     sourceMap: true,
                     inlineSourceMap: true,
                     // noImplicitUseStrict: true,
-                    // importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Preserve,
-                    // strict: false,
+                    importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Preserve,
+                    strict: false,
+                    resolveJsonModule: true,
+                    target: ts.ScriptTarget.ES2019, // Minimum Node12
+                    module: ts.ModuleKind.CommonJS,
+                    alwaysStrict: false,
+                    checkJs: false,
+                    // esModuleInterop: true,
                     allowJs: true,
                     allowSyntheticDefaultImports: true
                 }
@@ -44,11 +47,9 @@ const newDf = df.set_index({ key: "Date" })
 newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
             */
             .replace('"use strict";', '');
-
+        const uriToUse = Uri.file(getTemporaryPathForCell(cell, transpiledCode));
         console.debug(`Compiled TS cell ${cell.index} into ${transpiledCode}`);
-        const fileName = `${cell.index}_${path.basename(cell.notebook.uri.fsPath)}}`;
-        const uri = Uri.file(path.join(path.dirname(cell.document.uri.fsPath), fileName));
-        return this.createCodeObject(transpiledCode, uri);
+        return this.createCodeObject(transpiledCode, uriToUse);
     }
     /**
      * Found that sometimes the repl crashes when we have trailing commas and an async.
