@@ -15,7 +15,7 @@ export function logMessage(...param: any[]) {
 export function log(category: 'info' | 'error', ...param: any[]) {
     const msg: LogMessage = {
         type: 'logMessage',
-        requestId: -1,
+        requestId: '',
         category,
         message: util.format(...param)
     };

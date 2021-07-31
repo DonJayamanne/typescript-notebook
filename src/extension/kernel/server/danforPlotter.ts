@@ -31,7 +31,7 @@ function generatePlot(data, config) {
     `;
     sendMessage({
         type: 'output',
-        requestId: -1,
+        requestId: '',
         data: {
             type: 'html',
             value: html

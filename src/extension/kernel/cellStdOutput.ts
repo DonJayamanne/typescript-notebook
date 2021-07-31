@@ -6,7 +6,10 @@ import {
     NotebookCellOutputItem,
     NotebookController
 } from 'vscode';
-import { DisplayData } from './server/types';
+import { updateCellPathsInStackTraceOrOutput } from './debugger/cellMap';
+import { DisplayData, GeneratePlot } from './server/types';
+import { CellDiagnosticsProvider } from './problems';
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { isPlainObject } = require('is-plain-object');
 const taskMap = new WeakMap<NotebookCell, CellStdOutput>();
@@ -39,6 +42,9 @@ export class CellStdOutput {
         this.ended = false;
         this._task = task;
     }
+    public hackyReset() {
+        this.lastOutput = undefined;
+    }
     public end() {
         if (this.ended) {
             return;
@@ -52,6 +58,7 @@ export class CellStdOutput {
         return output;
     }
     public appendStdOut(value: string) {
+        value = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
         this.promise = this.promise
             .finally(() => {
                 const item = NotebookCellOutputItem.stdout(value);
@@ -87,6 +94,8 @@ export class CellStdOutput {
                         item = NotebookCellOutputItem.json(value.value);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'html') {
                         item = NotebookCellOutputItem.text(value.value, 'text/html');
+                    } else if (value && typeof value === 'object' && 'type' in value && value.type === 'generatePlog') {
+                        item = this.renderPlotScript(value);
                     } else if (isPlainObject(value)) {
                         item = NotebookCellOutputItem.json(value);
                     } else {
@@ -101,6 +110,7 @@ export class CellStdOutput {
             .finally(() => this.endTempTask());
     }
     public appendStdErr(value: string) {
+        value = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
         this.promise = this.promise
             .finally(() => {
                 const item = NotebookCellOutputItem.stderr(value);
@@ -114,9 +124,16 @@ export class CellStdOutput {
             .finally(() => this.endTempTask());
     }
     public appendError(ex: Error) {
-        this.promise = this.promise
-            .finally(() => this.task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex)])))
-            .finally(() => this.endTempTask());
+        CellDiagnosticsProvider.trackErrors(this.task.cell.notebook, ex);
+        const newEx = new Error(ex.message);
+        newEx.name = ex.name;
+        newEx.stack = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, ex.stack);
+        const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
+        this.promise = this.promise.finally(() => this.task.appendOutput(output)).finally(() => this.endTempTask());
+    }
+    private renderPlotScript(request: GeneratePlot) {
+        const data = { ...request };
+        return NotebookCellOutputItem.json(data, 'application/vnd.ts.notebook.plotly+json');
     }
     private endTempTask() {
         if (this._tempTask) {
@@ -128,3 +145,72 @@ export class CellStdOutput {
         }
     }
 }
+
+// function getPlotlyDownloadScript(data: plotly.Data, layout: plotly.Layout, format: 'png' | 'jpeg' | 'svg' = 'png') {
+//     const id = `X${uuid().replace(/-/g, '')}`;
+//     return `
+//     const ele = document.createElement('div');
+//     ele.setAttribute('id', '${id}');
+//     ele.style.display = 'none';
+//     document.body.appendChild(ele);
+//     Plotly.newPlot(
+//         '${id}',
+//         ${JSON.stringify(data)},
+//         ${JSON.stringify(layout)}
+//     ).then((gd) => {
+//         Plotly.toImage(gd,{format:'${format}', height:${layout.height} || 400, width: ${layout.width} || 500})
+//             .then((url) => console.error(url))
+//             .catch(ex => console.error('Failed to convert Plot to image', ex))
+//     });
+// `;
+// }
+// function getPlotlyScript(plotlyScript: string) {
+//     return `
+// // Copyright (c) Microsoft Corporation. All rights reserved.
+// // Licensed under the MIT License.
+// console.error('Script start');
+// (function __registerScript(){
+//     console.error('Script start0');
+//     async function registerPlotlyScript(){
+//         console.error('Script start01');
+//         if (window.__plotlyPromise){
+//             console.error('Script start01A');
+//             return window.__plotlyPromise;
+//         }
+//         return window.__plotlyPromise = new Promise((resolve, reject) => {
+//             console.error('Script start3');
+//             const uri = 'https://cdn.plot.ly/plotly-2.3.0.min.js';
+//             console.error('Script start4');
+//             const head = document.head;
+
+//             const scriptNode = document.createElement('script');
+//             scriptNode.src = uri;
+//             scriptNode.onload = () => {
+//                 console.error('Script loaded successfully');
+//                 resolve();
+//             };
+//             scriptNode.onerror = (err) => {
+//                 console.error('Script failed to load', err);
+//                 reject(err);
+//             };
+//             head.append(scriptNode);
+//         });
+//     }
+//     console.error('Script start1');
+//     registerPlotlyScript().then(() => {
+//         console.error('Script successfully registerd then');
+
+//         function findPlotly() {
+//             try {
+//                 console.error(Plotly);
+//                 console.error(window.Plotly);
+//             } catch (ex) {
+//                 setInterval(findPlotly, 1000);
+//             }
+//         }
+//         findPlotly();
+//         ${plotlyScript}
+//     });
+// })();
+// `;
+// }

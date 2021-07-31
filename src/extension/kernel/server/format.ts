@@ -8,7 +8,19 @@ import { formatTensor, isTensor } from './tensorFormatter';
 const isTypedArray = require('is-typed-array');
 
 export async function formatValue(value: unknown) {
-    if (kindOf(value) === 'buffer' || isTypedArray(value)) {
+    if (typeof value === 'string' && value.startsWith('data:image/')) {
+        return <DisplayData>{
+            type: 'multi-mime',
+            data: [
+                {
+                    type: 'image',
+                    value: value.substring(value.indexOf(',') + 1),
+                    mime: value.substring(value.indexOf(':') + 1, value.indexOf(';'))
+                },
+                value
+            ]
+        };
+    } else if (kindOf(value) === 'buffer' || isTypedArray(value)) {
         const buffer: Buffer = kindOf(value) === 'buffer' ? (value as Buffer) : Buffer.from(value as any);
         try {
             const type = await fileType.fromBuffer(buffer);

@@ -98,7 +98,7 @@ function hijackSeriesPrint(danfoJs: typeof dfd) {
         const html = seriesToHtml(this);
         sendMessage({
             type: 'output',
-            requestId: -1,
+            requestId: '',
             data: {
                 type: 'multi-mime',
                 data: [
@@ -123,7 +123,7 @@ function hijackNDFramePrint(danfoJs: typeof dfd) {
         const html = frameToHtml(this);
         sendMessage({
             type: 'output',
-            requestId: -1,
+            requestId: '',
             data: {
                 type: 'multi-mime',
                 data: [

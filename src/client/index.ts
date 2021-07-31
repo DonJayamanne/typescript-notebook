@@ -130,7 +130,7 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
     }
 }
 
-function sendPromiseResult(promise: Promise<any>, request: string, requestId: number) {
+function sendPromiseResult(promise: Promise<any>, request: string, requestId: string) {
     promise
         .then(() => {
             api.postMessage(<TensorFlowVisRequest>{

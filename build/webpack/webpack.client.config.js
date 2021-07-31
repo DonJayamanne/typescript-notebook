@@ -10,7 +10,8 @@ const isProdBuild = constants.isCI || process.argv.some((argv) => argv.includes(
 module.exports = {
     context: constants.ExtensionRootDir,
     entry: {
-        tfjsvis: './src/client/index.ts'
+        tfjsvis: './src/client/index.ts',
+        plotGenerator: './src/client/plotGenerator.ts'
     },
     output: {
         path: path.join(constants.ExtensionRootDir, 'out', 'views'),

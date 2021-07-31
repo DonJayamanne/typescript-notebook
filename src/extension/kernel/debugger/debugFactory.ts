@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { debug, NotebookDocument, NotebookCell, Uri, ExtensionContext, workspace, DebugSession } from 'vscode';
+import { debug, NotebookDocument, Uri, ExtensionContext, workspace, DebugSession } from 'vscode';
 import { createDeferred, Deferred } from '../../coreUtils';
 import { JavaScriptKernel } from '../jsKernel';
 import { Debugger } from './debugger';
@@ -8,7 +8,6 @@ const debuggersByNotebookId = new Map<
     string,
     {
         notebook: NotebookDocument;
-        cell?: NotebookCell;
         kernel: JavaScriptKernel;
         debugger?: Debugger;
         debuggerPromise: Deferred<Debugger>;
@@ -30,6 +29,7 @@ export class DebuggerFactory {
         });
         debug.onDidTerminateDebugSession((e) => {
             const documentId = debuggersBySession.get(e);
+            debuggersBySession.delete(e);
             if (documentId) {
                 debuggersByNotebookId.delete(documentId);
             }
@@ -39,26 +39,24 @@ export class DebuggerFactory {
         const id = debuggersByNotebook.get(notebook);
         return id ? debuggersByNotebookId.get(id)?.debugger : undefined;
     }
-    public static async start(notebook: NotebookDocument, kernel: JavaScriptKernel, cell?: NotebookCell) {
+    public static async start(notebook: NotebookDocument, kernel: JavaScriptKernel) {
         let info = debuggersByNotebookId.get(notebook.uri.toString());
         if (info) {
             return info.debuggerPromise.promise;
         }
-        info = { notebook, cell, debuggerPromise: createDeferred<Debugger>(), kernel };
+        info = { notebook, debuggerPromise: createDeferred<Debugger>(), kernel };
         debuggersByNotebookId.set(notebook.uri.toString(), info);
         info.debuggerPromise.promise.catch(() => {
             if (debuggersByNotebookId.get(notebook.uri.toString()) === info) {
                 debuggersByNotebookId.delete(notebook.uri.toString());
             }
         });
-        DebuggerFactory.startInternal(notebook, kernel, cell);
+        DebuggerFactory.startInternal(notebook, kernel);
         return info.debuggerPromise.promise;
     }
-    private static async startInternal(notebook: NotebookDocument, kernel: JavaScriptKernel, cell?: NotebookCell) {
+    private static async startInternal(notebook: NotebookDocument, kernel: JavaScriptKernel) {
         const port = await kernel.debugPort;
-        const name = cell
-            ? `${path.basename(notebook.uri.toString())}?RBL=${cell.index}`
-            : path.basename(notebook.uri.toString());
+        const name = path.basename(notebook.uri.toString());
         const folder =
             workspace.getWorkspaceFolder(notebook.uri) ||
             (workspace.workspaceFolders?.length ? workspace.workspaceFolders[0] : undefined);
@@ -92,7 +90,7 @@ export class DebuggerFactory {
                     if (!info || !__document) {
                         return undefined;
                     }
-                    const jsDebugger = new Debugger(info.notebook, session, info.kernel, info.cell);
+                    const jsDebugger = new Debugger(info.notebook, session, info.kernel);
                     info.debugger = jsDebugger;
                     info.debuggerPromise.resolve(jsDebugger);
                     debuggersBySession.set(session, __document);

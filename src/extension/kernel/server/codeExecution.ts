@@ -8,6 +8,7 @@ import { VariableListingMagicCommandHandler } from './magics/variables';
 import { formatValue } from './format';
 import { DanfoJsFormatter } from './danfoFormatter';
 import { TensorflowJsVisualizer } from './tfjsVisProxy';
+import { Plotly } from './plotly';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Module = require('module');
 
@@ -21,7 +22,8 @@ class Utils {
         }
         return (Utils._instance = new Utils());
     }
-    public currentRequestId = -1;
+    public currentRequestId = '';
+    public readonly plotly = Plotly.instance;
     public get display() {
         return {
             html: this.displayHtml.bind(this),

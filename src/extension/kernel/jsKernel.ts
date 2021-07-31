@@ -7,7 +7,7 @@ import { JavaScriptTypeScriptCompiler } from './jsCompiler';
 import { CellExecutionState } from './types';
 import * as path from 'path';
 import { ChildProcess, spawn } from 'child_process';
-import { createDeferred, Deferred } from '../coreUtils';
+import { createDeferred, Deferred, generateId } from '../coreUtils';
 import { ServerLogger } from '../serverLogger';
 import { CellStdOutput } from './cellStdOutput';
 import { getNotebookCwd, registerDisposable } from '../utils';
@@ -19,7 +19,6 @@ let getPortsPromise: Promise<unknown> = Promise.resolve();
 
 export class JavaScriptKernel implements IDisposable {
     private starting?: Promise<void>;
-    private lastExecutionId = 0;
     private server?: WebSocket.Server;
     private lastSeenTime?: number;
     private webSocket = createDeferred<WebSocket>();
@@ -32,17 +31,17 @@ export class JavaScriptKernel implements IDisposable {
     }
     private readonly mapOfCodeObjectsToCellIndex = new Map<string, number>();
     private tasks = new Map<
-        number,
+        number | string,
         {
             task: NotebookCellExecution;
-            requestId: number;
+            requestId: string;
             result: Deferred<CellExecutionState>;
             stdOutput: CellStdOutput;
         }
     >();
     private currentTask?: {
         task: NotebookCellExecution;
-        requestId: number;
+        requestId: string;
         result: Deferred<CellExecutionState>;
         stdOutput: CellStdOutput;
     };
@@ -60,6 +59,14 @@ export class JavaScriptKernel implements IDisposable {
     public static get(notebook: NotebookDocument) {
         return kernels.get(notebook);
     }
+    public static broadcast(message: RequestType) {
+        workspace.notebookDocuments.forEach((notebook) => {
+            const kernel = JavaScriptKernel.get(notebook);
+            if (kernel) {
+                kernel.sendMessage(message);
+            }
+        });
+    }
     public static getOrCreate(notebook: NotebookDocument, controller: NotebookController) {
         let kernel = kernels.get(notebook);
         if (kernel) {
@@ -67,6 +74,7 @@ export class JavaScriptKernel implements IDisposable {
         }
         kernel = new JavaScriptKernel(notebook, controller);
         kernels.set(notebook, kernel);
+        kernel.start();
         return kernel;
     }
     public dispose() {
@@ -74,15 +82,23 @@ export class JavaScriptKernel implements IDisposable {
             return;
         }
         this.disposed = true;
+        Array.from(this.tasks.values()).forEach((item) => {
+            try {
+                item.task.end(undefined);
+            } catch (ex) {
+                //
+            }
+        });
         this.tasks.clear();
         kernels.delete(this.notebook);
         this.serverProcess?.kill();
         this.serverProcess = undefined;
     }
     public async runCell(task: NotebookCellExecution, execOrder: number): Promise<CellExecutionState> {
-        const requestId = this.lastExecutionId++;
+        const requestId = generateId();
         const result = createDeferred<CellExecutionState>();
         const stdOutput = CellStdOutput.getOrCreate(task, this.controller);
+        stdOutput.hackyReset();
         this.currentTask = { task, requestId, result, stdOutput };
         this.lastStdOutput = stdOutput;
         this.tasks.set(requestId, { task, requestId, result, stdOutput });
@@ -133,7 +149,7 @@ export class JavaScriptKernel implements IDisposable {
                 }
             });
 
-            this.sendMessage({ type: 'initialize', requestId: -1 });
+            this.sendMessage({ type: 'initialize', requestId: '' });
             this.webSocket.resolve(ws);
         });
         this.server.on('listening', () => {
@@ -204,7 +220,7 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'cellExec': {
-                const item = this.tasks.get(message.requestId ?? -1);
+                const item = this.tasks.get(message.requestId || -1);
                 if (item) {
                     if (message.result) {
                         item.stdOutput.appendOutput(message.result);
@@ -253,7 +269,7 @@ export class JavaScriptKernel implements IDisposable {
         if (this.lastStdOutput) {
             return {
                 task: undefined,
-                requestId: -1,
+                requestId: '',
                 result: createDeferred(),
                 stdOutput: this.lastStdOutput
             };

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { NotebookCell } from 'vscode';
+import { NotebookCell, NotebookDocument } from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -36,4 +36,46 @@ export function getTemporaryPathForCell(cell: NotebookCell, source: string): str
     map.set(cellPath, cell);
     mapFromCellToPath.set(cell, cellPath);
     return cellPath;
+}
+
+const vmStartFrame = 'at Script.runInContext';
+/**
+ * Will replace the bogus paths in stack trace with user friendly paths.
+ * E.g. if the following is the stack trace we get back:
+ * /var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000013.js:2
+    console.log(x);
+                ^
+
+ReferenceError: x is not defined
+    at hello (/var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000013.js:2:17)
+    at /var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000012.js:1:1
+    at Script.runInContext (vm.js:144:12)
+    at Script.runInNewContext (vm.js:149:17)
+    at Object.runInNewContext (vm.js:304:38)
+    at runCode (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/out/extension/kernel/server/codeExecution.js:64:33)
+    at Object.execCode (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/out/extension/kernel/server/codeExecution.js:98:30)
+    at WebSocket.<anonymous> (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/out/extension/kernel/server/index.js:47:41)
+    at WebSocket.emit (events.js:375:28)
+    at WebSocket.emit (domain.js:470:12)
+ *
+ * We need to repace the temporary paths `/var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000013.js` with the cell index.
+ * & also remove all of the messages that are not relevant (VM stack trace).
+ */
+export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, stackTrace = ''): string {
+    const index = stackTrace.indexOf(vmStartFrame);
+    if (index < 1) {
+        return stackTrace;
+    }
+    stackTrace = stackTrace.substring(0, index);
+    document.getCells().forEach((cell) => {
+        const tempPath = mapFromCellToPath.get(cell);
+        if (!tempPath) {
+            return;
+        }
+        if (stackTrace.includes(tempPath)) {
+            const regex = new RegExp(tempPath, 'g');
+            stackTrace = stackTrace.replace(regex, `Cell ${cell.index + 1} `);
+        }
+    });
+    return stackTrace;
 }

@@ -40,10 +40,10 @@ function connectToServer(port: number) {
                 const data: RequestType = JSON.parse(e);
                 switch (data.type) {
                     case 'initialize':
-                        sendMessage({ type: 'initialized', requestId: -1 });
+                        sendMessage({ type: 'initialized', requestId: '' });
                         break;
                     case 'ping': {
-                        sendMessage({ type: 'pong', requestId: -1 });
+                        sendMessage({ type: 'pong', requestId: '' });
                         break;
                     }
                     case 'cellExec': {

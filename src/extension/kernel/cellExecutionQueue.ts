@@ -2,10 +2,11 @@ import { NotebookCell, NotebookCellExecution, NotebookCellKind, NotebookControll
 import { IDisposable } from '../types';
 import { registerDisposable } from '../utils';
 import { JavaScriptKernel } from './jsKernel';
-import { execute as shellExecute } from './shellExecution';
+import { execute as shellExecute } from './shellKernel';
 import { execute as browserExecute } from './browserExecution';
 import { CellExecutionState } from './types';
 import { isBrowserController } from './controller';
+import { CellDiagnosticsProvider } from './problems';
 
 const cellExecutionQueues = new WeakMap<NotebookDocument, CellExecutionQueue>();
 export class CellExecutionQueue implements IDisposable {
@@ -33,6 +34,7 @@ export class CellExecutionQueue implements IDisposable {
         if (this.pendingCells.some((item) => item.cell === cell)) {
             return;
         }
+        CellDiagnosticsProvider.clearErrors(cell.notebook);
         const task = this.controller.createNotebookCellExecution(cell);
         this.pendingCells.push({ cell, task });
         this.start();

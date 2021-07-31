@@ -26,11 +26,8 @@ import { LayersModel } from '@tensorflow/tfjs-layers/dist/engine/training';
 import { TensorFlowVisRequest } from './types';
 import { sendMessage } from './comms';
 import { serialize } from '../../serializer';
+import { generateId } from '../../coreUtils';
 
-let requestId = 1;
-function generateRequestId() {
-    return requestId++;
-}
 class VisorProxy {
     constructor(
         private visorComponent: VisorComponent,
@@ -137,7 +134,7 @@ class ShowProxy {
         return new Proxy({}, handler);
     }
     public async history(container: SurfaceInfo | string, history: {}, metrics: string[], opts?: {}): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'history',
@@ -157,7 +154,7 @@ class ShowProxy {
         }>,
         classLabels?: string[]
     ): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'showPerClassAccuracy',
@@ -169,7 +166,7 @@ class ShowProxy {
         await waitForMessage('showPerClassAccuracy', id);
     }
     public async valuesDistribution(container: SurfaceInfo | string, tensor: Tensor): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'valuesDistribution',
@@ -180,7 +177,7 @@ class ShowProxy {
         await waitForMessage('valuesDistribution', id);
     }
     public async layer(container: SurfaceInfo | string, layer: Layer): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'layer',
@@ -191,7 +188,7 @@ class ShowProxy {
         await waitForMessage('layer', id);
     }
     public async modelSummary(container: SurfaceInfo | string, model: LayersModel): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         const layers = model.layers.map((layer) => {
             return {
                 outputShape: layer.outputShape,
@@ -217,7 +214,7 @@ class ShowProxy {
     // modelSummary: typeof modelSummary;
 }
 
-async function waitForMessage(_request: TensorFlowVisRequest['request'], _requestId: number) {
+async function waitForMessage(_request: TensorFlowVisRequest['request'], _requestId: string) {
     return;
     // return new Promise<void>((resolve, reject) => {
     //     const handler = (message: TensorFlowVisRequest) => {
@@ -245,7 +242,7 @@ class RendererProxy {
         }>,
         opts?: BarChartOpts
     ): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'barchart',
@@ -281,7 +278,7 @@ class RendererProxy {
             | TypedArray,
         opts?: HistogramOpts
     ): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'histogram',
@@ -293,7 +290,7 @@ class RendererProxy {
         await waitForMessage('histogram', id);
     }
     public async linechart(container: SurfaceInfo | string, data: XYPlotData, opts?: XYPlotOptions): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'linechart',
@@ -305,7 +302,7 @@ class RendererProxy {
         await waitForMessage('linechart', id);
     }
     public async scatterplot(container: SurfaceInfo | string, data: XYPlotData, opts?: XYPlotOptions): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'scatterplot',
@@ -321,7 +318,7 @@ class RendererProxy {
         data: ConfusionMatrixData,
         opts?: ConfusionMatrixOptions
     ): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'confusionMatrix',
@@ -333,7 +330,7 @@ class RendererProxy {
         await waitForMessage('confusionMatrix', id);
     }
     public async heatmap(container: SurfaceInfo | string, data: HeatmapData, opts?: HeatmapOptions): Promise<void> {
-        const id = generateRequestId();
+        const id = generateId();
         let isTensor = false;
         let dataToSend: any = data;
         if (!Array.isArray(data)) {

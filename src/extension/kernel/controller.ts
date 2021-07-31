@@ -1,41 +1,59 @@
 import {
+    commands,
     NotebookCell,
     NotebookController,
     NotebookControllerAffinity,
     NotebookDocument,
     notebooks,
+    Uri,
     workspace
 } from 'vscode';
 import { notebookType } from '../const';
 import { IDisposable } from '../types';
-import { registerDisposable } from '../utils';
+import { disposeAllDisposables, registerDisposable } from '../utils';
 import { CellExecutionQueue } from './cellExecutionQueue';
+import { JavaScriptKernel } from './jsKernel';
 
 export function isBrowserController(controller: NotebookController) {
     return controller.id.includes('-browser-');
 }
 export class Controller implements IDisposable {
-    private readonly tsNbController: NotebookController;
-    private readonly jupyterController: NotebookController;
+    private static _tsNbController: NotebookController;
+    public static get typeScriptNotebookController(): NotebookController {
+        return Controller._tsNbController;
+    }
+    private static _jupyterController: NotebookController;
+    public static get jupyterNotebookController(): NotebookController {
+        return Controller._jupyterController;
+    }
+    private readonly disposables: IDisposable[] = [];
     public static regsiter() {
         registerDisposable(new Controller());
     }
     constructor() {
-        this.tsNbController = this.createController(notebookType, 'node');
-        this.jupyterController = this.createController('jupyter-notebook', 'node');
+        Controller._tsNbController = this.createController(notebookType, 'node');
+        Controller._jupyterController = this.createController('jupyter-notebook', 'node');
         // this.tsNbController = this.createController(notebookType, 'browser');
         // this.jupyterController = this.createController('jupyter-notebook', 'browser');
-        workspace.onDidOpenNotebookDocument((e) => {
-            if (e.notebookType === notebookType) {
-                this.tsNbController.updateNotebookAffinity(e, NotebookControllerAffinity.Preferred);
-            }
-            if (e.notebookType === 'jupyter-notebook') {
-                this.jupyterController.updateNotebookAffinity(e, NotebookControllerAffinity.Preferred);
-            }
-        });
+        workspace.onDidOpenNotebookDocument(
+            (e) => {
+                if (e.notebookType === notebookType) {
+                    Controller._tsNbController.updateNotebookAffinity(e, NotebookControllerAffinity.Preferred);
+                }
+                if (e.notebookType === 'jupyter-notebook') {
+                    Controller._jupyterController.updateNotebookAffinity(e, NotebookControllerAffinity.Preferred);
+                }
+            },
+            this,
+            this.disposables
+        );
+        this.disposables.push(commands.registerCommand('jsNotebook.kernel.restart', this.restart, this));
+        // this.disposables.push(commands.registerCommand('jsNotebook.debugNotebook', this.debug, this));
     }
     public dispose() {
-        this.tsNbController.dispose();
+        disposeAllDisposables(this.disposables);
+        Controller._tsNbController.dispose();
+        Controller._jupyterController.dispose();
     }
     private createController(nbType: string, type: 'node' | 'browser') {
         const controller = notebooks.createNotebookController(
@@ -67,6 +85,17 @@ export class Controller implements IDisposable {
     private interrupt(notebook: NotebookDocument) {
         CellExecutionQueue.get(notebook)?.dispose();
     }
+    private restart(uri: Uri) {
+        const notebook = workspace.notebookDocuments.find((item) => item.uri.toString() === uri.toString());
+        if (!notebook) {
+            return;
+        }
+        JavaScriptKernel.get(notebook)?.dispose();
+    }
+    // private debug(e: { notebookEditor: NotebookEditor }) {
+    //     console.log((e.notebookEditor as any).notebook);
+    //     console.log('x', e);
+    // }
     // private onDidChangeSelectedNotebooks({ notebook, selected }: { notebook: NotebookDocument; selected: boolean }) {
     //   notebook.getCells().forEach(cell => {
     //     cell.document.getText().startsWith('')

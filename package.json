@@ -47,17 +47,57 @@
     },
     "activationEvents": [
         "onNotebook:typescript-notebook",
-        "onCommand:jsNotebook.startDebugging"
+        "onCommand:jsNotebook.debugNotebook"
     ],
     "main": "./out/extension/index.js",
     "contributes": {
         "commands": [
             {
                 "category": "Notebook",
-                "command": "jsNotebook.startDebugging",
-                "title": "Debug Notebook"
+                "icon": "$(bug)",
+                "command": "jsNotebook.debugNotebook",
+                "shortTitle": "Debugxxx",
+                "title": "Debug Notebookxx",
+                "enablement": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+            },
+            {
+                "category": "Notebook",
+                "icon": "$(debug-restart)",
+                "command": "jsNotebook.kernel.restart",
+                "shortTitle": "Restartxxx",
+                "title": "Restart Kernel",
+                "enablement": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
             }
         ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "jsNotebook.debugNotebook",
+                    "title": "Debug",
+                    "group": "Notebook",
+                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                },
+                {
+                    "command": "jsNotebook.kernel.restart",
+                    "title": "Restart Kernel",
+                    "group": "Notebook",
+                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "jsNotebook.kernel.restart",
+                    "groupx": "navigation/execute@1",
+                    "group": "navigation@1",
+                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                },
+                {
+                    "command": "jsNotebook.debugNotebook",
+                    "group": "navigation@3",
+                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                }
+            ]
+        },
         "notebooks": [
             {
                 "type": "typescript-notebook",
@@ -89,7 +129,18 @@
                     "type": "webview"
                 }
             ]
-        }
+        },
+        "notebookRenderer": [
+            {
+                "id": "typescript-notebook-plot-renderer",
+                "entrypoint": "./out/views/plotGenerator.js",
+                "displayName": "Plotly Renderer",
+                "mimeTypes": [
+                    "application/vnd.ts.notebook.plotly+json"
+                ],
+                "requiresMessaging": "always"
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "npm run compile:webpack",
@@ -119,6 +170,7 @@
     },
     "dependencies": {
         "@tensorflow/tfjs-vis": "^1.5.1",
+        "error-stack-parser": "^2.0.6",
         "file-type": "^16.5.2",
         "get-port": "^5.1.1",
         "is-base64": "^1.1.0",
@@ -127,6 +179,7 @@
         "is-what": "^4.0.0",
         "kind-of": "^6.0.3",
         "node-repl-await": "^0.1.2",
+        "plotly.js-dist": "^2.3.1",
         "recast": "^0.20.5",
         "typescript": "^4.3.5",
         "uuid": "^8.3.2",
@@ -135,6 +188,7 @@
     },
     "devDependencies": {
         "@types/node": "^12.11.7",
+        "@types/plotly.js": "^1.54.13",
         "@types/uuid": "^8.3.1",
         "@types/vscode-notebook-renderer": "^1.57.9",
         "@types/vscode-webview": "^1.57.0",
