@@ -180,15 +180,19 @@
         "kind-of": "^6.0.3",
         "node-repl-await": "^0.1.2",
         "plotly.js-dist": "^2.3.1",
+        "profoundjs-node-pty": "^2.0.3",
         "recast": "^0.20.5",
+        "tmp": "^0.2.1",
         "typescript": "^4.3.5",
         "uuid": "^8.3.2",
         "ws": "^7.5.3",
+        "xterm": "^4.13.0",
         "yargs": "^17.0.1"
     },
     "devDependencies": {
         "@types/node": "^12.11.7",
         "@types/plotly.js": "^1.54.13",
+        "@types/tmp": "^0.2.1",
         "@types/uuid": "^8.3.1",
         "@types/vscode-notebook-renderer": "^1.57.9",
         "@types/vscode-webview": "^1.57.0",
@@ -209,7 +213,7 @@
         "ify-loader": "^1.1.0",
         "install": "^0.13.0",
         "less": "^3.11.3",
-        "mocha": "^7.2.0",
+        "node-pty": "^0.10.1",
         "npm": "^6.14.5",
         "prettier": "^2.0.5",
         "style-loader": "^1.2.1",
@@ -224,6 +228,7 @@
         "webpack": "^5.38.1",
         "webpack-bundle-analyzer": "^3.8.0",
         "webpack-cli": "^4.7.2",
-        "webpack-fix-default-import-plugin": "^1.0.3"
+        "webpack-fix-default-import-plugin": "^1.0.3",
+        "xterm-addon-serialize": "^0.5.0"
     }
 }
