@@ -12,7 +12,7 @@ import { notebookType } from '../const';
 import { IDisposable } from '../types';
 import { disposeAllDisposables, registerDisposable } from '../utils';
 import { CellExecutionQueue } from './cellExecutionQueue';
-import { JavaScriptKernel } from './jsKernel';
+import { ExecutionOrder } from './executionOrder';
 
 export function isBrowserController(controller: NotebookController) {
     return controller.id.includes('-browser-');
@@ -64,11 +64,11 @@ export class Controller implements IDisposable {
         if (type === 'node') {
             controller.description = '';
             controller.detail = 'Supports debugging, variables, tensor visualization, etc';
-            controller.supportedLanguages = ['javascript', 'typescript', 'html', 'css', 'shellscript', 'powershell'];
+            controller.supportedLanguages = ['javascript', 'typescript', 'html', 'shellscript', 'powershell'];
         } else {
             controller.description = 'JavaScript/TypeScript Kernel running in Browser';
             controller.detail = 'Support for JavaScript in Notebooks';
-            controller.supportedLanguages = ['javascript', 'typescript', 'html', 'css', 'shellscript', 'powershell'];
+            controller.supportedLanguages = ['javascript', 'typescript', 'html', 'shellscript', 'powershell'];
         }
         controller.executeHandler = this.executeHandler;
         controller.interruptHandler = this.interrupt;
@@ -90,7 +90,8 @@ export class Controller implements IDisposable {
         if (!notebook) {
             return;
         }
-        JavaScriptKernel.get(notebook)?.dispose();
+        ExecutionOrder.reset(notebook);
+        CellExecutionQueue.get(notebook)?.dispose();
     }
     // private debug(e: { notebookEditor: NotebookEditor }) {
     //     console.log((e.notebookEditor as any).notebook);

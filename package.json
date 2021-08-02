@@ -182,6 +182,7 @@
         "plotly.js-dist": "^2.3.1",
         "profoundjs-node-pty": "^2.0.3",
         "recast": "^0.20.5",
+        "shell-quote": "^1.7.2",
         "tmp": "^0.2.1",
         "typescript": "^4.3.5",
         "uuid": "^8.3.2",
@@ -192,6 +193,7 @@
     "devDependencies": {
         "@types/node": "^12.11.7",
         "@types/plotly.js": "^1.54.13",
+        "@types/shell-quote": "^1.7.1",
         "@types/tmp": "^0.2.1",
         "@types/uuid": "^8.3.1",
         "@types/vscode-notebook-renderer": "^1.57.9",

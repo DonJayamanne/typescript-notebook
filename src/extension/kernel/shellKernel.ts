@@ -1,12 +1,22 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { NotebookCellExecution, NotebookCellOutput, NotebookCellOutputItem } from 'vscode';
+import {
+    CancellationToken,
+    ExtensionContext,
+    NotebookCellExecution,
+    NotebookCellOutput,
+    NotebookCellOutputItem
+} from 'vscode';
 import { getNotebookCwd } from '../utils';
 import { CellExecutionState } from './types';
+import { spawn } from 'child_process';
+import type { Terminal } from 'xterm';
+import type { SerializeAddon } from 'xterm-addon-serialize';
 import * as os from 'os';
 import * as tmp from 'tmp';
 import * as fs from 'fs';
-import type { Terminal } from 'xterm';
-import type { SerializeAddon } from 'xterm-addon-serialize';
+import * as path from 'path';
+import { quote } from 'shell-quote';
+import { ExecutionOrder } from './executionOrder';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const pty = require('profoundjs-node-pty') as typeof import('node-pty');
@@ -20,109 +30,244 @@ delete env.ELECTRON_RUN_AS_NODE;
 env.XPC_SERVICE_NAME = '0';
 env.SHLVL = '0';
 
-export async function execute(task: NotebookCellExecution, execOrder: number): Promise<CellExecutionState> {
-    task.start(Date.now());
-    task.clearOutput();
-    task.executionOrder = execOrder;
-
-    const command = task.cell.document.getText();
-    // eslint-disable-next-line @typescript-eslint/ban-types
-    const tmpFile = await new Promise<{ path: string; cleanupCallback: Function }>((resolve, reject) => {
-        tmp.file({ postfix: '.tmp' }, (err, path, _, cleanupCallback) => {
-            if (err) {
-                return reject(err);
-            }
-            resolve({ path, cleanupCallback });
-        });
-    });
-    await fs.promises.writeFile(tmpFile.path, task.cell.document.getText());
-    const terminal = new TerminalRenderer();
-    return new Promise<CellExecutionState>((resolve) => {
-        let taskExited = false;
-        let promise = Promise.resolve();
-        const cwd = getNotebookCwd(task.cell.notebook);
-        const endTask = (success = true) => {
-            taskExited = true;
-            promise = promise.finally(() => task.end(true, Date.now()));
-            tmpFile.cleanupCallback();
-            terminal.dispose();
-            resolve(success ? CellExecutionState.success : CellExecutionState.error);
-        };
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const proc = pty.spawn(shell, [], {
-                name: 'tsNotebook',
-                cols: 80,
-                rows: 30,
-                cwd,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                env: { ...env, PDW: cwd, OLDPWD: cwd }
-            });
-            task.token.onCancellationRequested(() => {
-                if (taskExited) {
-                    return;
-                }
-                proc.kill();
-                endTask();
-            });
-            proc.onExit((e) => {
-                console.info(`Shell exec Failed with code ${e.exitCode} for ${command}`);
-                if (!taskExited) {
-                    endTask(e.exitCode === 0);
-                }
-            });
-            let startProcessing = false;
-            let stopProcessing = false;
-            let cmdExcluded = false;
-            proc.onData((data) => {
-                if (task.token.isCancellationRequested) {
-                    return;
-                }
-                if ((!startProcessing && !data.includes(startSeparator)) || stopProcessing) {
-                    return;
-                }
-                if (!startProcessing && data.includes(startSeparator)) {
-                    startProcessing = true;
-                    data = data.substring(data.indexOf(startSeparator) + startSeparator.length);
-                }
-                if (data.includes(endSeparator)) {
-                    stopProcessing = true;
-                    data = data.substring(0, data.indexOf(endSeparator));
-                }
-                if (!cmdExcluded && data.includes(command)) {
-                    cmdExcluded = true;
-                    data = data.substring(data.indexOf(command) + command.length);
-                }
-                const writePromise = terminal.write(data);
-                promise = promise
-                    .finally(async () => {
-                        const termOutput = await writePromise;
-                        console.error(`Final Output ${termOutput}`);
-                        const item = NotebookCellOutputItem.stdout(termOutput);
-                        return task.replaceOutput(new NotebookCellOutput([item]));
-                    })
-                    .finally(() => {
-                        if (stopProcessing && !taskExited) {
-                            endTask(true);
-                        }
-                    });
-            });
-            proc.write(
-                `node /Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/another.js ${tmpFile.path}\r`
-            );
-        } catch (ex) {
-            promise = promise.finally(() =>
-                task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]))
-            );
-            endTask(false);
+export class ShellKernel {
+    public static register(context: ExtensionContext) {
+        ShellPty.shellJsPath = path.join(context.extensionUri.fsPath, 'resources', 'scripts', 'shell.js');
+    }
+    public static async execute(task: NotebookCellExecution, token: CancellationToken): Promise<CellExecutionState> {
+        const command = task.cell.document.getText();
+        if (isEmptyShellCommand(command)) {
+            return CellExecutionState.notExecutedEmptyCell;
         }
-    });
+        task.start(Date.now());
+        task.clearOutput();
+        task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
+        const cwd = getNotebookCwd(task.cell.notebook);
+        if (isSimpleSingleLineShellCommand(command)) {
+            return ShellProcess.execute(task, token, cwd);
+        } else {
+            return ShellPty.execute(task, token, cwd);
+        }
+    }
 }
 
+const simpleSigleLineShellCommands = new Set<string>(
+    'git,echo,rm,cp,cd,ls,cat,pwd,ln,mkdir,nv,sed,set,cat,touch,grep,more,wc,df,tar,chown,chgrp,chmod,sort,tail,find,man,nano,rmdir,less,ssh,hostname,top,history,yppasswd,display,page,just,head,lpq,awk,split,gzip,kill,uptime,last,users,lun,vmstat,netstat,w,ps,date,reset,script,time,homequota,iostat,printenv,mail,ftp,tftp,sftp,rcp,scp,wget,curl,telnet,ssh,rlogin,rsh,make,size,nm,strip,who,pushd,popd,dirs'.split(
+        ','
+    )
+);
+function getPossibleShellCommandLines(command: string) {
+    return command
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .filter((line) => !line.startsWith('#'));
+}
+function isEmptyShellCommand(command: string) {
+    return getPossibleShellCommandLines(command).length === 0;
+}
+function isSimpleSingleLineShellCommand(command: string) {
+    if (getPossibleShellCommandLines(command).length !== 1) {
+        return false;
+    }
+    // Get the first word (command)
+    const cmd = getPossibleShellCommandLines(command)[0].split(' ')[0];
+    return simpleSigleLineShellCommands.has(cmd);
+}
+class ShellProcess {
+    public static async execute(task: NotebookCellExecution, token: CancellationToken, cwd?: string) {
+        const command = getPossibleShellCommandLines(task.cell.document.getText())[0];
+
+        let taskExited = false;
+        let echoSepratorSeen = false;
+        return new Promise<CellExecutionState>((resolve) => {
+            let promise = Promise.resolve();
+            const endTask = (success = true) => {
+                taskExited = true;
+                promise = promise.finally(() => task.end(true, Date.now()));
+                resolve(success ? CellExecutionState.success : CellExecutionState.error);
+            };
+            try {
+                const proc = spawn(command, {
+                    cwd,
+                    env: process.env,
+                    shell: true
+                });
+                token.onCancellationRequested(() => {
+                    if (taskExited) {
+                        return;
+                    }
+                    proc.kill();
+                    endTask();
+                });
+                let lastOutput: { stdout?: NotebookCellOutput; stdErr?: NotebookCellOutput } | undefined;
+                proc.once('close', (code) => {
+                    console.info(`Shell exec Failed with code ${code} for ${command}`);
+                    if (!taskExited) {
+                        endTask(true);
+                    }
+                });
+                proc.once('error', () => {
+                    if (!taskExited) {
+                        endTask(false);
+                    }
+                });
+                proc.stdout?.on('data', (data: Buffer | string) => {
+                    promise = promise.finally(() => {
+                        if (token.isCancellationRequested) {
+                            return;
+                        }
+                        if (echoSepratorSeen) {
+                            return;
+                        }
+                        data = data.toString();
+                        const item = NotebookCellOutputItem.stdout(data.toString());
+                        if (lastOutput?.stdout) {
+                            return task.appendOutputItems(item, lastOutput.stdout);
+                        } else {
+                            lastOutput = { stdout: new NotebookCellOutput([item]) };
+                            return task.appendOutput(lastOutput.stdout!);
+                        }
+                    });
+                });
+                proc.stderr?.on('data', (data: Buffer | string) => {
+                    promise = promise.finally(() => {
+                        if (token.isCancellationRequested) {
+                            return;
+                        }
+                        const item = NotebookCellOutputItem.stderr(data.toString());
+                        if (lastOutput?.stdErr) {
+                            return task.appendOutputItems(item, lastOutput.stdErr);
+                        } else {
+                            lastOutput = { stdErr: new NotebookCellOutput([item]) };
+                            return task.appendOutput(lastOutput.stdErr!);
+                        }
+                    });
+                });
+            } catch (ex) {
+                promise = promise.finally(() => {
+                    if (token.isCancellationRequested) {
+                        return;
+                    }
+                    task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
+                });
+                endTask(false);
+            }
+        });
+    }
+}
+class ShellPty {
+    public static shellJsPath: string;
+    public static async execute(task: NotebookCellExecution, token: CancellationToken, cwd?: string) {
+        const command = task.cell.document.getText();
+        // eslint-disable-next-line @typescript-eslint/ban-types
+        const tmpFile = await new Promise<{ path: string; cleanupCallback: Function }>((resolve, reject) => {
+            tmp.file({ postfix: '.tmp' }, (err, path, _, cleanupCallback) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve({ path, cleanupCallback });
+            });
+        });
+        await fs.promises.writeFile(tmpFile.path, task.cell.document.getText());
+        const terminal = new TerminalRenderer();
+        return new Promise<CellExecutionState>((resolve) => {
+            let taskExited = false;
+            let promise = Promise.resolve();
+            const endTask = (success = true) => {
+                taskExited = true;
+                promise = promise.finally(() => task.end(true, Date.now()));
+                tmpFile.cleanupCallback();
+                terminal.dispose();
+                resolve(success ? CellExecutionState.success : CellExecutionState.error);
+            };
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const proc = pty.spawn(shell, [], {
+                    name: 'tsNotebook',
+                    cols: 80,
+                    rows: 30,
+                    cwd,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    env: { ...env, PDW: cwd, OLDPWD: cwd }
+                });
+                token.onCancellationRequested(() => {
+                    if (taskExited) {
+                        return;
+                    }
+                    proc.kill();
+                    endTask();
+                });
+                proc.onExit((e) => {
+                    console.info(`Shell exec Failed with code ${e.exitCode} for ${command}`);
+                    if (!taskExited) {
+                        endTask(e.exitCode === 0);
+                    }
+                });
+                let startProcessing = false;
+                let stopProcessing = false;
+                // let cmdExcluded = false;
+                proc.onData((data) => {
+                    if (token.isCancellationRequested) {
+                        return;
+                    }
+                    if ((!startProcessing && !data.includes(startSeparator)) || stopProcessing) {
+                        return;
+                    }
+                    if (!startProcessing && data.includes(startSeparator)) {
+                        startProcessing = true;
+                        data = data.substring(data.indexOf(startSeparator) + startSeparator.length);
+                    }
+                    if (data.includes(endSeparator)) {
+                        stopProcessing = true;
+                        data = data.substring(0, data.indexOf(endSeparator));
+                    }
+                    // if (!cmdExcluded && data.includes(command)) {
+                    //     cmdExcluded = true;
+                    //     data = data.substring(data.indexOf(command) + command.length);
+                    // }
+                    const writePromise = terminal.write(data);
+                    promise = promise
+                        .finally(async () => {
+                            if (token.isCancellationRequested) {
+                                return;
+                            }
+                            const termOutput = await writePromise;
+                            const item = NotebookCellOutputItem.stdout(termOutput);
+                            return task.replaceOutput(new NotebookCellOutput([item]));
+                        })
+                        .finally(() => {
+                            if (!terminal.completed || token.isCancellationRequested) {
+                                return;
+                            }
+                            if (stopProcessing && !taskExited) {
+                                endTask(true);
+                            }
+                        });
+                });
+                const shellCommand = `node ${quote([ShellPty.shellJsPath, tmpFile.path])}`;
+                proc.write(`${shellCommand}\r`);
+            } catch (ex) {
+                promise = promise.finally(() => {
+                    if (token.isCancellationRequested) {
+                        return;
+                    }
+                    task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
+                });
+                endTask(false);
+            }
+        });
+    }
+}
 class TerminalRenderer {
     private readonly terminal: Terminal;
     private readonly serializeAddon: SerializeAddon;
+    private pendingRequests = 0;
+    public get completed() {
+        return this.pendingRequests === 0;
+    }
     constructor() {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const glob: any = globalThis;
         const oldSelfExisted = 'self' in glob;
         const oldSelf = oldSelfExisted ? glob.self : undefined;
@@ -141,8 +286,10 @@ class TerminalRenderer {
         this.terminal.loadAddon(this.serializeAddon);
     }
     public async write(value: string): Promise<string> {
+        this.pendingRequests += 1;
         return new Promise<string>((resolve) => {
             this.terminal.write(value, () => {
+                this.pendingRequests -= 1;
                 resolve(this.serializeAddon.serialize());
             });
         });

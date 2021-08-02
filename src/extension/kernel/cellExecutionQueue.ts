@@ -1,23 +1,42 @@
-import { NotebookCell, NotebookCellExecution, NotebookCellKind, NotebookController, NotebookDocument } from 'vscode';
+import {
+    CancellationToken,
+    CancellationTokenSource,
+    ExtensionContext,
+    NotebookCell,
+    NotebookCellExecution,
+    NotebookCellKind,
+    NotebookController,
+    NotebookDocument,
+    workspace
+} from 'vscode';
 import { IDisposable } from '../types';
 import { registerDisposable } from '../utils';
 import { JavaScriptKernel } from './jsKernel';
-import { execute as shellExecute } from './shellKernel';
+import { ShellKernel } from './shellKernel';
 import { execute as browserExecute } from './browserExecution';
 import { CellExecutionState } from './types';
 import { isBrowserController } from './controller';
 import { CellDiagnosticsProvider } from './problems';
 
+function wrapCancellationToken(token: CancellationToken): CancellationTokenSource {
+    const wrapper = new CancellationTokenSource();
+    token.onCancellationRequested(() => {
+        wrapper.cancel();
+    });
+    return wrapper;
+}
 const cellExecutionQueues = new WeakMap<NotebookDocument, CellExecutionQueue>();
 export class CellExecutionQueue implements IDisposable {
     private queue?: Promise<void>;
-    private executionCount = 0;
-    private pendingCells: { cell: NotebookCell; task: NotebookCellExecution }[] = [];
+    private pendingCells: { cell: NotebookCell; task: NotebookCellExecution; token: CancellationTokenSource }[] = [];
     private constructor(
         private readonly notebookDocument: NotebookDocument,
         private readonly controller: NotebookController
     ) {
         registerDisposable(this);
+    }
+    public static regsiter(context: ExtensionContext) {
+        workspace.onDidCloseNotebookDocument((e) => CellExecutionQueue.get(e)?.dispose(), this, context.subscriptions);
     }
     public static get(notebookDocument: NotebookDocument) {
         return cellExecutionQueues.get(notebookDocument);
@@ -34,17 +53,21 @@ export class CellExecutionQueue implements IDisposable {
         if (this.pendingCells.some((item) => item.cell === cell)) {
             return;
         }
+        // Nothing to do with empty cells.
+        if (cell.document.getText().trim().length === 0) {
+            return;
+        }
         CellDiagnosticsProvider.clearErrors(cell.notebook);
         const task = this.controller.createNotebookCellExecution(cell);
-        this.pendingCells.push({ cell, task });
+        const token = wrapCancellationToken(task.token);
+        this.pendingCells.push({ cell, task, token });
         this.start();
     }
-    private generateExecutionOrder() {
-        this.executionCount += 1;
-        return this.executionCount;
-    }
     private stop() {
-        this.pendingCells.forEach(({ task }) => task.end(undefined));
+        this.pendingCells.forEach(({ task, token }) => {
+            token.cancel();
+            task.end(undefined);
+        });
         this.pendingCells = [];
         this.queue = undefined;
 
@@ -68,12 +91,15 @@ export class CellExecutionQueue implements IDisposable {
                 return;
             }
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            const { cell, task } = this.pendingCells.shift()!;
+            const { cell, task, token } = this.pendingCells.shift()!;
+            if (token.token.isCancellationRequested) {
+                return;
+            }
             try {
                 if (cell.kind === NotebookCellKind.Code) {
                     switch (cell.document.languageId) {
                         case 'shellscript': {
-                            const result = await shellExecute(task, this.generateExecutionOrder());
+                            const result = await ShellKernel.execute(task, token.token);
                             if (result == CellExecutionState.error) {
                                 this.stop();
                             }
@@ -82,13 +108,13 @@ export class CellExecutionQueue implements IDisposable {
                         case 'javascript':
                         case 'typescript': {
                             if (isBrowserController(this.controller)) {
-                                const result = await browserExecute(task, this.generateExecutionOrder());
+                                const result = await browserExecute(task, token.token);
                                 if (result == CellExecutionState.error) {
                                     this.stop();
                                 }
                             } else {
                                 const kernel = JavaScriptKernel.getOrCreate(cell.notebook, this.controller);
-                                const result = await kernel.runCell(task, this.generateExecutionOrder());
+                                const result = await kernel.runCell(task, token.token);
                                 if (result == CellExecutionState.error) {
                                     this.stop();
                                 }
@@ -97,7 +123,7 @@ export class CellExecutionQueue implements IDisposable {
                         }
 
                         case 'html': {
-                            const result = await browserExecute(task, this.generateExecutionOrder());
+                            const result = await browserExecute(task, token.token);
                             if (result == CellExecutionState.error) {
                                 this.stop();
                             }

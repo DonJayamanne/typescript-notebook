@@ -1,4 +1,12 @@
-import { NotebookCellExecution, NotebookController, NotebookDocument, window, workspace } from 'vscode';
+import {
+    CancellationToken,
+    NotebookCell,
+    NotebookCellExecution,
+    NotebookController,
+    NotebookDocument,
+    window,
+    workspace
+} from 'vscode';
 import { IDisposable } from '../types';
 import * as getPort from 'get-port';
 import * as WebSocket from 'ws';
@@ -10,8 +18,9 @@ import { ChildProcess, spawn } from 'child_process';
 import { createDeferred, Deferred, generateId } from '../coreUtils';
 import { ServerLogger } from '../serverLogger';
 import { CellStdOutput } from './cellStdOutput';
-import { getNotebookCwd, registerDisposable } from '../utils';
+import { getNotebookCwd } from '../utils';
 import { TensorflowVisClient } from '../tfjsvis';
+import { ExecutionOrder } from './executionOrder';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
@@ -54,7 +63,6 @@ export class JavaScriptKernel implements IDisposable {
     constructor(private readonly notebook: NotebookDocument, private readonly controller: NotebookController) {
         console.log(this.lastSeen);
         this.cwd = getNotebookCwd(notebook);
-        this.killKernelOnClose();
     }
     public static get(notebook: NotebookDocument) {
         return kernels.get(notebook);
@@ -94,7 +102,17 @@ export class JavaScriptKernel implements IDisposable {
         this.serverProcess?.kill();
         this.serverProcess = undefined;
     }
-    public async runCell(task: NotebookCellExecution, execOrder: number): Promise<CellExecutionState> {
+    /**
+     * We cannot stop execution of JS, hence ignore the cancellation token.
+     */
+    public async runCell(
+        task: NotebookCellExecution,
+        // We cannot stop execution of JS, hence ignore the cancellation token.
+        _token: CancellationToken
+    ): Promise<CellExecutionState> {
+        if (JavaScriptKernel.isEmptyCell(task.cell)) {
+            return CellExecutionState.notExecutedEmptyCell;
+        }
         const requestId = generateId();
         const result = createDeferred<CellExecutionState>();
         const stdOutput = CellStdOutput.getOrCreate(task, this.controller);
@@ -104,7 +122,7 @@ export class JavaScriptKernel implements IDisposable {
         this.tasks.set(requestId, { task, requestId, result, stdOutput });
         task.start(Date.now());
         task.clearOutput();
-        task.executionOrder = execOrder;
+        task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
         const code = this.compiler.getCodeObject(task.cell);
         this.mapOfCodeObjectsToCellIndex.set(code.fileName, task.cell.index);
         ServerLogger.appendLine(`Execute:`);
@@ -112,20 +130,28 @@ export class JavaScriptKernel implements IDisposable {
         await this.sendMessage({ type: 'cellExec', code, requestId });
         return result.promise;
     }
+    private static isEmptyCell(cell: NotebookCell) {
+        const cmd = cell.document.getText();
+        if (cmd.trim().length === 0) {
+            return true;
+        }
+        // If we have at least one line without a comment, then we have code in this cell.
+        if (
+            cmd
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+                .some((line) => !line.startsWith('#'))
+        ) {
+            return false;
+        }
+        return true;
+    }
     private async start() {
         if (!this.starting) {
             this.starting = this.startInternal();
         }
         return this.starting;
-    }
-    private killKernelOnClose() {
-        registerDisposable(
-            workspace.onDidCloseNotebookDocument((e) => {
-                const kernel = kernels.get(e);
-                kernel?.dispose();
-                kernels.delete(e);
-            })
-        );
     }
     private async startInternal() {
         const [port, debugPort] = await Promise.all([this.getPort(), this.getPort()]);
