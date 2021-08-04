@@ -12,6 +12,19 @@
 Ignore language (doesn't matter whether its shell or powershell).
 At the end of the day the shell is setup by the user.
 9. For simple (most common) shell commands like `echo`, `rm`, `pwd`, `cwd`, we don't need a real terminal, just run as a spawn (faster). As long as ther'es nothing streaming.
+10. Clean up webpack & old stuff from package.json (commands, settigs, etc) & webpack, etc
+11. Use a webview instead of a Panel, as the state is not preserved & its not tied to a particular notebook.
+    This way we can open the new webview on the side.
+12. Use ESBuild for extension (excluding `node-pty`, that's better bundled & shipped in node_modules folder, this way the bundle will pick it)
+13. Fix prettier, etc
+
+# Shipping
+* Icon
+* Svg file
+* Main file
+* Readme
+* Roadmap, use github issues with milestones (v1, v2, etc)
+* CI
 
 # Tests
 * tests
