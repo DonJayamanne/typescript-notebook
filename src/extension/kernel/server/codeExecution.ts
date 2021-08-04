@@ -3,12 +3,11 @@ import * as vm from 'vm';
 import { sendMessage } from './comms';
 import { logErrorMessage, logMessage } from './logger';
 import { CodeObject, DisplayData, RunCellRequest, RunCellResponse } from './types';
-import { processTopLevelAwait } from 'node-repl-await';
 import { VariableListingMagicCommandHandler } from './magics/variables';
-import { formatValue } from './format';
-import { DanfoJsFormatter } from './danfoFormatter';
-import { TensorflowJsVisualizer } from './tfjsVisProxy';
-import { Plotly } from './plotly';
+import { formatValue } from './extensions/format';
+import { DanfoJsFormatter } from './extensions/danfoFormatter';
+import { TensorflowJsVisualizer } from './extensions/tfjsVisProxy';
+import { Plotly } from './extensions/plotly';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Module = require('module');
 
@@ -23,7 +22,7 @@ class Utils {
         return (Utils._instance = new Utils());
     }
     public currentRequestId = '';
-    public readonly plotly = Plotly.instance;
+    public readonly Plotly = Plotly.instance;
     public get display() {
         return {
             html: this.displayHtml.bind(this),
@@ -59,11 +58,20 @@ function startRepl() {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function runCode(code: string | CodeObject, mode: 'userCode' | 'silent' = 'userCode'): Promise<any> {
+    const source = typeof code === 'string' ? code : code.code;
+    logMessage(mode === 'userCode' ? `Executing ${source}` : `Executing Silently ${source}`);
+    // First check if we have valid JS code.
     try {
-        const originalSource = typeof code === 'string' ? code : code.code;
-        const source = processTopLevelAwait(originalSource) || originalSource;
-        logMessage(mode === 'userCode' ? `Executing ${source}` : `Executing Silently ${source}`);
-        const fileName = typeof code === 'object' ? code.fileName : undefined;
+        new vm.Script(source);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (ex: any) {
+        logErrorMessage('Unrecoverable error', ex);
+        const newError = new Error(ex.message || '<Unknown error in creating ScriptObject>');
+        newError.name = 'InvalidCode_CodeExecution';
+        throw newError;
+    }
+    try {
+        const fileName = typeof code === 'object' ? code.sourceFilename : undefined;
         const result = await vm.runInNewContext(source, replServer.context, {
             displayErrors: true,
             filename: fileName
@@ -73,16 +81,11 @@ async function runCode(code: string | CodeObject, mode: 'userCode' | 'silent' = 
         return result;
     } catch (ex) {
         logErrorMessage('Unrecoverable error', ex);
-        // sendMessage({
-        //     type: 'replRestarted',
-        //     requestId: -1
-        // });
-        // startRepl();
         throw ex;
     }
 }
 
-async function runCodeSilently(code: string | CodeObject): Promise<any> {
+async function runCodeSilently(code: string | CodeObject): Promise<unknown> {
     return runCode(code, 'silent');
 }
 async function replEvalCode(code, _context, _filename, _callback) {
@@ -119,6 +122,7 @@ export async function execCode(request: RunCellRequest): Promise<void> {
 }
 
 const originalLoad = Module._load;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 Module._load = function (request: any, parent: any) {
     if (parent && request === '@tensorflow/tfjs-core' && parent.filename.includes('@tensorflow/tfjs-vis')) {
         return {};

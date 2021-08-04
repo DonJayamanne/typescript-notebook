@@ -18,8 +18,6 @@ import * as path from 'path';
 import { quote } from 'shell-quote';
 import { ExecutionOrder } from './executionOrder';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pty = require('profoundjs-node-pty') as typeof import('node-pty');
 const shell = os.platform() === 'win32' ? 'powershell.exe' : process.env['SHELL'] || 'bash';
 // const shell = '/bin/zsh';
 const startSeparator = '51e9f0e8-77a0-4bf0-9733-335153be2ec0:Start';
@@ -43,7 +41,7 @@ export class ShellKernel {
         task.clearOutput();
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
         const cwd = getNotebookCwd(task.cell.notebook);
-        if (isSimpleSingleLineShellCommand(command)) {
+        if (isSimpleSingleLineShellCommand(command) || !ShellPty.available()) {
             return ShellProcess.execute(task, token, cwd);
         } else {
             return ShellPty.execute(task, token, cwd);
@@ -76,10 +74,10 @@ function isSimpleSingleLineShellCommand(command: string) {
 }
 class ShellProcess {
     public static async execute(task: NotebookCellExecution, token: CancellationToken, cwd?: string) {
-        const command = getPossibleShellCommandLines(task.cell.document.getText())[0];
+        const commands = getPossibleShellCommandLines(task.cell.document.getText());
+        const command = commands.length === 1 ? commands[0] : task.cell.document.getText();
 
         let taskExited = false;
-        let echoSepratorSeen = false;
         return new Promise<CellExecutionState>((resolve) => {
             let promise = Promise.resolve();
             const endTask = (success = true) => {
@@ -115,9 +113,6 @@ class ShellProcess {
                 proc.stdout?.on('data', (data: Buffer | string) => {
                     promise = promise.finally(() => {
                         if (token.isCancellationRequested) {
-                            return;
-                        }
-                        if (echoSepratorSeen) {
                             return;
                         }
                         data = data.toString();
@@ -158,6 +153,19 @@ class ShellProcess {
 }
 class ShellPty {
     public static shellJsPath: string;
+    private static pty: typeof import('node-pty');
+    public static available() {
+        if (ShellPty.pty) {
+            return true;
+        }
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            ShellPty.pty = require('profoundjs-node-pty') as typeof import('node-pty');
+            return true;
+        } catch {
+            return false;
+        }
+    }
     public static async execute(task: NotebookCellExecution, token: CancellationToken, cwd?: string) {
         const command = task.cell.document.getText();
         // eslint-disable-next-line @typescript-eslint/ban-types
@@ -183,7 +191,7 @@ class ShellPty {
             };
             try {
                 // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const proc = pty.spawn(shell, [], {
+                const proc = ShellPty.pty.spawn(shell, [], {
                     name: 'tsNotebook',
                     cols: 80,
                     rows: 30,

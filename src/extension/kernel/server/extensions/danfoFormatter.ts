@@ -1,9 +1,9 @@
 import * as path from 'path';
-import { logErrorMessage } from './logger';
+import { logErrorMessage } from '../logger';
 import type * as dfd from 'danfojs-node';
-import { sendMessage } from './comms';
+import { sendMessage } from '../comms';
 import { DanfoNodePlotter } from './danforPlotter';
-import { DisplayData } from './types';
+import { DisplayData } from '../types';
 
 export class DanfoJsFormatter {
     static _instance: DanfoJsFormatter;

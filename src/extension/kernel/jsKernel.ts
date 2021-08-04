@@ -11,7 +11,6 @@ import { IDisposable } from '../types';
 import * as getPort from 'get-port';
 import * as WebSocket from 'ws';
 import { RequestType, ResponseType } from './server/types';
-import { JavaScriptTypeScriptCompiler } from './jsCompiler';
 import { CellExecutionState } from './types';
 import * as path from 'path';
 import { ChildProcess, spawn } from 'child_process';
@@ -21,6 +20,7 @@ import { CellStdOutput } from './cellStdOutput';
 import { getNotebookCwd } from '../utils';
 import { TensorflowVisClient } from '../tfjsvis';
 import { ExecutionOrder } from './executionOrder';
+import { getCodeObject } from './compiler';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
@@ -55,7 +55,6 @@ export class JavaScriptKernel implements IDisposable {
         stdOutput: CellStdOutput;
     };
     private lastStdOutput?: CellStdOutput;
-    private compiler = new JavaScriptTypeScriptCompiler();
     private get lastSeen() {
         return this.lastSeenTime ? Date.now() - this.lastSeenTime : undefined;
     }
@@ -123,8 +122,8 @@ export class JavaScriptKernel implements IDisposable {
         task.start(Date.now());
         task.clearOutput();
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
-        const code = this.compiler.getCodeObject(task.cell);
-        this.mapOfCodeObjectsToCellIndex.set(code.fileName, task.cell.index);
+        const code = getCodeObject(task.cell);
+        this.mapOfCodeObjectsToCellIndex.set(code.sourceFilename, task.cell.index);
         ServerLogger.appendLine(`Execute:`);
         ServerLogger.appendLine(code.code);
         await this.sendMessage({ type: 'cellExec', code, requestId });
@@ -184,6 +183,7 @@ export class JavaScriptKernel implements IDisposable {
             }
             const serverFile = path.join(__dirname, 'server', 'index.js');
             ServerLogger.appendLine(`Starting node & listening on ${debugPort} & websock on ${port}`);
+
             this.serverProcess = spawn('node', [`--inspect=${debugPort}`, serverFile, `--port=${port}`], {
                 // this.serverProcess = spawn('node', [serverFile, `--port=${port}`], {
                 cwd: this.cwd

@@ -3,7 +3,7 @@ import { DebugProtocol } from 'vscode-debugprotocol';
 import { debug, NotebookDocument, NotebookCell, DebugSession, DebugAdapterTracker, Uri } from 'vscode';
 import * as path from 'path';
 import { JavaScriptKernel } from '../jsKernel';
-import { getCellFromTemporaryPath, getTemporaryPathForCell } from './cellMap';
+import { getCellFromTemporaryPath, getCodeObject } from '../compiler';
 
 const activeDebuggers = new WeakMap<NotebookDocument, Debugger>();
 
@@ -67,7 +67,7 @@ export class Debugger implements DebugAdapterTracker {
                 // find cell in document by matching its URI
                 const cell = this.document.getCells().find((c) => c.document.uri.toString() === uri);
                 if (cell) {
-                    return getTemporaryPathForCell(cell, cell.document.getText());
+                    return getCodeObject(cell).sourceFilename;
                 }
             }
         } catch (e) {

@@ -1,11 +1,10 @@
 import * as kindOf from 'kind-of';
 import * as fileType from 'file-type';
-import { logMessage } from './logger';
-import { DisplayData } from './types';
+import * as util from 'util';
+import { logMessage } from '../logger';
+import { DisplayData } from '../types';
 import { DanfoJsFormatter } from './danfoFormatter';
 import { formatTensor, isTensor } from './tensorFormatter';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const isTypedArray = require('is-typed-array');
 
 export async function formatValue(value: unknown) {
     if (typeof value === 'string' && value.startsWith('data:image/')) {
@@ -20,7 +19,8 @@ export async function formatValue(value: unknown) {
                 value
             ]
         };
-    } else if (kindOf(value) === 'buffer' || isTypedArray(value)) {
+    } else if (kindOf(value) === 'buffer' || util.types.isTypedArray(value)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const buffer: Buffer = kindOf(value) === 'buffer' ? (value as Buffer) : Buffer.from(value as any);
         try {
             const type = await fileType.fromBuffer(buffer);

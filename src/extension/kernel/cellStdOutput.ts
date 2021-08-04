@@ -6,9 +6,9 @@ import {
     NotebookCellOutputItem,
     NotebookController
 } from 'vscode';
-import { updateCellPathsInStackTraceOrOutput } from './debugger/cellMap';
 import { DisplayData, GeneratePlot } from './server/types';
 import { CellDiagnosticsProvider } from './problems';
+import { updateCellPathsInStackTraceOrOutput } from './compiler';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { isPlainObject } = require('is-plain-object');
@@ -71,6 +71,9 @@ export class CellStdOutput {
             })
             .finally(() => this.endTempTask());
     }
+    /**
+     * This is all wrong.
+     */
     public appendOutput(output: DisplayData) {
         this.promise = this.promise
             .finally(() => {
@@ -127,7 +130,7 @@ export class CellStdOutput {
         CellDiagnosticsProvider.trackErrors(this.task.cell.notebook, ex);
         const newEx = new Error(ex.message);
         newEx.name = ex.name;
-        newEx.stack = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, ex.stack);
+        newEx.stack = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, newEx);
         const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
         this.promise = this.promise.finally(() => this.task.appendOutput(output)).finally(() => this.endTempTask());
     }

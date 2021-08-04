@@ -23,10 +23,10 @@ import type { Visor } from '@tensorflow/tfjs-vis/dist/visor';
 import type { Logs } from '@tensorflow/tfjs-layers/dist/logs';
 import { Layer } from '@tensorflow/tfjs-layers/dist/engine/topology';
 import { LayersModel } from '@tensorflow/tfjs-layers/dist/engine/training';
-import { TensorFlowVisRequest } from './types';
-import { sendMessage } from './comms';
-import { serialize } from '../../serializer';
-import { generateId } from '../../coreUtils';
+import { TensorFlowVisRequest } from '../types';
+import { sendMessage } from '../comms';
+import { serialize } from '../../../serializer';
+import { generateId } from '../../../coreUtils';
 
 class VisorProxy {
     constructor(

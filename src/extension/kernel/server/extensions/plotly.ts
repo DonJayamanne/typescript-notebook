@@ -1,8 +1,8 @@
 import type * as plotly from 'plotly.js';
-import { addMessageHandler, removeMessageHandler, sendMessage } from './comms';
+import { addMessageHandler, removeMessageHandler, sendMessage } from '../comms';
 import { v4 as uuid } from 'uuid';
-import { ResponseType } from './types';
-import { errorFromJson } from '../../coreUtils';
+import { ResponseType } from '../types';
+import { errorFromJson } from '../../../coreUtils';
 
 export class Plotly {
     public static readonly instance = new Plotly();

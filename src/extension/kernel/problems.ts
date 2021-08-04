@@ -2,7 +2,7 @@ import { Diagnostic, DiagnosticSeverity, ExtensionContext, languages, NotebookDo
 import { IDisposable } from '../types';
 import { disposeAllDisposables } from '../utils';
 import { parse as parseStack } from 'error-stack-parser';
-import { getCellFromTemporaryPath } from './debugger/cellMap';
+import { getCellFromTemporaryPath } from './compiler';
 
 const diagnosticsCollection = languages.createDiagnosticCollection('Typscript Notebook');
 

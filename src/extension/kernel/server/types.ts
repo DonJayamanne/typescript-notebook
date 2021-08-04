@@ -25,7 +25,9 @@ type BaseMessage<T extends string, B = {}> = {
 } & B;
 export type CodeObject = {
     code: string;
-    fileName: string;
+    textDocumentVersion: number;
+    sourceFilename: string;
+    sourceMapFilename: string;
 };
 export type RequestType = RunCellRequest | PingRequest | InitializeRequest | TensorFlowVisRequest | PlotGenerated;
 export type RunCellRequest = BaseMessage<

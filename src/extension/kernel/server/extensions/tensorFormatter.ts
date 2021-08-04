@@ -1,5 +1,5 @@
 import type * as tf from '@tensorflow/tfjs';
-import { DisplayData } from './types';
+import { DisplayData } from '../types';
 
 export function isTensor(tensor: unknown) {
     return tensor && typeof tensor === 'object' && tensor.constructor.name === 'Tensor';

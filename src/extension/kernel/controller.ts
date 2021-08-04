@@ -93,14 +93,4 @@ export class Controller implements IDisposable {
         ExecutionOrder.reset(notebook);
         CellExecutionQueue.get(notebook)?.dispose();
     }
-    // private debug(e: { notebookEditor: NotebookEditor }) {
-    //     console.log((e.notebookEditor as any).notebook);
-    //     console.log('x', e);
-    // }
-    // private onDidChangeSelectedNotebooks({ notebook, selected }: { notebook: NotebookDocument; selected: boolean }) {
-    //   notebook.getCells().forEach(cell => {
-    //     cell.document.getText().startsWith('')
-    //     notebooks.
-    //   })
-    // }
 }

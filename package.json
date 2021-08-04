@@ -4,7 +4,7 @@
     "description": "JavaScript & TypeScript Notebooks",
     "version": "0.3.5",
     "engines": {
-        "vscode": "^1.57.0"
+        "vscode": "^1.58.0"
     },
     "publisher": "donjayamanne",
     "author": {
@@ -143,7 +143,7 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile:webpack",
+        "xvscode:prepublish": "npm run compile:webpack",
         "dev": "concurrently -r npm:compile:extension:watch npm:compile:client:watch",
         "devx": "concurrently -r npm:compile:extension:watch npm:compile:client:watch npm:compile:test:watch",
         "compile": "npm run compile:extension && npm run compile:test && npm run compile:client",
@@ -152,7 +152,7 @@
         "compile:extension:watch": "tsc -p src/extension --watch",
         "compile:test": "tsc -p src/test",
         "compile:test:watch": "tsc -p src/test --watch",
-        "compile:webpack": "npm run build:client && npm run build:extension && npm run build:server",
+        "compile:webpack": "npm run build:client && npm run build:extension",
         "compile:client": "webpack --config=build/webpack/webpack.client.config.js",
         "build:client": "webpack --config=build/webpack/webpack.client.config.js --mode=production",
         "build:server": "webpack --config=build/webpack/webpack.server.config.js --mode=production",
@@ -170,15 +170,14 @@
     },
     "dependencies": {
         "@tensorflow/tfjs-vis": "^1.5.1",
+        "acorn": "^8.4.1",
+        "acorn-walk": "^8.1.1",
         "error-stack-parser": "^2.0.6",
         "file-type": "^16.5.2",
         "get-port": "^5.1.1",
-        "is-base64": "^1.1.0",
         "is-plain-object": "^5.0.0",
-        "is-typed-array": "^1.1.5",
-        "is-what": "^4.0.0",
         "kind-of": "^6.0.3",
-        "node-repl-await": "^0.1.2",
+        "node-pty": "^0.10.1",
         "plotly.js-dist": "^2.3.1",
         "profoundjs-node-pty": "^2.0.3",
         "recast": "^0.20.5",
@@ -215,7 +214,6 @@
         "ify-loader": "^1.1.0",
         "install": "^0.13.0",
         "less": "^3.11.3",
-        "node-pty": "^0.10.1",
         "npm": "^6.14.5",
         "prettier": "^2.0.5",
         "style-loader": "^1.2.1",

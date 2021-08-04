@@ -1,5 +1,4 @@
 import * as util from 'util';
-import * as fs from 'fs';
 import { LogMessage } from './types';
 import { sendMessage } from './comms';
 
@@ -19,13 +18,5 @@ export function log(category: 'info' | 'error', ...param: any[]) {
         category,
         message: util.format(...param)
     };
-    logToFile(msg.message);
     sendMessage(msg);
-}
-
-function logToFile(message: string) {
-    fs.appendFileSync(
-        '/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/log.log',
-        `${message}\n\n---------------------------\n`
-    );
 }

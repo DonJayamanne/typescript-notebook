@@ -1,5 +1,5 @@
 import type * as dfd from 'danfojs-node';
-import { sendMessage } from './comms';
+import { sendMessage } from '../comms';
 import { v4 as uuid } from 'uuid';
 
 function generatePlot(data, config) {

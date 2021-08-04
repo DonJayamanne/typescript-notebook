@@ -17,7 +17,7 @@ module.exports = {
     },
     mode: 'production',
     devtool: 'source-map',
-    externals: ['vscode', 'commonjs'],
+    externals: ['vscode', 'commonjs', 'node-pty', 'profoundjs-node-pty', 'xterm', 'xterm-addon-serialize'],
     plugins: [...common.getDefaultPlugins('extension')],
     resolve: {
         extensions: ['.ts', '.js']
