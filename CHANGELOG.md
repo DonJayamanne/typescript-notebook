@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.0.0 (28 Jul 2021)
+## 0.0.0 (xx Jul 2021)
 Initial release
 
 ### Thanks

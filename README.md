@@ -3,14 +3,12 @@
 * Run JavaScript, TypeScript code in node.js
 
 ## Roadmap
-* In progress
-    * Debug JavaScript, TypeScript code in node.js
-    * Tensorflow Visualization in node.js using (`@tensforflow/tfjs-vis`)
-    * Html output for Dataframes when using Danfojs in node.js
-    * Plotly support when using Danfojs in node.js
-    * Plotlyjs without having to install Plotly
-* Short/long term term
-    * Vega plots without having to install vega
+* Debug JavaScript, TypeScript code in node.js
+* Tensorflow Visualization in node.js using (`@tensforflow/tfjs-vis`)
+* Html output for Dataframes when using Danfojs in node.js
+* Plotly support when using Danfojs in node.js
+* Plotlyjs without having to install Plotly
+* Vega plots without having to install vega
 
 ## Known issues
 * Source maps do not work when debugging

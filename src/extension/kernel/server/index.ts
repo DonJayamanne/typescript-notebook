@@ -47,7 +47,7 @@ function connectToServer(port: number) {
                         break;
                     }
                     case 'cellExec': {
-                        execCode(data);
+                        void execCode(data);
                         break;
                     }
                     default:

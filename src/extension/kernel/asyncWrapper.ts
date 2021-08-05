@@ -9,6 +9,7 @@ function isTopLevelDeclaration(state) {
     return state.ancestors[state.ancestors.length - 2] === state.body;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-function
 const noop = () => {};
 const visitorsWithoutAncestors = {
     ClassDeclaration(node, state, c) {

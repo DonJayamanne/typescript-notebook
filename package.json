@@ -1,8 +1,8 @@
 {
     "name": "typescript-notebook",
     "displayName": "JavaScript/TypeScript Notebooks",
-    "description": "JavaScript & TypeScript Notebooks",
-    "version": "0.3.5",
+    "description": "JavaScript & TypeScript Notebooks for Node.js",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.58.0"
     },
@@ -11,31 +11,35 @@
         "name": "Don Jayamanne"
     },
     "license": "MIT",
-    "homepage": "https://github.com/DonJayamanne/vscode-kusto",
+    "homepage": "https://github.com/DonJayamanne/typescript-notebook",
     "repository": {
         "type": "git",
-        "url": "https://github.com/DonJayamanne/vscode-kusto"
+        "url": "https://github.com/DonJayamanne/typescript-notebook"
     },
     "bugs": {
-        "url": "https://github.com/DonJayamanne/vscode-kusto/issues"
+        "url": "https://github.com/DonJayamanne/typescript-notebook"
     },
     "preview": true,
-    "icon": "icon.png",
+    "icon": "resources/icons/ts-logo-256.png",
     "galleryBanner": {
-        "color": "#ffffff",
+        "color": "#3178C6",
         "theme": "light"
     },
     "keywords": [
         "notebook",
-        "multi-root ready"
+        "typescript",
+        "javascript",
+        "tensorflow",
+        "plotly"
     ],
     "extensionKind": [
-        "web",
         "ui",
         "workspace"
     ],
     "categories": [
         "Other",
+        "Data Science",
+        "Machine Learning",
         "Notebooks",
         "Visualization"
     ],
@@ -46,8 +50,7 @@
         "virtualWorkspaces": true
     },
     "activationEvents": [
-        "onNotebook:typescript-notebook",
-        "onCommand:jsNotebook.debugNotebook"
+        "onNotebook:typescript-notebook"
     ],
     "main": "./out/extension/index.js",
     "contributes": {
@@ -56,15 +59,15 @@
                 "category": "Notebook",
                 "icon": "$(bug)",
                 "command": "jsNotebook.debugNotebook",
-                "shortTitle": "Debugxxx",
-                "title": "Debug Notebookxx",
+                "shortTitle": "Debugx",
+                "title": "Debug Notebook",
                 "enablement": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
             },
             {
                 "category": "Notebook",
                 "icon": "$(debug-restart)",
                 "command": "jsNotebook.kernel.restart",
-                "shortTitle": "Restartxxx",
+                "shortTitle": "Restart",
                 "title": "Restart Kernel",
                 "enablement": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
             }
@@ -87,7 +90,6 @@
             "editor/title": [
                 {
                     "command": "jsNotebook.kernel.restart",
-                    "groupx": "navigation/execute@1",
                     "group": "navigation@1",
                     "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
                 },
@@ -115,7 +117,7 @@
         "viewsContainers": {
             "activitybar": [
                 {
-                    "icon": "resources/icons/ts.svg",
+                    "icon": "resources/icons/ts-logo-256.png",
                     "id": "typescript-notebook",
                     "title": "TypeScript Notebook"
                 }
@@ -147,18 +149,16 @@
         "dev": "concurrently -r npm:compile:extension:watch npm:compile:client:watch",
         "devx": "concurrently -r npm:compile:extension:watch npm:compile:client:watch npm:compile:test:watch",
         "compile": "npm run compile:extension && npm run compile:test && npm run compile:client",
-        "compile:extension": "webpack --config=build/webpack/webpack.extension.config.js",
-        "compile:server:watch": "tsc -p src/server --watch",
+        "compile:extension": "webpack --config=build/webpack/webpack.extension.config.js && webpack --config=build/webpack/webpack.server.config.js",
         "compile:extension:watch": "tsc -p src/extension --watch",
         "compile:test": "tsc -p src/test",
         "compile:test:watch": "tsc -p src/test --watch",
         "compile:webpack": "npm run build:client && npm run build:extension",
         "compile:client": "webpack --config=build/webpack/webpack.client.config.js",
         "build:client": "webpack --config=build/webpack/webpack.client.config.js --mode=production",
-        "build:server": "webpack --config=build/webpack/webpack.server.config.js --mode=production",
-        "build:extension": "webpack --config=build/webpack/webpack.extension.config.js --mode=production",
+        "build:extension": "webpack --config=build/webpack/webpack.extension.config.js --mode=production && webpack --config=build/webpack/webpack.server.config.js --mode=production",
         "compile:client:watch": "webpack --config=build/webpack/webpack.client.config.js --watch",
-        "lint": "eslint src --ext ts && eslint src --ext tsx && eslint build --ext js",
+        "lint": "eslint src/client --ext ts && eslint src/extension --ext ts && eslint build --ext js",
         "lint-format": "npx prettier 'src/**/*.ts*' --check && npx prettier 'build/**/*.js' --check",
         "watch": "tsc -watch -p ./",
         "package": "vsce package --yarn -o kusto-notebooks.vsix",
@@ -200,23 +200,28 @@
         "@types/vscode-webview": "^1.57.0",
         "@types/ws": "^7.4.7",
         "@types/yargs": "^17.0.2",
-        "@typescript-eslint/eslint-plugin": "^3.1.0",
-        "@typescript-eslint/parser": "^3.1.0",
+        "@typescript-eslint/eslint-plugin": "^4.29.0",
+        "@typescript-eslint/parser": "^4.29.0",
         "cache-loader": "^4.1.0",
         "concurrently": "^5.2.0",
         "copy-webpack-plugin": "^9.0.0",
         "css-loader": "^3.5.3",
         "danfojs-node": "^0.2.7",
-        "eslint": "^7.1.0",
-        "eslint-config-prettier": "^6.11.0",
-        "eslint-plugin-prettier": "^3.1.3",
+        "eslint": "^7.32.0",
+        "eslint-config-airbnb": "^18.2.1",
+        "eslint-config-prettier": "^8.3.0",
+        "eslint-plugin-import": "^2.23.4",
+        "eslint-plugin-jsdoc": "^36.0.6",
+        "eslint-plugin-no-null": "^1.0.2",
+        "eslint-plugin-prefer-arrow": "^1.2.3",
+        "eslint-plugin-prettier": "^3.4.0",
         "fork-ts-checker-webpack-plugin": "^6.2.10",
         "glob": "^7.1.6",
         "ify-loader": "^1.1.0",
         "install": "^0.13.0",
         "less": "^3.11.3",
         "npm": "^6.14.5",
-        "prettier": "^2.0.5",
+        "prettier": "^2.3.2",
         "style-loader": "^1.2.1",
         "svg-inline-loader": "^0.8.2",
         "thread-loader": "^2.1.3",
@@ -227,7 +232,7 @@
         "vscode-dts": "^0.3.1",
         "vscode-test": "^1.4.0",
         "webpack": "^5.38.1",
-        "webpack-bundle-analyzer": "^3.8.0",
+        "webpack-bundle-analyzer": "^3.9.0",
         "webpack-cli": "^4.7.2",
         "webpack-fix-default-import-plugin": "^1.0.3",
         "xterm-addon-serialize": "^0.5.0"

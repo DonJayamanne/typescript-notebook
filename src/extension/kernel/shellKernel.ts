@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import {
     CancellationToken,
@@ -38,7 +39,7 @@ export class ShellKernel {
             return CellExecutionState.notExecutedEmptyCell;
         }
         task.start(Date.now());
-        task.clearOutput();
+        void task.clearOutput();
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
         const cwd = getNotebookCwd(task.cell.notebook);
         if (isSimpleSingleLineShellCommand(command) || !ShellPty.available()) {
@@ -144,7 +145,7 @@ class ShellProcess {
                     if (token.isCancellationRequested) {
                         return;
                     }
-                    task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
+                    void task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
                 });
                 endTask(false);
             }
@@ -260,7 +261,7 @@ class ShellPty {
                     if (token.isCancellationRequested) {
                         return;
                     }
-                    task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
+                    void task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
                 });
                 endTask(false);
             }

@@ -70,7 +70,7 @@ export class JavaScriptKernel implements IDisposable {
         workspace.notebookDocuments.forEach((notebook) => {
             const kernel = JavaScriptKernel.get(notebook);
             if (kernel) {
-                kernel.sendMessage(message);
+                void kernel.sendMessage(message);
             }
         });
     }
@@ -81,7 +81,7 @@ export class JavaScriptKernel implements IDisposable {
         }
         kernel = new JavaScriptKernel(notebook, controller);
         kernels.set(notebook, kernel);
-        kernel.start();
+        void kernel.start();
         return kernel;
     }
     public dispose() {
@@ -120,7 +120,7 @@ export class JavaScriptKernel implements IDisposable {
         this.lastStdOutput = stdOutput;
         this.tasks.set(requestId, { task, requestId, result, stdOutput });
         task.start(Date.now());
-        task.clearOutput();
+        void task.clearOutput();
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
         const code = getCodeObject(task.cell);
         this.mapOfCodeObjectsToCellIndex.set(code.sourceFilename, task.cell.index);
@@ -174,7 +174,7 @@ export class JavaScriptKernel implements IDisposable {
                 }
             });
 
-            this.sendMessage({ type: 'initialize', requestId: '' });
+            void this.sendMessage({ type: 'initialize', requestId: '' });
             this.webSocket.resolve(ws);
         });
         this.server.on('listening', () => {

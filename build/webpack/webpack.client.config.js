@@ -17,14 +17,18 @@ module.exports = {
         path: path.join(constants.ExtensionRootDir, 'out', 'views'),
         filename: '[name].js',
         chunkFilename: `[name].bundle.js`,
-        libraryTarget: 'module'
+        libraryTarget: 'module',
+        library: { type: 'module' },
+        environment: { module: true }
     },
     experiments: {
         outputModule: true
     },
     mode: isProdBuild ? 'production' : 'development',
     devtool: isProdBuild ? 'source-map' : 'inline-source-map',
+    externals: ['@tensorflow/tfjs-vis', '@tensorflow/tfjs'],
     plugins: [
+        ...common.getDefaultPlugins('client'),
         // new FixDefaultImportPlugin(),
         new ForkTsCheckerWebpackPlugin({
             typescript: {

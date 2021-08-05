@@ -169,8 +169,6 @@ export class CellStdOutput {
 // }
 // function getPlotlyScript(plotlyScript: string) {
 //     return `
-// // Copyright (c) Microsoft Corporation. All rights reserved.
-// // Licensed under the MIT License.
 // console.error('Script start');
 // (function __registerScript(){
 //     console.error('Script start0');

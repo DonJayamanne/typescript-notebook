@@ -23,7 +23,7 @@
 			"name": "Attach to JS Kernel",
 			"address": "localhost",
 			"protocol": "inspector",
-			"port": 54433,
+			"port": 58088,
 			"sourceMaps": true,
             "skipFiles": [
                 "<node_internals>/**"

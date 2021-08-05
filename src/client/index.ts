@@ -64,7 +64,7 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
                 return console.error(`No callbacks registered for ${JSON.stringify(message.container)}`);
             }
             if (callbacks[message.handler]) {
-                callbacks[message.handler](message.iteration, message.log);
+                void callbacks[message.handler](message.iteration, message.log);
             }
             break;
         }

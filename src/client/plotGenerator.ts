@@ -1,10 +1,7 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
 import type * as plotly from 'plotly.js';
 import { ActivationFunction, OutputItem } from 'vscode-notebook-renderer';
-import { errorToJson } from './coreUtils';
+import { errorToJson, noop } from './coreUtils';
 import { GeneratePlot, ResponseType } from './types';
-// import { PlotGenerated } from './types';
 declare const Plotly: typeof plotly;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -19,39 +16,41 @@ export const activate: ActivationFunction = (context) => {
                     ele.style.display = 'none';
                 }
                 element.appendChild(ele);
-                Plotly.newPlot(ele, json.data, json.layout).then((gd) => {
-                    if (!json.download || !json.requestId) {
-                        return;
-                    }
-                    Plotly.toImage(gd, {
-                        format: json.format || 'png',
-                        height: json.layout?.height || 400,
-                        width: json.layout?.width || 500
-                    })
-                        .then((url) => {
-                            if (!context.postMessage) {
-                                return;
-                            }
-                            context.postMessage(<ResponseType>{
-                                type: 'plotGenerated',
-                                success: true,
-                                base64: url,
-                                requestId: json.requestId
-                            });
+                Plotly.newPlot(ele, json.data, json.layout)
+                    .then((gd) => {
+                        if (!json.download || !json.requestId) {
+                            return;
+                        }
+                        Plotly.toImage(gd, {
+                            format: json.format || 'png',
+                            height: json.layout?.height || 400,
+                            width: json.layout?.width || 500
                         })
-                        .catch((ex) => {
-                            if (!context.postMessage) {
-                                return;
-                            }
-                            context.postMessage(<ResponseType>{
-                                type: 'plotGenerated',
-                                success: false,
-                                error: errorToJson(ex),
-                                requestId: json.requestId
+                            .then((url) => {
+                                if (!context.postMessage) {
+                                    return;
+                                }
+                                context.postMessage(<ResponseType>{
+                                    type: 'plotGenerated',
+                                    success: true,
+                                    base64: url,
+                                    requestId: json.requestId
+                                });
+                            })
+                            .catch((ex) => {
+                                if (!context.postMessage) {
+                                    return;
+                                }
+                                context.postMessage(<ResponseType>{
+                                    type: 'plotGenerated',
+                                    success: false,
+                                    error: errorToJson(ex),
+                                    requestId: json.requestId
+                                });
                             });
-                        });
-                });
-            });
+                    })
+                    .catch(noop);
+            }).catch(noop);
         }
     };
 };

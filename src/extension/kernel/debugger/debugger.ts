@@ -17,7 +17,7 @@ export class Debugger implements DebugAdapterTracker {
         activeDebuggers.set(document, this);
     }
     public stop() {
-        debug.stopDebugging(this.debugSession);
+        void debug.stopDebugging(this.debugSession);
     }
     public onError?(error: Error): void {
         console.error(error);
@@ -86,7 +86,7 @@ function visitSources(msg: DebugProtocol.ProtocolMessage, visitor: (source: Debu
     };
 
     switch (msg.type) {
-        case 'event':
+        case 'event': {
             const event = <DebugProtocol.Event>msg;
             switch (event.event) {
                 case 'output':
@@ -102,7 +102,8 @@ function visitSources(msg: DebugProtocol.ProtocolMessage, visitor: (source: Debu
                     break;
             }
             break;
-        case 'request':
+        }
+        case 'request': {
             const request = <DebugProtocol.Request>msg;
             switch (request.command) {
                 case 'setBreakpoints':
@@ -124,7 +125,8 @@ function visitSources(msg: DebugProtocol.ProtocolMessage, visitor: (source: Debu
                     break;
             }
             break;
-        case 'response':
+        }
+        case 'response': {
             const response = <DebugProtocol.Response>msg;
             if (response.success && response.body) {
                 switch (response.command) {
@@ -158,5 +160,6 @@ function visitSources(msg: DebugProtocol.ProtocolMessage, visitor: (source: Debu
                 }
             }
             break;
+        }
     }
 }

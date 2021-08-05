@@ -1,24 +1,33 @@
 const path = require('path');
 const constants = require('../constants');
 const common = require('./common');
-const configFileName = 'src/server/tsconfig.json';
+const configFileName = 'src/extension/tsconfig.json';
 
 module.exports = {
     context: constants.ExtensionRootDir,
     target: 'node',
     entry: {
-        extension: './src/server/server.ts'
+        extension: './src/extension/kernel/server/index.ts'
     },
     output: {
-        filename: 'server.js',
-        path: path.resolve(constants.ExtensionRootDir, 'out', 'server'),
+        filename: 'index.js',
+        path: path.resolve(constants.ExtensionRootDir, 'out', 'extension', 'server'),
         libraryTarget: 'commonjs2',
         devtoolModuleFilenameTemplate: '../../[resource-path]'
     },
     mode: 'production',
     devtool: 'source-map',
-    externals: ['commonjs'],
-    plugins: [...common.getDefaultPlugins('extension')],
+    externals: [
+        'vscode',
+        'commonjs',
+        'bufferutil',
+        'utf-8-validate',
+        'node-pty',
+        'profoundjs-node-pty',
+        'xterm',
+        'xterm-addon-serialize'
+    ],
+    plugins: [...common.getDefaultPlugins('server')],
     resolve: {
         extensions: ['.ts', '.js']
     },
@@ -35,7 +44,7 @@ module.exports = {
                         loader: 'ts-loader',
                         options: {
                             configFile: configFileName,
-                            reportFiles: ['src/server/**/*.ts']
+                            reportFiles: ['src/extension/**/*.{ts,tsx}']
                         }
                     }
                 ]
