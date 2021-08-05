@@ -2,7 +2,7 @@ import { CodeObject } from './server/types';
 import * as ts from 'typescript';
 import { NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
 import { EOL } from 'os';
-import { parse, print } from 'recast';
+import { parse } from 'recast';
 
 import * as path from 'path';
 import * as fs from 'fs';
@@ -94,7 +94,10 @@ export function getCodeObject(cell: NotebookCell): CodeObject {
     });
 
     let transpiledCode = result.outputText
-        .replace('Object.defineProperty(exports, "__esModule", { value: true });', '')
+        .replace(
+            'Object.defineProperty(exports, "__esModule", { value: true });',
+            ' '.repeat('Object.defineProperty(exports, "__esModule", { value: true });'.length)
+        )
         // Remove `use strict`, this causes issues some times.
         // E.g. this code fails (dfd not found).
         /*
@@ -112,7 +115,7 @@ const layout = {
 const newDf = df.set_index({ key: "Date" })
 newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
             */
-        .replace('"use strict";', '');
+        .replace('"use strict";', ' '.repeat('"use strict";'.length));
     // If we have async code, then wrap with `(async () => ..., see below.
     //
     // (async () => { return (
@@ -188,24 +191,31 @@ function replaceTopLevelConstWithVar(source: string) {
         parsedCode = parse(source, options);
     } catch (ex) {
         try {
-            const modified = `(async () => {${EOL}${source}${EOL}})()`;
+            source = `(async () => {${EOL}${source}${EOL}})()`;
             // Possible user can write TS code in a JS cell, hence parser could fall over.
             // E.g. ES6 imports isn't supprted in nodejs for js files, & parsing that could faill.
-            parsedCode = parse(modified, options);
+            parsedCode = parse(source, options);
         } catch (ex) {
             console.error(`Failed to parse code ${source}`, ex);
             return source;
         }
     }
-    if (parsedCode.type !== 'File' || !Array.isArray(parsedCode.program.body)) {
+    if (parsedCode.type !== 'File' || !Array.isArray(parsedCode.program.body) || parsedCode.program.body.length === 0) {
         return source;
     }
+    const rangesToUpdate: BodyLocation[] = [];
     const body = parsedCode.program.body[0];
-    if (body.type === 'VariableDeclaration' && body.kind === 'const') {
-        body.kind = 'var';
-        const result = print(parsedCode);
+    if (
+        parsedCode.program.body.length > 0 &&
+        parsedCode.program.body.some((item) => item.type === 'VariableDeclaration' && item.kind === 'const')
+    ) {
+        parsedCode.program.body
+            .filter((item) => item.type === 'VariableDeclaration' && item.kind === 'const')
+            .forEach((item) => {
+                rangesToUpdate.push(item.loc);
+            });
         // TODO: Use the soruce maps (required for debugging, etc).
-        return result.code;
+        return replaceConstWithVar(source, rangesToUpdate);
     }
     if (
         body.type === 'ExpressionStatement' &&
@@ -214,14 +224,28 @@ function replaceTopLevelConstWithVar(source: string) {
     ) {
         body.expression.callee.body.body.forEach((item) => {
             if (item.type === 'VariableDeclaration' && item.kind === 'const') {
-                item.kind = 'var';
+                rangesToUpdate.push(item.loc);
             }
         });
-        const result = print(parsedCode);
         // TODO: Use the soruce maps (required for debugging, etc).
-        return result.code;
+        return replaceConstWithVar(source, rangesToUpdate);
     }
     return source;
+}
+function replaceConstWithVar(source: string, positions: BodyLocation[]): string {
+    if (positions.length === 0) {
+        return source;
+    }
+    // This is very slow, but shouldn't be too bad, we're not dealing with 100s of MB
+    // besides this only happens when user runs a cell.
+    const lines = source.split(/\r?\n/);
+    positions.forEach(({ start }) => {
+        const line = lines[start.line - 1];
+        // We're just replacing the keyword `const` with `var  ` ensuring we keep the same sapces.
+        // Preserve the position with empty spaces so that source maps don't get screwed up.
+        lines[start.line - 1] = line.substring(0, start.column) + 'var  ' + line.substring(5);
+    });
+    return lines.join(EOL);
 }
 function createCodeObject(cell: NotebookCell, sourceCode: string, sourceMapText: string) {
     const codeObject: CodeObject = mapFromCellToPath.get(cell) || {
@@ -267,29 +291,37 @@ function getNotebookCellfromUri(uri?: Uri) {
     }
 }
 
+type TokenLocation = { line: number; column: number };
+type BodyLocation = { start: TokenLocation; end: TokenLocation };
 type ParsedCode = {
     type: 'File' | '<other>';
     program: {
         type: 'Program';
         body: (
-            | { type: 'FunctionDeclaration'; body: BlockStatement }
+            | { type: 'FunctionDeclaration'; body: BlockStatement; loc: BodyLocation }
             | ExpressionStatement
-            | { type: 'VariableDeclaration'; kind: 'const' | 'var' | 'let' }
-            | { type: '<other>' }
+            | { type: 'VariableDeclaration'; kind: 'const' | 'var' | 'let'; loc: BodyLocation }
+            | { type: '<other>'; loc: BodyLocation }
         )[];
     };
 };
 type BlockStatement = {
-    body: ({ type: 'VariableDeclaration'; kind: 'const' | 'var' | 'let' } | { type: '<other>' })[];
+    body: (
+        | { type: 'VariableDeclaration'; kind: 'const' | 'var' | 'let'; loc: BodyLocation }
+        | { type: '<other>'; loc: BodyLocation }
+    )[];
 };
 type ExpressionStatement = {
     type: 'ExpressionStatement';
     expression:
         | {
-              callee: { body: BlockStatement; type: 'ArrowFunctionExpression' };
+              callee: { body: BlockStatement; type: 'ArrowFunctionExpression'; loc: BodyLocation };
               type: 'CallExpression';
+              loc: BodyLocation;
           }
         | {
               type: '<other>';
+              loc: BodyLocation;
           };
+    loc: BodyLocation;
 };

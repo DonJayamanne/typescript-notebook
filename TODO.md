@@ -43,6 +43,37 @@ We're supposed to have unique output
 We're supposed to have unique mime types in each Output.
 * When we get messages from renderer, we don't know what notebook it belongs to.
 NotebookEditor doesn't have any public members.
+* Class, Function hoisting
+    * We can add code such as `this.<className> = className`; this way we let JS hoist functions, classes
+    * & ensure we map the genrated souce maps accordingly.
+    * This will work
+
+E.g.
+```typecript
+await sleep();
+cosnt instance = new ClassName();
+
+class ClassName {
+
+}
+```
+Then running the following code will fail (because ClassName is private in lexical scoping):
+```
+cosnt instance = new ClassName();
+```
+Solution is to convert the typescript/js code to the following (`this.ClassName = ClassName;`):
+Eureka moment
+```typecript
+this.ClassName = ClassName;
+await sleep();
+cosnt instance = new ClassName();
+
+class ClassName {
+
+}
+```
+
+
 * Source map issues (variable hoisting)
     * Have an option to never hoist (default)
     * Have option to hoist
