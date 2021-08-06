@@ -17,6 +17,38 @@ At the end of the day the shell is setup by the user.
     This way we can open the new webview on the side.
 12. Use ESBuild for extension (excluding `node-pty`, that's better bundled & shipped in node_modules folder, this way the bundle will pick it)
 13. Fix prettier, etc
+14. We know when we have hacked to ensure functions & classes are available in other cells.
+E.g. if we have a cell such as
+```typescript
+z = await Promise.resolve(2134);
+class OneThat3 {
+    public doIt(){
+        console.log('Done3');
+        return 3;
+    }
+}
+const x = new OneThat3()
+```
+If we run this as is in another cell, OneThat3 will not be available in subsequent cells.
+Similarly if `OneThat3` is a funciton it will not be available in subsequent cells.
+This is because we wrap them with `(async () => {<cell body>})()`.
+In such cases we have a hacky solution.
+But if the user instead has code such as the following, they'll get `OneThat3` not defined
+```typescript
+const x = new OneThat3()
+z = await Promise.resolve(2134);
+class OneThat3 {
+    public doIt(){
+        console.log('Done3');
+        return 3;
+    }
+}
+```
+
+We can definitely detect such errors & we know we caused it, hence we can display a message for this & suggest the user
+turn off a flag, but source maps will not work when debugging.
+
+
 
 # Shipping
 * Icon
@@ -86,4 +118,32 @@ class ClassName {
 * Variable hoisting
     * At worst, we notify users that this will not work when debugging (yuck)
     * Or we open a dummy cell & start debugging that code (yuck)
+
+
+
+# Known issues
+* Hoisting is always an issue (after all its just hacky, we're changing user code)
+* Printing value of last expression vs `console.log`
+See below
+```typescript
+    var s = await Promise.resolve(1);
+    function bye(){
+        console.log("Bye");
+    }
+    bye();
+    s
+```
+When you run this, the value `1` will be displayed first and then we'll see `Bye`.
+This is because we get output from repl before we get output from stdout of the process.
+** SOLUTION **
+* After we get the result from the repl, we can send a `console.log(<GUID>)`, this will
+tell the UI that we have some output that will be coming.
+Next we sent out result via websockets. We should not display the output we got from the socket
+until we've received the `<GUID>` from `process.stdout`, once we wait, we know any `console.log` the
+user sent would have been received & printed in the right order.
+Thus if we look at the above example, the output would be in the right order as follows:
+```
+Bye
+1
+```
 

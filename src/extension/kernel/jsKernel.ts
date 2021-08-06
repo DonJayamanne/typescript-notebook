@@ -10,7 +10,7 @@ import {
 import { IDisposable } from '../types';
 import * as getPort from 'get-port';
 import * as WebSocket from 'ws';
-import { RequestType, ResponseType } from './server/types';
+import { CodeObject, RequestType, ResponseType } from './server/types';
 import { CellExecutionState } from './types';
 import * as path from 'path';
 import { ChildProcess, spawn } from 'child_process';
@@ -122,7 +122,17 @@ export class JavaScriptKernel implements IDisposable {
         task.start(Date.now());
         void task.clearOutput();
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
-        const code = getCodeObject(task.cell);
+        let code: CodeObject;
+        try {
+            code = getCodeObject(task.cell);
+        } catch (ex: unknown) {
+            console.error(`Failed to generate code object`, ex);
+            const error = new Error(`Failed to generate code object, ${(ex as Partial<Error> | undefined)?.message}`);
+            error.stack = ''; // Don't show stack trace pointing to our internal code (its not useful & its ugly)
+            stdOutput.appendError(error);
+            task.end(false, Date.now());
+            return CellExecutionState.error;
+        }
         this.mapOfCodeObjectsToCellIndex.set(code.sourceFilename, task.cell.index);
         ServerLogger.appendLine(`Execute:`);
         ServerLogger.appendLine(code.code);

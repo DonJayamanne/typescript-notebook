@@ -8,7 +8,6 @@ const diagnosticsCollection = languages.createDiagnosticCollection('Typscript No
 
 export class CellDiagnosticsProvider {
     private readonly disposables: IDisposable[] = [];
-    constructor() {}
     public static register(context: ExtensionContext) {
         context.subscriptions.push(new CellDiagnosticsProvider());
     }
@@ -23,12 +22,12 @@ export class CellDiagnosticsProvider {
     public static clearErrors(notebook: NotebookDocument) {
         notebook.getCells().forEach((cell) => diagnosticsCollection.delete(cell.document.uri));
     }
-    public static trackErrors(notebook: NotebookDocument, ex?: Error) {
+    public static trackErrors(notebook: NotebookDocument, ex?: Partial<Error>) {
         CellDiagnosticsProvider.clearErrors(notebook);
-        if (!ex?.stack) {
+        if (!ex || !ex?.stack) {
             return;
         }
-        const stacks = parseStack(ex);
+        const stacks = parseStack(ex as Error);
         if (stacks.length === 0) {
             return;
         }
@@ -42,7 +41,7 @@ export class CellDiagnosticsProvider {
         if (!wordRange) {
             return;
         }
-        const diagnostic = new Diagnostic(wordRange, ex.message, DiagnosticSeverity.Error);
+        const diagnostic = new Diagnostic(wordRange, ex.message || '', DiagnosticSeverity.Error);
         diagnosticsCollection.set(cell.document.uri, [diagnostic]);
     }
 }

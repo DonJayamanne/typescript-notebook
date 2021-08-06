@@ -15,7 +15,7 @@ const { isPlainObject } = require('is-plain-object');
 const taskMap = new WeakMap<NotebookCell, CellStdOutput>();
 export class CellStdOutput {
     private ended?: boolean;
-    private lastOutput?: { stdout?: NotebookCellOutput; stdErr?: NotebookCellOutput; other?: NotebookCellOutput };
+    private lastOutputForStdOut?: NotebookCellOutput;
     private promise = Promise.resolve();
     private _tempTask?: NotebookCellExecution;
     public get completed() {
@@ -43,7 +43,7 @@ export class CellStdOutput {
         this._task = task;
     }
     public hackyReset() {
-        this.lastOutput = undefined;
+        this.lastOutputForStdOut = undefined;
     }
     public end() {
         if (this.ended) {
@@ -62,11 +62,11 @@ export class CellStdOutput {
         this.promise = this.promise
             .finally(() => {
                 const item = NotebookCellOutputItem.stdout(value);
-                if (this.lastOutput?.stdout) {
-                    return this.task.appendOutputItems(item, this.lastOutput.stdout);
+                if (this.lastOutputForStdOut) {
+                    return this.task.appendOutputItems(item, this.lastOutputForStdOut);
                 } else {
-                    this.lastOutput = { stdout: new NotebookCellOutput([item]) };
-                    return this.task.appendOutput(this.lastOutput.stdout!);
+                    this.lastOutputForStdOut = new NotebookCellOutput([item]);
+                    return this.task.appendOutput(this.lastOutputForStdOut);
                 }
             })
             .finally(() => this.endTempTask());
@@ -75,6 +75,7 @@ export class CellStdOutput {
      * This is all wrong.
      */
     public appendOutput(output: DisplayData) {
+        this.hackyReset();
         this.promise = this.promise
             .finally(() => {
                 const individualOutputItems: DisplayData[] = [];
@@ -83,53 +84,47 @@ export class CellStdOutput {
                 } else {
                     individualOutputItems.push(output);
                 }
-                // this.lastOutput = this.lastOutput?.other ? this.lastOutput : { other: new NotebookCellOutput([]) };
-                this.lastOutput = { other: new NotebookCellOutput([]) };
-                individualOutputItems.forEach((value) => {
-                    let item: NotebookCellOutputItem;
+                const items = individualOutputItems.map((value) => {
                     if (value && typeof value === 'object' && 'type' in value && value.type === 'image') {
-                        item = new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
+                        return new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'json') {
-                        item = NotebookCellOutputItem.json(value.value);
+                        return NotebookCellOutputItem.json(value.value);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'array') {
-                        item = NotebookCellOutputItem.json(value.value);
+                        return NotebookCellOutputItem.json(value.value);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'tensor') {
-                        item = NotebookCellOutputItem.json(value.value);
+                        return NotebookCellOutputItem.json(value.value);
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'html') {
-                        item = NotebookCellOutputItem.text(value.value, 'text/html');
+                        return NotebookCellOutputItem.text(value.value, 'text/html');
                     } else if (value && typeof value === 'object' && 'type' in value && value.type === 'generatePlog') {
-                        item = this.renderPlotScript(value);
+                        return this.renderPlotScript(value);
                     } else if (isPlainObject(value)) {
-                        item = NotebookCellOutputItem.json(value);
+                        return NotebookCellOutputItem.json(value);
                     } else {
                         // } else if (typeof value === 'string') {
-                        item = NotebookCellOutputItem.text(value.toString());
+                        return NotebookCellOutputItem.text(value.toString());
                     }
-                    this.lastOutput!.other?.items.push(item);
                 });
 
-                return this.task.appendOutput(this.lastOutput.other!);
+                return this.task.appendOutput(new NotebookCellOutput(items));
             })
             .finally(() => this.endTempTask());
     }
     public appendStdErr(value: string) {
+        this.hackyReset();
         value = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
         this.promise = this.promise
             .finally(() => {
                 const item = NotebookCellOutputItem.stderr(value);
-                if (this.lastOutput?.stdErr) {
-                    return this.task.appendOutputItems(item, this.lastOutput.stdErr);
-                } else {
-                    this.lastOutput = { stdErr: new NotebookCellOutput([item]) };
-                    return this.task.appendOutput(this.lastOutput.stdErr!);
-                }
+                return this.task.appendOutput(new NotebookCellOutput([item]));
             })
             .finally(() => this.endTempTask());
     }
-    public appendError(ex: Error) {
+    public appendError(ex?: Partial<Error>) {
+        this.hackyReset();
         CellDiagnosticsProvider.trackErrors(this.task.cell.notebook, ex);
-        const newEx = new Error(ex.message);
-        newEx.name = ex.name;
+        const newEx = new Error(ex?.message || '<unknown>');
+        newEx.name = ex?.name || '';
+        newEx.stack = ex?.stack || '';
         newEx.stack = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, newEx);
         const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
         this.promise = this.promise.finally(() => this.task.appendOutput(output)).finally(() => this.endTempTask());
@@ -148,70 +143,3 @@ export class CellStdOutput {
         }
     }
 }
-
-// function getPlotlyDownloadScript(data: plotly.Data, layout: plotly.Layout, format: 'png' | 'jpeg' | 'svg' = 'png') {
-//     const id = `X${uuid().replace(/-/g, '')}`;
-//     return `
-//     const ele = document.createElement('div');
-//     ele.setAttribute('id', '${id}');
-//     ele.style.display = 'none';
-//     document.body.appendChild(ele);
-//     Plotly.newPlot(
-//         '${id}',
-//         ${JSON.stringify(data)},
-//         ${JSON.stringify(layout)}
-//     ).then((gd) => {
-//         Plotly.toImage(gd,{format:'${format}', height:${layout.height} || 400, width: ${layout.width} || 500})
-//             .then((url) => console.error(url))
-//             .catch(ex => console.error('Failed to convert Plot to image', ex))
-//     });
-// `;
-// }
-// function getPlotlyScript(plotlyScript: string) {
-//     return `
-// console.error('Script start');
-// (function __registerScript(){
-//     console.error('Script start0');
-//     async function registerPlotlyScript(){
-//         console.error('Script start01');
-//         if (window.__plotlyPromise){
-//             console.error('Script start01A');
-//             return window.__plotlyPromise;
-//         }
-//         return window.__plotlyPromise = new Promise((resolve, reject) => {
-//             console.error('Script start3');
-//             const uri = 'https://cdn.plot.ly/plotly-2.3.0.min.js';
-//             console.error('Script start4');
-//             const head = document.head;
-
-//             const scriptNode = document.createElement('script');
-//             scriptNode.src = uri;
-//             scriptNode.onload = () => {
-//                 console.error('Script loaded successfully');
-//                 resolve();
-//             };
-//             scriptNode.onerror = (err) => {
-//                 console.error('Script failed to load', err);
-//                 reject(err);
-//             };
-//             head.append(scriptNode);
-//         });
-//     }
-//     console.error('Script start1');
-//     registerPlotlyScript().then(() => {
-//         console.error('Script successfully registerd then');
-
-//         function findPlotly() {
-//             try {
-//                 console.error(Plotly);
-//                 console.error(window.Plotly);
-//             } catch (ex) {
-//                 setInterval(findPlotly, 1000);
-//             }
-//         }
-//         findPlotly();
-//         ${plotlyScript}
-//     });
-// })();
-// `;
-// }

@@ -48,6 +48,8 @@ export class CellExecutionQueue implements IDisposable {
     }
     public dispose() {
         this.stop();
+        JavaScriptKernel.get(this.notebookDocument)?.dispose();
+        cellExecutionQueues.delete(this.notebookDocument);
     }
     public enqueueAndRun(cell: NotebookCell) {
         if (this.pendingCells.some((item) => item.cell === cell)) {
@@ -70,8 +72,6 @@ export class CellExecutionQueue implements IDisposable {
         });
         this.pendingCells = [];
         this.queue = undefined;
-
-        cellExecutionQueues.delete(this.notebookDocument);
     }
     private start() {
         if (this.queue) {

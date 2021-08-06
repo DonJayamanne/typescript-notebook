@@ -6,14 +6,14 @@ import { CellExecutionState } from './types';
 
 export async function execute(task: NotebookCellExecution, _token: CancellationToken): Promise<CellExecutionState> {
     task.start(Date.now());
-    task.clearOutput();
+    void task.clearOutput();
     task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
     if (task.cell.document.languageId === 'javascript' || task.cell.document.languageId === 'typescript') {
         const code = getCodeObject(task.cell);
         const script = `<script type='text/javascript'>${code}</script>`;
-        task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.text(script, 'text/html')]));
+        void task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.text(script, 'text/html')]));
     } else {
-        task.appendOutput(
+        void task.appendOutput(
             new NotebookCellOutput([NotebookCellOutputItem.text(task.cell.document.getText(), 'text/html')])
         );
     }
