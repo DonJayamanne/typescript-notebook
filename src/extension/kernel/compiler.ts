@@ -71,7 +71,8 @@ export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, 
 
 export function getCodeObject(cell: NotebookCell): CodeObject {
     try {
-        const code = cell.document.getText();
+        // Parser fails when we have comments in the last line, hence just add empty line.
+        const code = `${cell.document.getText()}${EOL}`;
         const details = createCodeObject(cell);
         if (details.textDocumentVersion === cell.document.version) {
             return details;
@@ -282,7 +283,6 @@ function updateCodeAndAdjustSourceMaps(
     const updates = new Map<OldColumn, NewColumn>();
     updates.set(0, '(async () => {'.length);
     linesUpdated.set(1, updates);
-    let hoisedFunctionsAndClasses = '';
     positions.forEach((item) => {
         const { loc, type } = item;
         switch (type) {
@@ -291,35 +291,15 @@ function updateCodeAndAdjustSourceMaps(
                 const name = item.id.name;
                 // if we have code such as `class HelloWord{ .... }`,
                 // We inject `this.HelloWord = HelloWord;` in the first line of code.
-                hoisedFunctionsAndClasses += `${hoisedFunctionsAndClasses}this.${name} = ${name};`;
                 lines[0] = `${lines[0]}this.${name} = ${name};`;
-                // lines[loc.end.line - 1] = `${line.substring(0, loc.end.column)}${newCode}${line.substring(
-                //     loc.end.column
-                // )}`;
-
-                // // Keep track to udpate source maps;
-                // const changesToCode = linesUpdated.get(loc.end.line) || new Map<OldColumn, NewColumn>();
-                // changesToCode.set(loc.end.column, loc.end.column + newCode.length);
-                // linesUpdated.set(loc.end.line, changesToCode);
                 break;
             }
             case 'FunctionDeclaration': {
                 // const line = lines[loc.end.line - 1];
                 const name = item.id.name;
-                hoisedFunctionsAndClasses += `${hoisedFunctionsAndClasses}this.${name} = ${name};`;
                 // // if we have code such as `function sayHello(){ .... }`,
                 // We inject `this.sayHello = sayHello;` in the first line of code.
                 lines[0] = `${lines[0]}this.${name} = ${name};`;
-                // // Now change to `function sayHello(){ .... };this.sayHello = sayHello;`
-                // const newCode = `;this.${name} = ${name};`;
-                // lines[loc.end.line - 1] = `${line.substring(0, loc.end.column)}${newCode}${line.substring(
-                //     loc.end.column
-                // )}`;
-
-                // // Keep track to udpate source maps;
-                // const changesToCode = linesUpdated.get(loc.end.line) || new Map<OldColumn, NewColumn>();
-                // changesToCode.set(loc.end.column, loc.end.column + newCode.length);
-                // linesUpdated.set(loc.end.line, changesToCode);
                 break;
             }
             case 'VariableDeclaration':
@@ -410,8 +390,6 @@ function updateCodeAndAdjustSourceMaps(
     original.eachMapping((mapping) => {
         const newMapping: MappingItem = {
             generatedColumn: mapping.generatedColumn,
-            // If we wrap with IIFE, then generated source line will be +1
-            // generatedLine: mapping.generatedLine + (wrappedWithIIFE ? 1 : 0),
             generatedLine: mapping.generatedLine,
             name: mapping.name,
             originalColumn: mapping.originalColumn,
@@ -420,19 +398,6 @@ function updateCodeAndAdjustSourceMaps(
         };
         if (!firstLineAdded && wrappedWithIIFE) {
             firstLineAdded = true;
-            updated.addMapping({
-                generated: {
-                    column: 0,
-                    // If we wrap with IIFE, then generated source line will be +1
-                    line: 1
-                },
-                original: {
-                    column: mapping.originalColumn,
-                    line: mapping.originalLine
-                },
-                name: mapping.name,
-                source: mapping.source
-            });
             updated.addMapping({
                 generated: {
                     column: lines[0].indexOf('{') + 1,
@@ -486,7 +451,6 @@ function createCodeObject(cell: NotebookCell) {
         code: '',
         sourceFilename: '',
         sourceMapFilename: '',
-        // originalFilename: '',
         friendlyName: `${path.basename(cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`,
         textDocumentVersion: -1
     };
@@ -494,8 +458,6 @@ function createCodeObject(cell: NotebookCell) {
         tmpDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-nodebook-'));
     }
     codeObject.code = '';
-    // codeObject.originalFilename =
-    //     codeObject.sourceFilename || path.join(tmpDirectory, `nodebook_cell_${cell.document.uri.fragment}.js`);
     codeObject.sourceFilename =
         codeObject.sourceFilename || path.join(tmpDirectory, `nodebook_cell_${cell.document.uri.fragment}.js`);
     codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
@@ -511,14 +473,11 @@ function updateCodeObject(codeObject: CodeObject, cell: NotebookCell, sourceCode
 
     if (codeObject.textDocumentVersion !== cell.document.version) {
         fs.writeFileSync(codeObject.sourceFilename, sourceCode);
-        // fs.writeFileSync(codeObject.originalFilename, '');
-        // Possible source map has not yet been generated.
         if (sourceMapText) {
             fs.writeFileSync(codeObject.sourceMapFilename, sourceMapText);
         }
     }
     codeObject.textDocumentVersion = cell.document.version;
-    // mapOfSourceFilesToNotebookUri.set(codeObject.originalFilename, cell.document.uri);
     mapFromCellToPath.set(cell, codeObject);
     return codeObject;
 }
