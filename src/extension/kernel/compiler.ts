@@ -122,35 +122,28 @@ const newDf = df.set_index({ key: "Date" })
 newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
             */
             .replace('"use strict";', ' '.repeat('"use strict";'.length));
-        // If we have async code, then wrap with `(async () => ..., see below.
-        //
-        // (async () => { return (
-        // x = await Promise.resolve('1'));
-        // })()
-        //
-        // This happens today in the backend when running the code in the repl.
-        // If we wrap, the we dont need to use the npm, and we can map the line numbers more precisely.
-        // TIP: We should probably add some metadata that indicates the range for the real code (thus ignoring stuff we added)
-        // Also fails if we have a trailing comment, adding a new line helps.
+
+        // Split generated source & source maps
         const lines = transpiledCode.split(/\r?\n/);
         const sourceMapLine = lines.pop()!;
         transpiledCode = lines.join(EOL);
-        const sourceWithSourceMaps = transpiledCode; //lines.join(EOL);
+
+        // Update the source to account for top level awaits, etc.
         const sourceMap = Buffer.from(sourceMapLine.substring(sourceMapLine.indexOf(',') + 1), 'base64').toString();
         const sourceMapInfo = { original: sourceMap, updated: '' };
-        transpiledCode = replaceTopLevelConstWithVar(sourceWithSourceMaps, sourceMapInfo);
+        transpiledCode = replaceTopLevelConstWithVar(transpiledCode, sourceMapInfo);
+
+        // Re-generate source maps correctly
         let updatedSourceMap = sourceMapInfo.updated || '';
-        // const updateSrouceMap: RawSourceMap = JSON.parse(updatedSourceMap || sourceMapInfo.updated || sourceMap || '');
         const updateSrouceMap: RawSourceMap = JSON.parse(updatedSourceMap || sourceMapInfo.updated || sourceMap || '');
         updateSrouceMap.file = path.basename(details.sourceFilename);
         updateSrouceMap.sourceRoot = path.dirname(details.sourceFilename);
         updateSrouceMap.sources = [path.basename(details.sourceFilename)];
         updatedSourceMap = JSON.stringify(updateSrouceMap);
-
-        // transpiledCode = `${transpiledCode}${EOL}//# sourceMappingURL=${details.sourceMapFilename}`;
         transpiledCode = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
             updatedSourceMap
         ).toString('base64')}`;
+
         updateCodeObject(details, cell, transpiledCode, updatedSourceMap);
         console.debug(`Compiled TS cell ${cell.index} into ${details.code}`);
         return details;
