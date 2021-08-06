@@ -77,11 +77,12 @@ export function getCodeObject(cell: NotebookCell): CodeObject {
             return details;
         }
         // Even if the code is JS, transpile it (possibel user accidentally selected JS cell & wrote TS code)
-        const result = ts.transpileModule(code, {
-            compilerOptions: {
+        const result = ts.transpile(
+            code,
+            {
                 sourceMap: true,
-                inlineSourceMap: false,
-                sourceRoot: path.basename(details.sourceMapFilename),
+                inlineSourceMap: true,
+                sourceRoot: path.dirname(details.sourceFilename),
                 // noImplicitUseStrict: true,
                 importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Preserve,
                 strict: false,
@@ -94,9 +95,10 @@ export function getCodeObject(cell: NotebookCell): CodeObject {
                 // esModuleInterop: true,
                 allowJs: true,
                 allowSyntheticDefaultImports: true
-            }
-        });
-        let transpiledCode = result.outputText
+            },
+            details.sourceFilename
+        );
+        let transpiledCode = result
             .replace(
                 'Object.defineProperty(exports, "__esModule", { value: true });',
                 ' '.repeat('Object.defineProperty(exports, "__esModule", { value: true });'.length)
@@ -129,10 +131,26 @@ newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
         // If we wrap, the we dont need to use the npm, and we can map the line numbers more precisely.
         // TIP: We should probably add some metadata that indicates the range for the real code (thus ignoring stuff we added)
         // Also fails if we have a trailing comment, adding a new line helps.
-        const sourceMapInfo = { original: result.sourceMapText, updated: '' };
-        transpiledCode = replaceTopLevelConstWithVar(transpiledCode, sourceMapInfo);
-        // transpiledCode = processTopLevelAwait(transpiledCode) || transpiledCode;
-        updateCodeObject(details, cell, transpiledCode, sourceMapInfo.updated || result.sourceMapText || '');
+        const lines = transpiledCode.split(/\r?\n/);
+        const sourceMapLine = lines.pop()!;
+        transpiledCode = lines.join(EOL);
+        const sourceWithSourceMaps = transpiledCode; //lines.join(EOL);
+        const sourceMap = Buffer.from(sourceMapLine.substring(sourceMapLine.indexOf(',') + 1), 'base64').toString();
+        const sourceMapInfo = { original: sourceMap, updated: '' };
+        transpiledCode = replaceTopLevelConstWithVar(sourceWithSourceMaps, sourceMapInfo);
+        let updatedSourceMap = sourceMapInfo.updated || '';
+        // const updateSrouceMap: RawSourceMap = JSON.parse(updatedSourceMap || sourceMapInfo.updated || sourceMap || '');
+        const updateSrouceMap: RawSourceMap = JSON.parse(updatedSourceMap || sourceMapInfo.updated || sourceMap || '');
+        updateSrouceMap.file = path.basename(details.sourceFilename);
+        updateSrouceMap.sourceRoot = path.dirname(details.sourceFilename);
+        updateSrouceMap.sources = [path.basename(details.sourceFilename)];
+        updatedSourceMap = JSON.stringify(updateSrouceMap);
+
+        // transpiledCode = `${transpiledCode}${EOL}//# sourceMappingURL=${details.sourceMapFilename}`;
+        transpiledCode = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
+            updatedSourceMap
+        ).toString('base64')}`;
+        updateCodeObject(details, cell, transpiledCode, updatedSourceMap);
         console.debug(`Compiled TS cell ${cell.index} into ${details.code}`);
         return details;
     } catch (ex) {
@@ -199,7 +217,7 @@ function replaceTopLevelConstWithVar(source: string, sourceMap: { original?: str
         parsedCode = parse(source, options);
     } catch (ex) {
         try {
-            source = `(async () => {${EOL}${source}${EOL}})()`;
+            source = `(async () => {${source}})()`;
             // Possible user can write TS code in a JS cell, hence parser could fall over.
             // E.g. ES6 imports isn't supprted in nodejs for js files, & parsing that could faill.
             parsedCode = parse(source, options);
@@ -261,6 +279,9 @@ function updateCodeAndAdjustSourceMaps(
     type OldColumn = number;
     type NewColumn = number;
     const linesUpdated = new Map<LineNumber, Map<OldColumn, NewColumn>>();
+    const updates = new Map<OldColumn, NewColumn>();
+    updates.set(0, '(async () => {'.length);
+    linesUpdated.set(1, updates);
     let hoisedFunctionsAndClasses = '';
     positions.forEach((item) => {
         const { loc, type } = item;
@@ -269,9 +290,9 @@ function updateCodeAndAdjustSourceMaps(
                 // const line = lines[loc.end.line - 1];
                 const name = item.id.name;
                 // if we have code such as `class HelloWord{ .... }`,
-                // We change to `class HelloWord{...};this.HelloWord = HelloWord;`
+                // We inject `this.HelloWord = HelloWord;` in the first line of code.
                 hoisedFunctionsAndClasses += `${hoisedFunctionsAndClasses}this.${name} = ${name};`;
-                // lines[0] = `${lines[0]}this.${name} = ${name};`;
+                lines[0] = `${lines[0]}this.${name} = ${name};`;
                 // lines[loc.end.line - 1] = `${line.substring(0, loc.end.column)}${newCode}${line.substring(
                 //     loc.end.column
                 // )}`;
@@ -286,8 +307,9 @@ function updateCodeAndAdjustSourceMaps(
                 // const line = lines[loc.end.line - 1];
                 const name = item.id.name;
                 hoisedFunctionsAndClasses += `${hoisedFunctionsAndClasses}this.${name} = ${name};`;
-                // lines[0] = `${lines[0]}this.${name} = ${name};`;
                 // // if we have code such as `function sayHello(){ .... }`,
+                // We inject `this.sayHello = sayHello;` in the first line of code.
+                lines[0] = `${lines[0]}this.${name} = ${name};`;
                 // // Now change to `function sayHello(){ .... };this.sayHello = sayHello;`
                 // const newCode = `;this.${name} = ${name};`;
                 // lines[loc.end.line - 1] = `${line.substring(0, loc.end.column)}${newCode}${line.substring(
@@ -389,7 +411,8 @@ function updateCodeAndAdjustSourceMaps(
         const newMapping: MappingItem = {
             generatedColumn: mapping.generatedColumn,
             // If we wrap with IIFE, then generated source line will be +1
-            generatedLine: mapping.generatedLine + (wrappedWithIIFE ? 1 : 0),
+            // generatedLine: mapping.generatedLine + (wrappedWithIIFE ? 1 : 0),
+            generatedLine: mapping.generatedLine,
             name: mapping.name,
             originalColumn: mapping.originalColumn,
             originalLine: mapping.originalLine,
@@ -431,7 +454,6 @@ function updateCodeAndAdjustSourceMaps(
             positionsInAscendingOrder.forEach((adjustedColumn) => {
                 const newColumn = adjustments.get(adjustedColumn)!;
                 if (mapping.generatedColumn === adjustedColumn) {
-                    debugger;
                     newMapping.generatedColumn = newColumn;
                 }
             });
@@ -464,12 +486,16 @@ function createCodeObject(cell: NotebookCell) {
         code: '',
         sourceFilename: '',
         sourceMapFilename: '',
+        // originalFilename: '',
+        friendlyName: `${path.basename(cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`,
         textDocumentVersion: -1
     };
     if (!tmpDirectory) {
         tmpDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-nodebook-'));
     }
     codeObject.code = '';
+    // codeObject.originalFilename =
+    //     codeObject.sourceFilename || path.join(tmpDirectory, `nodebook_cell_${cell.document.uri.fragment}.js`);
     codeObject.sourceFilename =
         codeObject.sourceFilename || path.join(tmpDirectory, `nodebook_cell_${cell.document.uri.fragment}.js`);
     codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
@@ -485,13 +511,14 @@ function updateCodeObject(codeObject: CodeObject, cell: NotebookCell, sourceCode
 
     if (codeObject.textDocumentVersion !== cell.document.version) {
         fs.writeFileSync(codeObject.sourceFilename, sourceCode);
+        // fs.writeFileSync(codeObject.originalFilename, '');
         // Possible source map has not yet been generated.
         if (sourceMapText) {
             fs.writeFileSync(codeObject.sourceMapFilename, sourceMapText);
         }
     }
     codeObject.textDocumentVersion = cell.document.version;
-    mapOfSourceFilesToNotebookUri.set(codeObject.sourceFilename, cell.document.uri);
+    // mapOfSourceFilesToNotebookUri.set(codeObject.originalFilename, cell.document.uri);
     mapFromCellToPath.set(cell, codeObject);
     return codeObject;
 }
