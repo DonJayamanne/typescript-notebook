@@ -2,6 +2,7 @@ import { CodeObject } from './server/types';
 import * as ts from 'typescript';
 import { NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
 import { EOL } from 'os';
+import * as acorn from 'acorn';
 import { parse } from 'recast';
 import { MappingItem, RawSourceMap, SourceMapConsumer, SourceMapGenerator } from 'source-map';
 import * as path from 'path';
@@ -85,7 +86,7 @@ export function getCodeObject(cell: NotebookCell): CodeObject {
                 inlineSourceMap: true,
                 sourceRoot: path.dirname(details.sourceFilename),
                 // noImplicitUseStrict: true,
-                importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Preserve,
+                importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
                 strict: false,
                 fileName: details.sourceFilename,
                 resolveJsonModule: true,
@@ -131,7 +132,7 @@ newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
         // Update the source to account for top level awaits, etc.
         const sourceMap = Buffer.from(sourceMapLine.substring(sourceMapLine.indexOf(',') + 1), 'base64').toString();
         const sourceMapInfo = { original: sourceMap, updated: '' };
-        transpiledCode = replaceTopLevelConstWithVar(transpiledCode, sourceMapInfo);
+        transpiledCode = replaceTopLevelConstWithVar(cell, transpiledCode, sourceMapInfo);
 
         // Re-generate source maps correctly
         let updatedSourceMap = sourceMapInfo.updated || '';
@@ -200,7 +201,11 @@ image
  * Running the cell again will cause errors.
  * Solution, convert const to var.
  */
-function replaceTopLevelConstWithVar(source: string, sourceMap: { original?: string; updated?: string }) {
+function replaceTopLevelConstWithVar(
+    cell: NotebookCell,
+    source: string,
+    sourceMap: { original?: string; updated?: string }
+) {
     let parsedCode: ParsedCode;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const options: any = { ecmaVersion: 2019 }; // Support minimum of Node 12 (which has support for ES2019)
@@ -242,7 +247,20 @@ function replaceTopLevelConstWithVar(source: string, sourceMap: { original?: str
         }
     });
 
-    return updateCodeAndAdjustSourceMaps(source, rangesToFix, wrappedWithIIFE, body, sourceMap);
+    let updated = updateCodeAndAdjustSourceMaps(source, rangesToFix, wrappedWithIIFE, body, sourceMap);
+    try {
+        const missingImports = getImportAdjustments(cell, body);
+        if (missingImports.length) {
+            const missingImportsStr = `try { ${missingImports.join('; ')} } catch { };`;
+            const expr = '(async () => {';
+            const start = updated.substring(0, updated.indexOf(expr) + expr.length);
+            const end = updated.substring(updated.indexOf(expr) + expr.length);
+            updated = `${start}${missingImportsStr}${end}`;
+        }
+    } catch (ex) {
+        console.error(`Failed to generate Imports`, ex);
+    }
+    return updated;
 }
 function getBodyOfAsyncIIFE(parsedCode: ParsedCode) {
     const body = parsedCode.program.body[0];
@@ -511,23 +529,200 @@ function getNotebookCellfromUri(uri?: Uri) {
 //         }
 //     });
 // }
-// function getImports(cell: NotebookCell): ts.ImportDeclaration[] {
-//     try {
-//         const program = ts.createSourceFile('sample.ts', cell.document.getText(), ts.ScriptTarget.ES2019);
-//         if (program.kind !== ts.SyntaxKind.SourceFile) {
-//             return [];
-//         }
-//         const sourceList = program.getChildAt(0) as ts.SyntaxList;
-//         return sourceList
-//             .getChildren()
-//             .filter((item) => item.kind === ts.SyntaxKind.ImportDeclaration)
-//             .map((item) => (item as ts.ImportDeclaration));
-//     } catch (ex) {
-//         console.error(`Failed to parse TS Source`, ex);
-//         return [];
-//     }
-//     return [];
-// }
+
+type ImportType = {
+    importType: 'empty' | { var: string } | { named: string } | { named: string; as: string };
+    location: { start: number; end: number };
+};
+type ImportTypes = ImportType[];
+function getImportAdjustments(cell: NotebookCell, transpiledSource: string | BodyDeclaration[]) {
+    const requiredImports = getExpectedImports(cell);
+    const registeredImports = getGeneratedImports(transpiledSource);
+    const importsToRegister: string[] = [];
+    requiredImports.forEach((imports, moduleName) => {
+        const generatedImports = registeredImports.get(moduleName);
+        const namedImports: string[] = [];
+        function regsiterMissingImport(item: ImportType) {
+            if (item.importType === 'empty') {
+                importsToRegister.push(`require('${moduleName}');`);
+            } else if ('var' in item.importType) {
+                importsToRegister.push(`var ${item.importType.var} = require('${moduleName}');`);
+            } else if ('as' in item.importType) {
+                namedImports.push(`${item.importType.named} as ${item.importType.as}`);
+            } else {
+                namedImports.push(item.importType.named);
+            }
+        }
+        if (!generatedImports) {
+            imports.forEach(regsiterMissingImport);
+        } else {
+            imports
+                .filter((item) => {
+                    return !generatedImports.find(
+                        (generated) => generated.importType.toString() === item.importType.toString()
+                    );
+                })
+                .forEach(regsiterMissingImport);
+        }
+        if (namedImports.length) {
+            importsToRegister.push(`var {${namedImports.join(', ')}} = require('${moduleName}');`);
+        }
+    });
+
+    // If we have a cell with `import * as fs from 'fs'`,
+    return importsToRegister;
+}
+function getGeneratedImports(source: string | BodyDeclaration[]) {
+    let body: BodyDeclaration[] = [];
+    if (Array.isArray(source)) {
+        body = source;
+    } else {
+        const node: acorn.Node = acorn.parse(source, { ecmaVersion: 2019 });
+        body = (node as any).body;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const varDecs = (body as any).filter(
+        (item) => item.type === 'VariableDeclaration' || item.type === 'ExpressionStatement'
+    );
+    const requires = new Map<string, ImportTypes>();
+    varDecs.forEach((item) => {
+        if (item.type === 'ExpressionStatement') {
+            if (
+                item.expression &&
+                item.expression.callee &&
+                item.expression.callee.type === 'Identifier' &&
+                item.expression.callee.name === 'require' &&
+                Array.isArray(item.expression.arguments) &&
+                item.expression.arguments.length === 1 &&
+                item.expression.arguments[0].type === 'Literal'
+            ) {
+                const namedImports: ImportTypes = requires.get(item.expression.arguments[0].value) || [];
+                namedImports.push({ importType: 'empty', location: { start: item.start, end: item.end } });
+                requires.set(item.expression.arguments[0].value, namedImports);
+            }
+            return;
+        }
+        if (ts.isExpressionStatement(item)) {
+            console.log('OK');
+            const expression = item.expression;
+            if (ts.isCallExpression(expression)) {
+                console.log(expression);
+                return;
+            }
+            return;
+        }
+        if (!Array.isArray(item.declarations) || item.declarations.length === 0) {
+            console.log('WTF');
+            return;
+        }
+        if (item.declarations.length !== 1) {
+            return;
+        }
+        const init = item.declarations[0].init;
+        if (
+            !init ||
+            init.type !== 'CallExpression' ||
+            init.callee.name !== 'require' ||
+            !Array.isArray(init.arguments) ||
+            init.arguments.length !== 1 ||
+            init.arguments[0].type !== 'Literal'
+        ) {
+            // console.log(JSON.stringify(item));
+            return;
+        }
+        const importFrom = init.arguments[0].value;
+        const namedImports: ImportTypes = requires.get(importFrom) || [];
+        if (item.declarations[0].id.type === 'Identifier') {
+            namedImports.push({
+                importType: { var: item.declarations[0].id.name },
+                location: { start: item.start, end: item.end }
+            });
+        } else if (
+            item.declarations[0].id.type === 'ObjectPattern' &&
+            item.declarations[0].id.properties.every((prop) => prop.type === 'Property' && prop.kind === 'init')
+        ) {
+            item.declarations[0].id.properties.forEach((prop) => {
+                if (prop.key.name === prop.value.name) {
+                    namedImports.push({
+                        importType: { named: prop.value.name as string },
+                        location: { start: item.start, end: item.end }
+                    });
+                } else {
+                    namedImports.push({
+                        importType: { named: prop.key.name, as: prop.value.name },
+                        location: { start: item.start, end: item.end }
+                    });
+                }
+            });
+        }
+        if (namedImports.length) {
+            requires.set(importFrom, namedImports);
+        }
+    });
+    return requires;
+}
+function getExpectedImports(cell: NotebookCell) {
+    const program = ts.createSourceFile(
+        cell.document.uri.fsPath,
+        cell.document.getText(),
+        ts.ScriptTarget.ES2019,
+        false,
+        ts.ScriptKind.TS
+    );
+    const sourceList = program.getChildAt(0) as ts.SyntaxList;
+    const imports = sourceList
+        .getChildren()
+        .filter((item) => item.kind === ts.SyntaxKind.ImportDeclaration)
+        .map((item) => item as ts.ImportDeclaration);
+
+    const expectedImports = new Map<string, ImportTypes>();
+    imports.forEach((item: ts.ImportDeclaration) => {
+        const namedImports: ImportTypes = [];
+        if (!ts.isStringLiteral(item.moduleSpecifier)) {
+            return;
+        }
+        const importFrom = item.moduleSpecifier.text;
+        expectedImports.set(importFrom, namedImports);
+        // console.log(item);
+        const importClause = item.importClause;
+        if (!importClause) {
+            namedImports.push({ importType: 'empty', location: { start: item.pos, end: item.end } });
+            return;
+        }
+        if (importClause.isTypeOnly) {
+            return;
+        }
+        if (importClause.name) {
+            namedImports.push({
+                importType: { named: importClause.name.getText(program) },
+                location: { start: item.pos, end: item.end }
+            });
+        }
+        if (importClause.namedBindings) {
+            if (ts.isNamespaceImport(importClause.namedBindings)) {
+                namedImports.push({
+                    importType: { var: importClause.namedBindings.name.text },
+                    location: { start: item.pos, end: item.end }
+                });
+                return;
+            }
+            importClause.namedBindings.elements.forEach((ele) => {
+                if (ele.propertyName) {
+                    namedImports.push({
+                        importType: { named: ele.propertyName.text, as: ele.name.text },
+                        location: { start: item.pos, end: item.end }
+                    });
+                } else {
+                    namedImports.push({
+                        importType: { named: ele.name.text },
+                        location: { start: item.pos, end: item.end }
+                    });
+                }
+            });
+        }
+    });
+    return expectedImports;
+}
 type TokenLocation = { line: number; column: number };
 type BodyLocation = { start: TokenLocation; end: TokenLocation };
 type LocationToFix = FunctionDeclaration | ClassDeclaration | VariableDeclaration;
