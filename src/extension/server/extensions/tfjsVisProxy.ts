@@ -25,8 +25,8 @@ import { Layer } from '@tensorflow/tfjs-layers/dist/engine/topology';
 import { LayersModel } from '@tensorflow/tfjs-layers/dist/engine/training';
 import { TensorFlowVisRequest } from '../types';
 import { sendMessage } from '../comms';
-import { serialize } from '../../../serializer';
-import { generateId } from '../../../coreUtils';
+import { generateId } from '../../coreUtils';
+import { serialize } from '../../serializer';
 
 class VisorProxy {
     constructor(

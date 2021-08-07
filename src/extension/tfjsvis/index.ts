@@ -1,5 +1,5 @@
 import { commands, ExtensionContext, Uri, Webview, WebviewView, WebviewViewProvider, window } from 'vscode';
-import { TensorFlowVis } from '../kernel/server/types';
+import { TensorFlowVis } from '../server/types';
 import { registerDisposable } from '../utils';
 
 const viewType = 'tfjs-vis';

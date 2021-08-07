@@ -6,9 +6,9 @@ import {
     NotebookCellOutputItem,
     NotebookController
 } from 'vscode';
-import { DisplayData, GeneratePlot } from './server/types';
 import { CellDiagnosticsProvider } from './problems';
 import { updateCellPathsInStackTraceOrOutput } from './compiler';
+import { DisplayData, GeneratePlot } from '../server/types';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { isPlainObject } = require('is-plain-object');

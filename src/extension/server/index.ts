@@ -3,9 +3,9 @@ import * as yargs from 'yargs';
 import * as WebSocket from 'ws';
 import { logErrorMessage, logMessage } from './logger';
 import { execCode } from './codeExecution';
-import { createDeferred } from '../../coreUtils';
 import { RequestType } from './types';
 import { emitter, initializeComms, sendMessage } from './comms';
+import { createDeferred } from '../coreUtils';
 
 const ws = createDeferred<WebSocket>();
 

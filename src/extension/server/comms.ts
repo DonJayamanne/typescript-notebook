@@ -1,7 +1,7 @@
-import { createDeferred } from '../../coreUtils';
 import { RequestType, ResponseType } from './types';
 import * as WebSocket from 'ws';
 import { EventEmitter } from 'stream';
+import { createDeferred } from '../coreUtils';
 
 const ws = createDeferred<WebSocket>();
 const messagesToSend: ResponseType[] = [];

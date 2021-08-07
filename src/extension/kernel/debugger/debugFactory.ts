@@ -61,8 +61,7 @@ export class DebuggerFactory {
             workspace.getWorkspaceFolder(notebook.uri) ||
             (workspace.workspaceFolders?.length ? workspace.workspaceFolders[0] : undefined);
         const started = await debug.startDebugging(folder, {
-            // type: 'pwa-node',
-            type: 'node2',
+            type: 'pwa-node',
             timeout: 100000,
             name: name,
             port: port,
@@ -84,8 +83,9 @@ export class DebuggerFactory {
     private static attachDebuggerTrackers() {
         debugTypes.map((debugType) => {
             debug.registerDebugAdapterTrackerFactory(debugType, {
-                createDebugAdapterTracker: (session) => {
-                    const __document: string | undefined = session.configuration.__document;
+                createDebugAdapterTracker: (session: DebugSession) => {
+                    const __document: string | undefined =
+                        session.configuration.__document || session.parentSession?.configuration?.__document;
                     const info = __document && debuggersByNotebookId.get(__document);
                     if (!info || !__document) {
                         return undefined;

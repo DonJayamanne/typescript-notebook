@@ -1,16 +1,24 @@
-import { CodeObject } from './server/types';
 import * as ts from 'typescript';
 import { NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
 import { EOL } from 'os';
-import * as acorn from 'acorn';
 import { parse } from 'recast';
 import { MappingItem, RawSourceMap, SourceMapConsumer, SourceMapGenerator } from 'source-map';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { CodeObject } from '../server/types';
 let tmpDirectory: string | undefined;
 const mapOfSourceFilesToNotebookUri = new Map<string, Uri>();
 const mapFromCellToPath = new WeakMap<NotebookCell, CodeObject>();
+const codeObjectToSourceMaps = new WeakMap<
+    CodeObject,
+    {
+        raw: RawSourceMap;
+        originalToGenerated: Map<number, Map<number, MappingItem>>;
+        generatedToOriginal: Map<number, Map<number, MappingItem>>;
+        mappingCache?: Map<string, [line: number, column: number]>;
+    }
+>();
 
 const vmStartFrame = 'at Script.runInContext';
 
@@ -45,13 +53,13 @@ export function getCellFromTemporaryPath(sourceFilename: string): NotebookCell |
     * We need to repace the temporary paths `/var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000013.js` with the cell index.
     * & also remove all of the messages that are not relevant (VM stack trace).
     */
-export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, error: Error | string): string {
+export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, error?: Error | string): string {
     if (typeof error === 'object' && error.name === 'InvalidCode_CodeExecution') {
         error.name = 'SyntaxError';
         error.stack = '';
         return '';
     }
-    let stackTrace = typeof error === 'object' && error ? error.stack || '' : error || '';
+    let stackTrace = (typeof error === 'string' ? error : error?.stack) || '';
     const index = stackTrace.indexOf(vmStartFrame);
     if (index < 1) {
         return stackTrace;
@@ -70,13 +78,43 @@ export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, 
     return stackTrace;
 }
 
+const dummyFnToUseImports = 'adf8d89dff594ea79f38d03905825d73';
+export function getSourceMapsInfo(codeObject: CodeObject) {
+    return codeObjectToSourceMaps.get(codeObject);
+}
 export function getCodeObject(cell: NotebookCell): CodeObject {
     try {
         // Parser fails when we have comments in the last line, hence just add empty line.
-        const code = `${cell.document.getText()}${EOL}`;
+        let code = `${cell.document.getText()}${EOL}`;
         const details = createCodeObject(cell);
         if (details.textDocumentVersion === cell.document.version) {
             return details;
+        }
+        let dummyImportUsages: string[] = [];
+        try {
+            // If imports are not used, typescript will drop them.
+            // Solution, add dummy code into ts that will make the compiler think the imports are used.
+            // E.g. if we have `import * as fs from 'fs'`, then add `myFunction(fs)` at the bottom of the code
+            // And once the JS is generated remove that dummy code.
+            const expectedImports = getExpectedImports(cell);
+            expectedImports.forEach((types, moduleName) => {
+                types.forEach((type) => {
+                    if (type.importType === 'empty') {
+                        dummyImportUsages.push(`${dummyFnToUseImports}(${moduleName});`);
+                    } else if ('var' in type.importType) {
+                        dummyImportUsages.push(`${dummyFnToUseImports}(${type.importType.var});`);
+                    } else if ('as' in type.importType) {
+                        dummyImportUsages.push(`${dummyFnToUseImports}(${type.importType.as});`);
+                    } else {
+                        dummyImportUsages.push(`${dummyFnToUseImports}(${type.importType.named});`);
+                    }
+                });
+            });
+            if (dummyImportUsages.length) {
+                code += `\n${dummyImportUsages.join('')}`;
+            }
+        } catch (ex) {
+            console.error(`Failed to generate dummy placeholders for imports`);
         }
         // Even if the code is JS, transpile it (possibel user accidentally selected JS cell & wrote TS code)
         const result = ts.transpile(
@@ -85,29 +123,30 @@ export function getCodeObject(cell: NotebookCell): CodeObject {
                 sourceMap: true,
                 inlineSourceMap: true,
                 sourceRoot: path.dirname(details.sourceFilename),
-                // noImplicitUseStrict: true,
+                noImplicitUseStrict: true,
                 importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
                 strict: false,
                 fileName: details.sourceFilename,
                 resolveJsonModule: true,
+                removeComments: true,
                 target: ts.ScriptTarget.ES2019, // Minimum Node12
                 module: ts.ModuleKind.CommonJS,
                 alwaysStrict: false,
                 checkJs: false,
+                noEmitHelpers: true,
                 // esModuleInterop: true,
                 allowJs: true,
                 allowSyntheticDefaultImports: true
             },
             details.sourceFilename
         );
-        let transpiledCode = result
-            .replace(
-                'Object.defineProperty(exports, "__esModule", { value: true });',
-                ' '.repeat('Object.defineProperty(exports, "__esModule", { value: true });'.length)
-            )
-            // Remove `use strict`, this causes issues some times.
-            // E.g. this code fails (dfd not found).
-            /*
+        let transpiledCode = result.replace(
+            'Object.defineProperty(exports, "__esModule", { value: true });',
+            ' '.repeat('Object.defineProperty(exports, "__esModule", { value: true });'.length)
+        );
+        // Remove `use strict`, this causes issues some times.
+        // E.g. this code fails (dfd not found).
+        /*
 import * as dfd from 'danfojs-node';
 const df: dfd.DataFrame = await dfd.read_csv('./finance-charts-apple.csv');
 const layout = {
@@ -122,10 +161,9 @@ const layout = {
 const newDf = df.set_index({ key: "Date" })
 newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
             */
-            .replace('"use strict";', ' '.repeat('"use strict";'.length));
 
         // Split generated source & source maps
-        const lines = transpiledCode.split(/\r?\n/);
+        const lines = transpiledCode.split(/\r?\n/).filter((line) => !line.startsWith(dummyFnToUseImports));
         const sourceMapLine = lines.pop()!;
         transpiledCode = lines.join(EOL);
 
@@ -135,17 +173,38 @@ newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
         transpiledCode = replaceTopLevelConstWithVar(cell, transpiledCode, sourceMapInfo);
 
         // Re-generate source maps correctly
-        let updatedSourceMap = sourceMapInfo.updated || '';
-        const updateSrouceMap: RawSourceMap = JSON.parse(updatedSourceMap || sourceMapInfo.updated || sourceMap || '');
-        updateSrouceMap.file = path.basename(details.sourceFilename);
-        updateSrouceMap.sourceRoot = path.dirname(details.sourceFilename);
-        updateSrouceMap.sources = [path.basename(details.sourceFilename)];
-        updatedSourceMap = JSON.stringify(updateSrouceMap);
-        transpiledCode = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
-            updatedSourceMap
-        ).toString('base64')}`;
+        const updatedRawSourceMap: RawSourceMap = JSON.parse(
+            sourceMapInfo.updated || sourceMapInfo.updated || sourceMap || ''
+        );
+        updatedRawSourceMap.file = path.basename(details.sourceFilename);
+        updatedRawSourceMap.sourceRoot = path.dirname(details.sourceFilename);
+        updatedRawSourceMap.sources = [path.basename(details.sourceFilename)];
+
+        const updatedSourceMap = JSON.stringify(updatedRawSourceMap);
+        // Node debugger doesn't seem to support inlined source maps
+        // https://github.com/microsoft/vscode/issues/130303
+        // Once available, uncomment this file & the code.
+        // transpiledCode = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
+        //     updatedSourceMap
+        // ).toString('base64')}`;
 
         updateCodeObject(details, cell, transpiledCode, updatedSourceMap);
+        const originalToGenerated = new Map<number, Map<number, MappingItem>>();
+        const generatedToOriginal = new Map<number, Map<number, MappingItem>>();
+        new SourceMapConsumer(updatedRawSourceMap).eachMapping((mapping) => {
+            let maps = originalToGenerated.get(mapping.originalLine) || new Map<number, MappingItem>();
+            originalToGenerated.set(mapping.originalLine, maps);
+            maps.set(mapping.originalColumn, mapping);
+
+            maps = generatedToOriginal.get(mapping.generatedLine) || new Map<number, MappingItem>();
+            generatedToOriginal.set(mapping.generatedLine, maps);
+            maps.set(mapping.generatedColumn, mapping);
+        });
+        codeObjectToSourceMaps.set(details, {
+            raw: updatedRawSourceMap,
+            originalToGenerated,
+            generatedToOriginal
+        });
         console.debug(`Compiled TS cell ${cell.index} into ${details.code}`);
         return details;
     } catch (ex) {
@@ -216,7 +275,7 @@ function replaceTopLevelConstWithVar(
         parsedCode = parse(source, options);
     } catch (ex) {
         try {
-            source = `(async () => {${source}})()`;
+            source = `(async () => {${EOL}${source}})()`;
             // Possible user can write TS code in a JS cell, hence parser could fall over.
             // E.g. ES6 imports isn't supprted in nodejs for js files, & parsing that could faill.
             parsedCode = parse(source, options);
@@ -247,20 +306,7 @@ function replaceTopLevelConstWithVar(
         }
     });
 
-    let updated = updateCodeAndAdjustSourceMaps(source, rangesToFix, wrappedWithIIFE, body, sourceMap);
-    try {
-        const missingImports = getImportAdjustments(cell, body);
-        if (missingImports.length) {
-            const missingImportsStr = `try { ${missingImports.join('; ')} } catch { };`;
-            const expr = '(async () => {';
-            const start = updated.substring(0, updated.indexOf(expr) + expr.length);
-            const end = updated.substring(updated.indexOf(expr) + expr.length);
-            updated = `${start}${missingImportsStr}${end}`;
-        }
-    } catch (ex) {
-        console.error(`Failed to generate Imports`, ex);
-    }
-    return updated;
+    return updateCodeAndAdjustSourceMaps(source, rangesToFix, wrappedWithIIFE, body, sourceMap);
 }
 function getBodyOfAsyncIIFE(parsedCode: ParsedCode) {
     const body = parsedCode.program.body[0];
@@ -326,7 +372,7 @@ function updateCodeAndAdjustSourceMaps(
                         )}`;
 
                         // No need to update source maps, as the positions have not changed,
-                        // we've added empty spaces to keep it the same.
+                        // we've added empty spaces to keep it the same (less screwing around with source maps).
                     }
 
                     if (!wrappedWithIIFE) {
@@ -397,32 +443,15 @@ function updateCodeAndAdjustSourceMaps(
         sourceRoot: path.dirname(originalSourceMap.sourceRoot || '')
     });
     const original = new SourceMapConsumer(originalSourceMap);
-    let firstLineAdded = false;
     original.eachMapping((mapping) => {
         const newMapping: MappingItem = {
             generatedColumn: mapping.generatedColumn,
-            generatedLine: mapping.generatedLine,
+            generatedLine: mapping.generatedLine + (wrappedWithIIFE ? 1 : 0),
             name: mapping.name,
             originalColumn: mapping.originalColumn,
             originalLine: mapping.originalLine,
             source: mapping.source
         };
-        if (!firstLineAdded && wrappedWithIIFE) {
-            firstLineAdded = true;
-            updated.addMapping({
-                generated: {
-                    column: lines[0].indexOf('{') + 1,
-                    // If we wrap with IIFE, then generated source line will be +1
-                    line: 1
-                },
-                original: {
-                    column: mapping.originalColumn,
-                    line: mapping.originalLine
-                },
-                name: mapping.name,
-                source: mapping.source
-            });
-        }
         // Check if we have adjusted the columns for this line.
         const adjustments = linesUpdated.get(mapping.generatedLine);
         if (adjustments?.size) {
@@ -461,7 +490,7 @@ function createCodeObject(cell: NotebookCell) {
     const codeObject: CodeObject = {
         code: '',
         sourceFilename: '',
-        sourceMapFilename: '',
+        // sourceMapFilename: '',
         friendlyName: `${path.basename(cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`,
         textDocumentVersion: -1
     };
@@ -471,8 +500,9 @@ function createCodeObject(cell: NotebookCell) {
     codeObject.code = '';
     codeObject.sourceFilename =
         codeObject.sourceFilename || path.join(tmpDirectory, `nodebook_cell_${cell.document.uri.fragment}.js`);
-    codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
+    // codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
     mapOfSourceFilesToNotebookUri.set(codeObject.sourceFilename, cell.document.uri);
+    mapOfSourceFilesToNotebookUri.set(cell.document.uri.toString(), cell.document.uri);
     mapFromCellToPath.set(cell, codeObject);
     return codeObject;
 }
@@ -484,9 +514,9 @@ function updateCodeObject(codeObject: CodeObject, cell: NotebookCell, sourceCode
 
     if (codeObject.textDocumentVersion !== cell.document.version) {
         fs.writeFileSync(codeObject.sourceFilename, sourceCode);
-        if (sourceMapText) {
-            fs.writeFileSync(codeObject.sourceMapFilename, sourceMapText);
-        }
+        // if (sourceMapText) {
+        //     fs.writeFileSync(codeObject.sourceMapFilename, sourceMapText);
+        // }
     }
     codeObject.textDocumentVersion = cell.document.version;
     mapFromCellToPath.set(cell, codeObject);
@@ -535,132 +565,132 @@ type ImportType = {
     location: { start: number; end: number };
 };
 type ImportTypes = ImportType[];
-function getImportAdjustments(cell: NotebookCell, transpiledSource: string | BodyDeclaration[]) {
-    const requiredImports = getExpectedImports(cell);
-    const registeredImports = getGeneratedImports(transpiledSource);
-    const importsToRegister: string[] = [];
-    requiredImports.forEach((imports, moduleName) => {
-        const generatedImports = registeredImports.get(moduleName);
-        const namedImports: string[] = [];
-        function regsiterMissingImport(item: ImportType) {
-            if (item.importType === 'empty') {
-                importsToRegister.push(`require('${moduleName}');`);
-            } else if ('var' in item.importType) {
-                importsToRegister.push(`var ${item.importType.var} = require('${moduleName}');`);
-            } else if ('as' in item.importType) {
-                namedImports.push(`${item.importType.named} as ${item.importType.as}`);
-            } else {
-                namedImports.push(item.importType.named);
-            }
-        }
-        if (!generatedImports) {
-            imports.forEach(regsiterMissingImport);
-        } else {
-            imports
-                .filter((item) => {
-                    return !generatedImports.find(
-                        (generated) => generated.importType.toString() === item.importType.toString()
-                    );
-                })
-                .forEach(regsiterMissingImport);
-        }
-        if (namedImports.length) {
-            importsToRegister.push(`var {${namedImports.join(', ')}} = require('${moduleName}');`);
-        }
-    });
+// function getImportAdjustments(cell: NotebookCell, transpiledSource: string | BodyDeclaration[]) {
+//     const requiredImports = getExpectedImports(cell);
+//     const registeredImports = getGeneratedImports(transpiledSource);
+//     const importsToRegister: string[] = [];
+//     requiredImports.forEach((imports, moduleName) => {
+//         const generatedImports = registeredImports.get(moduleName);
+//         const namedImports: string[] = [];
+//         function regsiterMissingImport(item: ImportType) {
+//             if (item.importType === 'empty') {
+//                 importsToRegister.push(`require('${moduleName}');`);
+//             } else if ('var' in item.importType) {
+//                 importsToRegister.push(`var ${item.importType.var} = require('${moduleName}');`);
+//             } else if ('as' in item.importType) {
+//                 namedImports.push(`${item.importType.named} as ${item.importType.as}`);
+//             } else {
+//                 namedImports.push(item.importType.named);
+//             }
+//         }
+//         if (!generatedImports) {
+//             imports.forEach(regsiterMissingImport);
+//         } else {
+//             imports
+//                 .filter((item) => {
+//                     return !generatedImports.find(
+//                         (generated) => generated.importType.toString() === item.importType.toString()
+//                     );
+//                 })
+//                 .forEach(regsiterMissingImport);
+//         }
+//         if (namedImports.length) {
+//             importsToRegister.push(`var {${namedImports.join(', ')}} = require('${moduleName}');`);
+//         }
+//     });
 
-    // If we have a cell with `import * as fs from 'fs'`,
-    return importsToRegister;
-}
-function getGeneratedImports(source: string | BodyDeclaration[]) {
-    let body: BodyDeclaration[] = [];
-    if (Array.isArray(source)) {
-        body = source;
-    } else {
-        const node: acorn.Node = acorn.parse(source, { ecmaVersion: 2019 });
-        body = (node as any).body;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const varDecs = (body as any).filter(
-        (item) => item.type === 'VariableDeclaration' || item.type === 'ExpressionStatement'
-    );
-    const requires = new Map<string, ImportTypes>();
-    varDecs.forEach((item) => {
-        if (item.type === 'ExpressionStatement') {
-            if (
-                item.expression &&
-                item.expression.callee &&
-                item.expression.callee.type === 'Identifier' &&
-                item.expression.callee.name === 'require' &&
-                Array.isArray(item.expression.arguments) &&
-                item.expression.arguments.length === 1 &&
-                item.expression.arguments[0].type === 'Literal'
-            ) {
-                const namedImports: ImportTypes = requires.get(item.expression.arguments[0].value) || [];
-                namedImports.push({ importType: 'empty', location: { start: item.start, end: item.end } });
-                requires.set(item.expression.arguments[0].value, namedImports);
-            }
-            return;
-        }
-        if (ts.isExpressionStatement(item)) {
-            console.log('OK');
-            const expression = item.expression;
-            if (ts.isCallExpression(expression)) {
-                console.log(expression);
-                return;
-            }
-            return;
-        }
-        if (!Array.isArray(item.declarations) || item.declarations.length === 0) {
-            console.log('WTF');
-            return;
-        }
-        if (item.declarations.length !== 1) {
-            return;
-        }
-        const init = item.declarations[0].init;
-        if (
-            !init ||
-            init.type !== 'CallExpression' ||
-            init.callee.name !== 'require' ||
-            !Array.isArray(init.arguments) ||
-            init.arguments.length !== 1 ||
-            init.arguments[0].type !== 'Literal'
-        ) {
-            // console.log(JSON.stringify(item));
-            return;
-        }
-        const importFrom = init.arguments[0].value;
-        const namedImports: ImportTypes = requires.get(importFrom) || [];
-        if (item.declarations[0].id.type === 'Identifier') {
-            namedImports.push({
-                importType: { var: item.declarations[0].id.name },
-                location: { start: item.start, end: item.end }
-            });
-        } else if (
-            item.declarations[0].id.type === 'ObjectPattern' &&
-            item.declarations[0].id.properties.every((prop) => prop.type === 'Property' && prop.kind === 'init')
-        ) {
-            item.declarations[0].id.properties.forEach((prop) => {
-                if (prop.key.name === prop.value.name) {
-                    namedImports.push({
-                        importType: { named: prop.value.name as string },
-                        location: { start: item.start, end: item.end }
-                    });
-                } else {
-                    namedImports.push({
-                        importType: { named: prop.key.name, as: prop.value.name },
-                        location: { start: item.start, end: item.end }
-                    });
-                }
-            });
-        }
-        if (namedImports.length) {
-            requires.set(importFrom, namedImports);
-        }
-    });
-    return requires;
-}
+//     // If we have a cell with `import * as fs from 'fs'`,
+//     return importsToRegister;
+// }
+// function getGeneratedImports(source: string | BodyDeclaration[]) {
+//     let body: BodyDeclaration[] = [];
+//     if (Array.isArray(source)) {
+//         body = source;
+//     } else {
+//         const node: acorn.Node = acorn.parse(source, { ecmaVersion: 2019 });
+//         body = (node as any).body;
+//     }
+//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//     const varDecs = (body as any).filter(
+//         (item) => item.type === 'VariableDeclaration' || item.type === 'ExpressionStatement'
+//     );
+//     const requires = new Map<string, ImportTypes>();
+//     varDecs.forEach((item) => {
+//         if (item.type === 'ExpressionStatement') {
+//             if (
+//                 item.expression &&
+//                 item.expression.callee &&
+//                 item.expression.callee.type === 'Identifier' &&
+//                 item.expression.callee.name === 'require' &&
+//                 Array.isArray(item.expression.arguments) &&
+//                 item.expression.arguments.length === 1 &&
+//                 item.expression.arguments[0].type === 'Literal'
+//             ) {
+//                 const namedImports: ImportTypes = requires.get(item.expression.arguments[0].value) || [];
+//                 namedImports.push({ importType: 'empty', location: { start: item.start, end: item.end } });
+//                 requires.set(item.expression.arguments[0].value, namedImports);
+//             }
+//             return;
+//         }
+//         if (ts.isExpressionStatement(item)) {
+//             console.log('OK');
+//             const expression = item.expression;
+//             if (ts.isCallExpression(expression)) {
+//                 console.log(expression);
+//                 return;
+//             }
+//             return;
+//         }
+//         if (!Array.isArray(item.declarations) || item.declarations.length === 0) {
+//             console.log('WTF');
+//             return;
+//         }
+//         if (item.declarations.length !== 1) {
+//             return;
+//         }
+//         const init = item.declarations[0].init;
+//         if (
+//             !init ||
+//             init.type !== 'CallExpression' ||
+//             init.callee.name !== 'require' ||
+//             !Array.isArray(init.arguments) ||
+//             init.arguments.length !== 1 ||
+//             init.arguments[0].type !== 'Literal'
+//         ) {
+//             // console.log(JSON.stringify(item));
+//             return;
+//         }
+//         const importFrom = init.arguments[0].value;
+//         const namedImports: ImportTypes = requires.get(importFrom) || [];
+//         if (item.declarations[0].id.type === 'Identifier') {
+//             namedImports.push({
+//                 importType: { var: item.declarations[0].id.name },
+//                 location: { start: item.start, end: item.end }
+//             });
+//         } else if (
+//             item.declarations[0].id.type === 'ObjectPattern' &&
+//             item.declarations[0].id.properties.every((prop) => prop.type === 'Property' && prop.kind === 'init')
+//         ) {
+//             item.declarations[0].id.properties.forEach((prop) => {
+//                 if (prop.key.name === prop.value.name) {
+//                     namedImports.push({
+//                         importType: { named: prop.value.name as string },
+//                         location: { start: item.start, end: item.end }
+//                     });
+//                 } else {
+//                     namedImports.push({
+//                         importType: { named: prop.key.name, as: prop.value.name },
+//                         location: { start: item.start, end: item.end }
+//                     });
+//                 }
+//             });
+//         }
+//         if (namedImports.length) {
+//             requires.set(importFrom, namedImports);
+//         }
+//     });
+//     return requires;
+// }
 function getExpectedImports(cell: NotebookCell) {
     const program = ts.createSourceFile(
         cell.document.uri.fsPath,

@@ -27,9 +27,8 @@ export type CodeObject = {
     code: string;
     textDocumentVersion: number;
     sourceFilename: string;
-    // originalFilename: string;
     friendlyName: string;
-    sourceMapFilename: string;
+    // sourceMapFilename: string;
 };
 export type RequestType = RunCellRequest | PingRequest | InitializeRequest | TensorFlowVisRequest | PlotGenerated;
 export type RunCellRequest = BaseMessage<

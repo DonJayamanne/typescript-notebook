@@ -1,6 +1,6 @@
 import { ExtensionContext, notebooks } from 'vscode';
+import { ResponseType } from '../server/types';
 import { JavaScriptKernel } from './jsKernel';
-import { ResponseType } from './server/types';
 
 export class PlotlyDownloadRenderer {
     public static register(context: ExtensionContext) {

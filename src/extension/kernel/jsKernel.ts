@@ -1,16 +1,17 @@
 import {
     CancellationToken,
+    ExtensionContext,
     NotebookCell,
     NotebookCellExecution,
     NotebookController,
     NotebookDocument,
+    Uri,
     window,
     workspace
 } from 'vscode';
 import { IDisposable } from '../types';
 import * as getPort from 'get-port';
 import * as WebSocket from 'ws';
-import { CodeObject, RequestType, ResponseType } from './server/types';
 import { CellExecutionState } from './types';
 import * as path from 'path';
 import { ChildProcess, spawn } from 'child_process';
@@ -21,12 +22,14 @@ import { getNotebookCwd } from '../utils';
 import { TensorflowVisClient } from '../tfjsvis';
 import { ExecutionOrder } from './executionOrder';
 import { getCodeObject } from './compiler';
+import { CodeObject, RequestType, ResponseType } from '../server/types';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
 let getPortsPromise: Promise<unknown> = Promise.resolve();
 
 export class JavaScriptKernel implements IDisposable {
+    private static extensionDir: Uri;
     private starting?: Promise<void>;
     private server?: WebSocket.Server;
     private lastSeenTime?: number;
@@ -65,6 +68,9 @@ export class JavaScriptKernel implements IDisposable {
     }
     public static get(notebook: NotebookDocument) {
         return kernels.get(notebook);
+    }
+    public static register(context: ExtensionContext) {
+        JavaScriptKernel.extensionDir = context.extensionUri;
     }
     public static broadcast(message: RequestType) {
         workspace.notebookDocuments.forEach((notebook) => {
@@ -191,7 +197,13 @@ export class JavaScriptKernel implements IDisposable {
             if (this.disposed) {
                 return;
             }
-            const serverFile = path.join(__dirname, 'server', 'index.js');
+            const serverFile = path.join(
+                JavaScriptKernel.extensionDir.fsPath,
+                'out',
+                'extension',
+                'server',
+                'index.js'
+            );
             ServerLogger.appendLine(`Starting node & listening on ${debugPort} & websock on ${port}`);
 
             this.serverProcess = spawn('node', [`--inspect=${debugPort}`, serverFile, `--port=${port}`], {
@@ -248,7 +260,7 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'replRestarted': {
-                window.showErrorMessage('JavaScript/TypeScript Notebook Kernel was restarted');
+                void window.showErrorMessage('JavaScript/TypeScript Notebook Kernel was restarted');
                 break;
             }
             case 'tensorFlowVis': {

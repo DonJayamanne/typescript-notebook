@@ -1,17 +1,26 @@
 const path = require('path');
 const constants = require('../constants');
 const common = require('./common');
-const configFileName = 'src/extension/tsconfig.json';
+const configFileName = 'tsconfig.json';
 
 module.exports = {
     context: constants.ExtensionRootDir,
     target: 'node',
     entry: {
-        extension: './src/extension/index.ts'
+        extension: './src/extension/index.ts',
+        server: './src/extension/server/index.ts',
+        test: './src/test/runTest.ts'
     },
     output: {
-        filename: 'index.js',
-        path: path.resolve(constants.ExtensionRootDir, 'out', 'extension'),
+        filename: (pathData) => {
+            if (pathData.chunk.name === 'server') {
+                return path.join('extension', 'server', 'index.js');
+            } else if (pathData.chunk.name === 'test') {
+                return path.join('test', 'runTest.js');
+            }
+            return path.join('extension', 'index.js');
+        },
+        path: path.resolve(constants.ExtensionRootDir, 'out'),
         libraryTarget: 'commonjs2',
         devtoolModuleFilenameTemplate: '../../[resource-path]'
     },
@@ -26,6 +35,7 @@ module.exports = {
         'profoundjs-node-pty',
         'xterm',
         'xterm-addon-serialize'
+        //'typescript' // Faster during development.
     ],
     plugins: [...common.getDefaultPlugins('extension')],
     resolve: {

@@ -1,17 +1,18 @@
 {
-    "files": [],
-    "references": [
-        {
-            "path": "./src/client"
-        },
-        {
-            "path": "./src/server"
-        },
-        {
-            "path": "./src/extension"
-        },
-        {
-            "path": "./src/test"
-        }
+    "extends": "./src/tsconfig-base.json",
+    "compilerOptions": {
+        "rootDir": "src",
+        "module": "commonjs",
+        "target": "ES2019",
+        "lib": [
+            "ES2019",
+            "DOM"
+        ],
+        "skipLibCheck": true,
+        "outDir": "out"
+    },
+    "exclude": [
+        "src/client",
+        "temp"
     ]
 }
