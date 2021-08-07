@@ -11,7 +11,7 @@ type Cell = {
     language: string;
     metadata?: CellMetadata;
 };
-export type KustoNotebook = {
+export type TsNotebook = {
     cells: Cell[];
 };
 const decoder = new TextDecoder();
@@ -24,7 +24,7 @@ export class ContentProvider implements vscode.NotebookSerializer {
     ): vscode.NotebookData | Thenable<vscode.NotebookData> {
         const js = decoder.decode(content);
         try {
-            const notebook: KustoNotebook = js.length ? JSON.parse(js) : { cells: [] };
+            const notebook: TsNotebook = js.length ? JSON.parse(js) : { cells: [] };
             const cells = notebook.cells.map((item) => {
                 const metadata = {
                     inputCollapsed: item.metadata?.inputCollapsed,
@@ -46,7 +46,7 @@ export class ContentProvider implements vscode.NotebookSerializer {
         document: vscode.NotebookData,
         _token: vscode.CancellationToken
     ): Uint8Array | Thenable<Uint8Array> {
-        const notebook: KustoNotebook = {
+        const notebook: TsNotebook = {
             cells: document.cells.map((nbCell) => {
                 const cell: Cell = {
                     language: nbCell.languageId,
