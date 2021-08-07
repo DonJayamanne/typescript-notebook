@@ -10,11 +10,13 @@
 * Plotlyjs without having to install Plotly
 * Vega plots without having to install vega
 
+![RoadMap](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/main.png)
+
 ## Known issues
 * Source maps do not work when debugging
 * Variable hoisting
 * Changes in lexical scoping of variables (& constants)
-* See [TODO.md](https://github.com/DonJayamanne/vscode-typescript-notebook/blob/main/TODO.md)
+* See [TODO.md](https://github.com/DonJayamanne/typescript-notebook/blob/main/TODO.md)
 
 
 ## Goals of extension

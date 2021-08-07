@@ -17,8 +17,8 @@
 ### Setup
 
 ```shell
-git clone https://github.com/donjayamanne/vscode-typescript-notebook
-cd vscode-typescript-notebook
+git clone https://github.com/DonJayamanne/typescript-notebook
+cd typescript-notebook
 npm ci
 ```
 

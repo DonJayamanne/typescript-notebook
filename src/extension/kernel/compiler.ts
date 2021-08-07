@@ -44,9 +44,9 @@ export function getCellFromTemporaryPath(sourceFilename: string): NotebookCell |
        at Script.runInContext (vm.js:144:12)
        at Script.runInNewContext (vm.js:149:17)
        at Object.runInNewContext (vm.js:304:38)
-       at runCode (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/out/extension/kernel/server/codeExecution.js:64:33)
-       at Object.execCode (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/out/extension/kernel/server/codeExecution.js:98:30)
-       at WebSocket.<anonymous> (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/out/extension/kernel/server/index.js:47:41)
+       at runCode (/Users/donjayamanne/Desktop/Development/vsc/typescript-notebook/out/extension/kernel/server/codeExecution.js:64:33)
+       at Object.execCode (/Users/donjayamanne/Desktop/Development/vsc/typescript-notebook/out/extension/kernel/server/codeExecution.js:98:30)
+       at WebSocket.<anonymous> (/Users/donjayamanne/Desktop/Development/vsc/typescript-notebook/out/extension/kernel/server/index.js:47:41)
        at WebSocket.emit (events.js:375:28)
        at WebSocket.emit (domain.js:470:12)
     *
