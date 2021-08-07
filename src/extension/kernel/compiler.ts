@@ -274,18 +274,19 @@ function replaceTopLevelConstWithVar(
     let parsedCode: ParsedCode;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const options: any = { ecmaVersion: 2019 }; // Support minimum of Node 12 (which has support for ES2019)
-    let wrappedWithIIFE = false;
+    const wrappedWithIIFE = true;
     try {
         // If the parser fails, then we have a top level await.
         // In the catch block wrap the code.
         parsedCode = parse(source, options);
+        // always wrap in IIFE (this was required only for top level awaits)
+        // But for consistency, lets alawys use IIFE.
+        source = `(() => {${EOL}${source}})()`;
+        parsedCode = parse(source, options);
     } catch (ex) {
         try {
             source = `(async () => {${EOL}${source}})()`;
-            // Possible user can write TS code in a JS cell, hence parser could fall over.
-            // E.g. ES6 imports isn't supprted in nodejs for js files, & parsing that could faill.
             parsedCode = parse(source, options);
-            wrappedWithIIFE = true;
         } catch (ex) {
             console.error(`Failed to parse code ${source}`, ex);
             return source;
@@ -298,7 +299,14 @@ function replaceTopLevelConstWithVar(
     const body = wrappedWithIIFE ? getBodyOfAsyncIIFE(parsedCode) : parsedCode.program.body;
 
     body.forEach((item) => {
-        // Look for `const` and track them so we can change them to `var`
+        // Look for `const`, `var` & `let` and remove those keywords at the top level,
+        // to convert them into gloabl variables.
+        // This works great except for object destructing assignments, as follows
+        // const obj = {a: 'prop', b:'name'};
+        // var {a, b} = obj;
+        // This will ger converted into `{a, b} = obj;`
+        // But it needs to be `({a, b} = obj;)`
+        // If we have object destructuring assignments, we need to wrap with `( .... )`
         if (item.type === 'VariableDeclaration') {
             if (['const', 'let', 'var'].includes(item.kind)) {
                 rangesToFix.push(item);
@@ -367,13 +375,24 @@ function updateCodeAndAdjustSourceMaps(
             }
             case 'VariableDeclaration':
                 {
-                    const line = lines[loc.start.line - 1];
                     const variableDeclaration = item as VariableDeclaration;
-                    const { start } = loc;
+                    const { start, end } = loc;
+                    const line = lines[start.line - 1];
                     if (variableDeclaration.kind === 'const') {
-                        // We're just replacing the keyword `const` with `var  ` ensuring we keep the same sapces.
+                        // We're just replacing the keyword `const` with `     ` ensuring we keep the same sapces.
                         // Preserve the position with empty spaces so that source maps don't get screwed up.
-                        lines[start.line - 1] = `${line.substring(0, start.column)}var  ${line.substring(
+                        // Removing `const/var/let` keywords will make them global.
+                        lines[start.line - 1] = `${line.substring(0, start.column)}     ${line.substring(
+                            variableDeclaration.declarations[0].id.loc.start.column
+                        )}`;
+
+                        // No need to update source maps, as the positions have not changed,
+                        // we've added empty spaces to keep it the same (less screwing around with source maps).
+                    } else {
+                        // We're just replacing the keyword `var/let` with `   ` ensuring we keep the same sapces.
+                        // Preserve the position with empty spaces so that source maps don't get screwed up.
+                        // Removing `const/var/let` keywords will make them global.
+                        lines[start.line - 1] = `${line.substring(0, start.column)}   ${line.substring(
                             variableDeclaration.declarations[0].id.loc.start.column
                         )}`;
 
@@ -381,34 +400,64 @@ function updateCodeAndAdjustSourceMaps(
                         // we've added empty spaces to keep it the same (less screwing around with source maps).
                     }
 
-                    if (!wrappedWithIIFE) {
-                        return;
+                    // Ok, now if we have object destructors, then wrap within brackets.
+                    // var {a, b} = {a: 'prop', b:'name'};
+                    // Needs to be `({a, b} = obj;)`
+                    if (['ObjectPattern', 'ArrayPattern'].includes(variableDeclaration.declarations[0].id.type)) {
+                        // Rmemeber, we added `white space` for `const/var/let`, hence we can reduce 2 of those for the `(` & `)` we're going to add.
+                        // Hence no need to adjust the source maps for the start.
+                        if (variableDeclaration.kind === 'const') {
+                            lines[start.line - 1] = `${line.substring(0, start.column)}    (${line.substring(
+                                variableDeclaration.declarations[0].id.loc.start.column
+                            )}`;
+                        } else {
+                            lines[start.line - 1] = `${line.substring(0, start.column)}  (${line.substring(
+                                variableDeclaration.declarations[0].id.loc.start.column
+                            )}`;
+                        }
+
+                        // Ok, now we need to add the `)`
+                        const endLine = lines[end.line - 1];
+                        // Remember, last character would be `;`, we need to add `)` before that.
+                        lines[end.line - 1] = `${endLine.substring(0, end.column - 2)})${endLine.substring(
+                            end.column - 2
+                        )}`;
+
+                        // TODO: Keep track to udpate source maps;
+                        // const lastUpdated = linesUpdatedAndIncrementedColumns.get(position.line);
+                        // const addedCharacters = lastUpdated?.addedCharacters || 0;
+                        // const changesToCode = linesUpdated.get(end.line) || new Map<OldColumn, NewColumn>();
+                        // changesToCode.set(end.line, end.column + addedCharacters + extraCharacters.length);
+                        // linesUpdated.set(position.line, changesToCode);
                     }
-                    const linesUpdatedAndIncrementedColumns = new Map<number, { addedCharacters: number }>();
-                    variableDeclaration.declarations.forEach((declaration) => {
-                        // if we have `var xyz = 1234`, replace that with `var xyz = this.xyz = 1234`;
-                        // if we have `var xyz = 1234, one = 234`, replace that with `var xyz = this.xyz = 1234, one = this.one = 234`;
-                        const name = declaration.id.name;
-                        const position = declaration.id.loc.end;
-                        const line = lines[position.line - 1];
-                        const extraCharacters = `=this.${name}`;
+                    // if (!wrappedWithIIFE) {
+                    //     return;
+                    // }
+                    // const linesUpdatedAndIncrementedColumns = new Map<number, { addedCharacters: number }>();
+                    // variableDeclaration.declarations.forEach((declaration) => {
+                    //     // if we have `var xyz = 1234`, replace that with `var xyz = this.xyz = 1234`;
+                    //     // if we have `var xyz = 1234, one = 234`, replace that with `var xyz = this.xyz = 1234, one = this.one = 234`;
+                    //     const name = declaration.id.name;
+                    //     const position = declaration.id.loc.end;
+                    //     const line = lines[position.line - 1];
+                    //     const extraCharacters = `=this.${name}`;
 
-                        const lastUpdated = linesUpdatedAndIncrementedColumns.get(position.line);
-                        const addedCharacters = lastUpdated?.addedCharacters || 0;
-                        lines[position.line - 1] = `${line.substring(
-                            0,
-                            position.column + addedCharacters
-                        )}${extraCharacters}${line.substring(declaration.id.loc.end.column + addedCharacters)}`;
+                    //     const lastUpdated = linesUpdatedAndIncrementedColumns.get(position.line);
+                    //     const addedCharacters = lastUpdated?.addedCharacters || 0;
+                    //     lines[position.line - 1] = `${line.substring(
+                    //         0,
+                    //         position.column + addedCharacters
+                    //     )}${extraCharacters}${line.substring(declaration.id.loc.end.column + addedCharacters)}`;
 
-                        linesUpdatedAndIncrementedColumns.set(position.line, {
-                            addedCharacters: addedCharacters + extraCharacters.length
-                        });
+                    //     linesUpdatedAndIncrementedColumns.set(position.line, {
+                    //         addedCharacters: addedCharacters + extraCharacters.length
+                    //     });
 
-                        // Keep track to udpate source maps;
-                        const changesToCode = linesUpdated.get(loc.end.line) || new Map<OldColumn, NewColumn>();
-                        changesToCode.set(position.column, position.column + addedCharacters + extraCharacters.length);
-                        linesUpdated.set(position.line, changesToCode);
-                    });
+                    //     // Keep track to udpate source maps;
+                    //     const changesToCode = linesUpdated.get(loc.end.line) || new Map<OldColumn, NewColumn>();
+                    //     changesToCode.set(position.column, position.column + addedCharacters + extraCharacters.length);
+                    //     linesUpdated.set(position.line, changesToCode);
+                    // });
                 }
                 break;
         }
@@ -782,7 +831,7 @@ type VariableDeclaration = {
 };
 type VariableDeclarator = {
     type: 'VariableDeclarator';
-    id: { name: string; loc: BodyLocation };
+    id: { name: string; loc: BodyLocation; type: 'ObjectPattern' | 'ArrayPattern' | '<other>' };
     loc: BodyLocation;
 };
 type OtherNodes = { type: '<other>'; loc: BodyLocation };
