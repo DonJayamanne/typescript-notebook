@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
+import { NotebookCell, NotebookDocument, Position, Uri, workspace } from 'vscode';
 import { EOL } from 'os';
 import { parse } from 'recast';
 import { MappingItem, RawSourceMap, SourceMapConsumer, SourceMapGenerator } from 'source-map';
@@ -90,28 +90,34 @@ export function getCodeObject(cell: NotebookCell): CodeObject {
         if (details.textDocumentVersion === cell.document.version) {
             return details;
         }
-        let dummyImportUsages: string[] = [];
         try {
+            const lines = code.split(/\r?\n/);
             // If imports are not used, typescript will drop them.
             // Solution, add dummy code into ts that will make the compiler think the imports are used.
             // E.g. if we have `import * as fs from 'fs'`, then add `myFunction(fs)` at the bottom of the code
             // And once the JS is generated remove that dummy code.
             const expectedImports = getExpectedImports(cell);
-            expectedImports.forEach((types, moduleName) => {
-                types.forEach((type) => {
+            expectedImports.forEach(({ imports, position }, moduleName) => {
+                const requireStatements: string[] = [];
+                const namedImports: string[] = [];
+                imports.forEach((type) => {
                     if (type.importType === 'empty') {
-                        dummyImportUsages.push(`${dummyFnToUseImports}(${moduleName});`);
+                        requireStatements.push(`require('${moduleName}')`);
                     } else if ('var' in type.importType) {
-                        dummyImportUsages.push(`${dummyFnToUseImports}(${type.importType.var});`);
+                        requireStatements.push(`var ${type.importType.var} = require('${moduleName}')`);
                     } else if ('as' in type.importType) {
-                        dummyImportUsages.push(`${dummyFnToUseImports}(${type.importType.as});`);
+                        namedImports.push(`${type.importType.named}:${type.importType.as}`);
                     } else {
-                        dummyImportUsages.push(`${dummyFnToUseImports}(${type.importType.named});`);
+                        namedImports.push(`${type.importType.named}`);
                     }
                 });
+                requireStatements.push(`var {${namedImports.join(', ')}} = require('${moduleName}')`);
+                if (requireStatements.length) {
+                    lines[position.line] = `${requireStatements.join(';')};${lines[position.line]}`;
+                }
             });
-            if (dummyImportUsages.length) {
-                code += `\n${dummyImportUsages.join('')}`;
+            if (expectedImports.size) {
+                code = lines.join(EOL);
             }
         } catch (ex) {
             console.error(`Failed to generate dummy placeholders for imports`);
@@ -705,15 +711,20 @@ function getExpectedImports(cell: NotebookCell) {
         .filter((item) => item.kind === ts.SyntaxKind.ImportDeclaration)
         .map((item) => item as ts.ImportDeclaration);
 
-    const expectedImports = new Map<string, ImportTypes>();
+    const expectedImports = new Map<string, { imports: ImportTypes; position: Position }>();
     imports.forEach((item: ts.ImportDeclaration) => {
         const namedImports: ImportTypes = [];
         if (!ts.isStringLiteral(item.moduleSpecifier)) {
             return;
         }
         const importFrom = item.moduleSpecifier.text;
-        expectedImports.set(importFrom, namedImports);
-        // console.log(item);
+        const position = cell.document.positionAt(item.moduleSpecifier.end);
+        const line = cell.document.lineAt(position.line).text.trim();
+        // We're only goinng to try to make this work for lines that start with `import ....`
+        if (!line.startsWith('import')) {
+            return;
+        }
+        expectedImports.set(importFrom, { imports: namedImports, position });
         const importClause = item.importClause;
         if (!importClause) {
             namedImports.push({ importType: 'empty', location: { start: item.pos, end: item.end } });
