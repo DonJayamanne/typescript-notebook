@@ -65,6 +65,13 @@ turn off a flag, but source maps will not work when debugging.
 * tests
 * tests
 # Bugs
+* Following code fails
+```
+console.log(typeof some)
+var {x}={x:'xyz1234'},y,some = ' ',([a,b]=[1,2]);
+doIt();
+```
+
 * When debugging, we do'nt see variables
 * Should wrap every cell in an IIFE, so we can see variables as variables.
 * Display message if we fail to start node process (currently just hangs)

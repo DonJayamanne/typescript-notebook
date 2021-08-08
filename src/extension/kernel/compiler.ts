@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { NotebookCell, NotebookDocument, Position, Uri, workspace } from 'vscode';
+import { NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
 import { EOL } from 'os';
 import { parse } from 'recast';
 import { MappingItem, RawSourceMap, SourceMapConsumer, SourceMapGenerator } from 'source-map';
@@ -90,35 +90,13 @@ export function getCodeObject(cell: NotebookCell): CodeObject {
         if (details.textDocumentVersion === cell.document.version) {
             return details;
         }
+        let expectedImports = '';
         try {
-            const lines = code.split(/\r?\n/);
             // If imports are not used, typescript will drop them.
             // Solution, add dummy code into ts that will make the compiler think the imports are used.
             // E.g. if we have `import * as fs from 'fs'`, then add `myFunction(fs)` at the bottom of the code
             // And once the JS is generated remove that dummy code.
-            const expectedImports = getExpectedImports(cell);
-            expectedImports.forEach(({ imports, position }, moduleName) => {
-                const requireStatements: string[] = [];
-                const namedImports: string[] = [];
-                imports.forEach((type) => {
-                    if (type.importType === 'empty') {
-                        requireStatements.push(`require('${moduleName}')`);
-                    } else if ('var' in type.importType) {
-                        requireStatements.push(`var ${type.importType.var} = require('${moduleName}')`);
-                    } else if ('as' in type.importType) {
-                        namedImports.push(`${type.importType.named}:${type.importType.as}`);
-                    } else {
-                        namedImports.push(`${type.importType.named}`);
-                    }
-                });
-                requireStatements.push(`var {${namedImports.join(', ')}} = require('${moduleName}')`);
-                if (requireStatements.length) {
-                    lines[position.line] = `${requireStatements.join(';')};${lines[position.line]}`;
-                }
-            });
-            if (expectedImports.size) {
-                code = lines.join(EOL);
-            }
+            expectedImports = getExpectedImports(cell);
         } catch (ex) {
             console.error(`Failed to generate dummy placeholders for imports`);
         }
@@ -173,10 +151,10 @@ newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
         const sourceMapLine = lines.pop()!;
         transpiledCode = lines.join(EOL);
 
-        // Update the source to account for top level awaits, etc.
+        // Update the source to account for top level awaits & other changes, etc.
         const sourceMap = Buffer.from(sourceMapLine.substring(sourceMapLine.indexOf(',') + 1), 'base64').toString();
         const sourceMapInfo = { original: sourceMap, updated: '' };
-        transpiledCode = replaceTopLevelConstWithVar(cell, transpiledCode, sourceMapInfo);
+        transpiledCode = replaceTopLevelConstWithVar(cell, transpiledCode, sourceMapInfo, expectedImports);
 
         // Re-generate source maps correctly
         const updatedRawSourceMap: RawSourceMap = JSON.parse(
@@ -269,23 +247,23 @@ image
 function replaceTopLevelConstWithVar(
     cell: NotebookCell,
     source: string,
-    sourceMap: { original?: string; updated?: string }
+    sourceMap: { original?: string; updated?: string },
+    expectedImports: string
 ) {
     let parsedCode: ParsedCode;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const options: any = { ecmaVersion: 2019 }; // Support minimum of Node 12 (which has support for ES2019)
-    const wrappedWithIIFE = true;
     try {
         // If the parser fails, then we have a top level await.
         // In the catch block wrap the code.
         parsedCode = parse(source, options);
         // always wrap in IIFE (this was required only for top level awaits)
         // But for consistency, lets alawys use IIFE.
-        source = `(() => {${EOL}${source}})()`;
+        source = `${expectedImports}${EOL}(() => {${EOL}${source}${EOL}})()`;
         parsedCode = parse(source, options);
     } catch (ex) {
         try {
-            source = `(async () => {${EOL}${source}})()`;
+            source = `${expectedImports}${EOL}(async () => {${EOL}${source}${EOL}})()`;
             parsedCode = parse(source, options);
         } catch (ex) {
             console.error(`Failed to parse code ${source}`, ex);
@@ -296,8 +274,8 @@ function replaceTopLevelConstWithVar(
         return source;
     }
     const rangesToFix: LocationToFix[] = [];
-    const body = wrappedWithIIFE ? getBodyOfAsyncIIFE(parsedCode) : parsedCode.program.body;
-
+    const body = getBodyOfAsyncIIFE(parsedCode);
+    const variablesToDeclareGlobally: string[] = [];
     body.forEach((item) => {
         // Look for `const`, `var` & `let` and remove those keywords at the top level,
         // to convert them into gloabl variables.
@@ -310,17 +288,46 @@ function replaceTopLevelConstWithVar(
         if (item.type === 'VariableDeclaration') {
             if (['const', 'let', 'var'].includes(item.kind)) {
                 rangesToFix.push(item);
+
+                item.declarations.forEach((declaration) => {
+                    if (declaration.id.type === 'Identifier') {
+                        variablesToDeclareGlobally.push(declaration.id.name);
+                    } else if (declaration.id.type === 'ObjectPattern') {
+                        declaration.id.properties.forEach((prop) => {
+                            if (prop.type !== 'Property') {
+                                return;
+                            }
+                            variablesToDeclareGlobally.push(prop.value.name);
+                        });
+                    } else if (declaration.id.type === 'ArrayPattern') {
+                        declaration.id.elements.forEach((ele) => {
+                            if (ele.type !== 'Identifier') {
+                                return;
+                            }
+                            variablesToDeclareGlobally.push(ele.name);
+                        });
+                    }
+                });
             }
-        } else if (item.type === 'ClassDeclaration' && wrappedWithIIFE) {
+        } else if (item.type === 'ClassDeclaration') {
             // Look for `class` declarations and track them so we can change them to `this.<className> = class <className>`
             rangesToFix.push(item);
-        } else if (item.type === 'FunctionDeclaration' && wrappedWithIIFE) {
+            variablesToDeclareGlobally.push(item.id.name);
+        } else if (item.type === 'FunctionDeclaration') {
             // Look for `class` declarations and track them so we can change them to `this.<className> = class <className>`
             rangesToFix.push(item);
+            variablesToDeclareGlobally.push(item.id.name);
         }
     });
 
-    return updateCodeAndAdjustSourceMaps(source, rangesToFix, wrappedWithIIFE, body, sourceMap);
+    let updatedSource = updateCodeAndAdjustSourceMaps(source, rangesToFix, body, sourceMap);
+
+    // Remember first line is empty, & that's reserved for declaration of global variables.
+    // We add this after we process the code as we don't want the code to processs the code we injected.
+    if (variablesToDeclareGlobally.length) {
+        updatedSource = `var ${variablesToDeclareGlobally.join(', ')};${updatedSource}`;
+    }
+    return updatedSource;
 }
 function getBodyOfAsyncIIFE(parsedCode: ParsedCode) {
     const body = parsedCode.program.body[0];
@@ -337,23 +344,22 @@ function getBodyOfAsyncIIFE(parsedCode: ParsedCode) {
 function updateCodeAndAdjustSourceMaps(
     source: string,
     positions: LocationToFix[],
-    wrappedWithIIFE: boolean,
     body: BodyDeclaration[],
     sourceMap: { original?: string; updated?: string }
 ): string {
-    if (positions.length === 0 || body.length === 0) {
-        return source;
-    }
+    // if (positions.length === 0 || body.length === 0) {
+    //     return source;
+    // }
     // This is very slow, but shouldn't be too bad, we're not dealing with 100s of MB
     // besides this only happens when user runs a cell.
     const lines = source.split(/\r?\n/);
     type LineNumber = number;
     type OldColumn = number;
     type NewColumn = number;
-    const linesUpdated = new Map<LineNumber, Map<OldColumn, NewColumn>>();
-    const updates = new Map<OldColumn, NewColumn>();
-    updates.set(0, '(async () => {'.length);
-    linesUpdated.set(1, updates);
+    const linesUpdated = new Map<
+        LineNumber,
+        { adjustedColumns: Map<OldColumn, NewColumn>; firstOriginallyAdjustedColumn?: number; totalAdjustment: number }
+    >();
     positions.forEach((item) => {
         const { loc, type } = item;
         switch (type) {
@@ -362,7 +368,7 @@ function updateCodeAndAdjustSourceMaps(
                 const name = item.id.name;
                 // if we have code such as `class HelloWord{ .... }`,
                 // We inject `this.HelloWord = HelloWord;` in the first line of code.
-                lines[0] = `${lines[0]}this.${name} = ${name};`;
+                lines[1] = `${lines[1]}this.${name} = ${name};`;
                 break;
             }
             case 'FunctionDeclaration': {
@@ -370,94 +376,73 @@ function updateCodeAndAdjustSourceMaps(
                 const name = item.id.name;
                 // // if we have code such as `function sayHello(){ .... }`,
                 // We inject `this.sayHello = sayHello;` in the first line of code.
-                lines[0] = `${lines[0]}this.${name} = ${name};`;
+                lines[1] = `${lines[1]}this.${name} = ${name};`;
                 break;
             }
             case 'VariableDeclaration':
                 {
                     const variableDeclaration = item as VariableDeclaration;
                     const { start, end } = loc;
-                    const line = lines[start.line - 1];
+
                     if (variableDeclaration.kind === 'const') {
-                        // We're just replacing the keyword `const` with `     ` ensuring we keep the same sapces.
+                        // Replace `const a = 1234;` with `( a = 1234);`
+                        // We're just replacing the keyword `const` with `     (` ensuring we keep the same sapces.
                         // Preserve the position with empty spaces so that source maps don't get screwed up.
                         // Removing `const/var/let` keywords will make them global.
-                        lines[start.line - 1] = `${line.substring(0, start.column)}     ${line.substring(
-                            variableDeclaration.declarations[0].id.loc.start.column
-                        )}`;
+                        lines[start.line - 1] = lines[start.line - 1].replace('const', '    (');
 
                         // No need to update source maps, as the positions have not changed,
                         // we've added empty spaces to keep it the same (less screwing around with source maps).
                     } else {
-                        // We're just replacing the keyword `var/let` with `   ` ensuring we keep the same sapces.
+                        // We're just replacing the keyword `var/let` with `  (` ensuring we keep the same sapces.
                         // Preserve the position with empty spaces so that source maps don't get screwed up.
                         // Removing `const/var/let` keywords will make them global.
-                        lines[start.line - 1] = `${line.substring(0, start.column)}   ${line.substring(
-                            variableDeclaration.declarations[0].id.loc.start.column
-                        )}`;
-
+                        lines[start.line - 1] = lines[start.line - 1].replace(variableDeclaration.kind, '  (');
                         // No need to update source maps, as the positions have not changed,
                         // we've added empty spaces to keep it the same (less screwing around with source maps).
                     }
 
-                    // Ok, now if we have object destructors, then wrap within brackets.
-                    // var {a, b} = {a: 'prop', b:'name'};
-                    // Needs to be `({a, b} = obj;)`
-                    if (['ObjectPattern', 'ArrayPattern'].includes(variableDeclaration.declarations[0].id.type)) {
-                        // Rmemeber, we added `white space` for `const/var/let`, hence we can reduce 2 of those for the `(` & `)` we're going to add.
-                        // Hence no need to adjust the source maps for the start.
-                        if (variableDeclaration.kind === 'const') {
-                            lines[start.line - 1] = `${line.substring(0, start.column)}    (${line.substring(
-                                variableDeclaration.declarations[0].id.loc.start.column
-                            )}`;
+                    // We could have multiple variables or constants
+                    // E.g. `var a,b,c = 1234` needs to be changed to `  (a=undefined, b=undefined, c= 1243)`
+                    variableDeclaration.declarations.forEach((declaraction) => {
+                        if (declaraction.init) {
+                            // Nothing to do.
                         } else {
-                            lines[start.line - 1] = `${line.substring(0, start.column)}  (${line.substring(
-                                variableDeclaration.declarations[0].id.loc.start.column
-                            )}`;
+                            // add `=undefined` after the variable name.
+                            const declarationLine = lines[declaraction.id.loc.end.line - 1];
+                            const currentAdjustments = linesUpdated.get(declaraction.id.loc.end.line) || {
+                                adjustedColumns: new Map<OldColumn, NewColumn>(),
+                                firstOriginallyAdjustedColumn: undefined,
+                                totalAdjustment: 0
+                            };
+                            linesUpdated.set(declaraction.id.loc.end.line, currentAdjustments);
+                            const totalAdjustment = currentAdjustments.totalAdjustment;
+                            currentAdjustments.adjustedColumns.set(
+                                declaraction.id.loc.end.column,
+                                declaraction.id.loc.end.column + totalAdjustment + '=undefined'.length
+                            );
+                            lines[declaraction.id.loc.end.line - 1] = `${declarationLine.substring(
+                                0,
+                                declaraction.id.loc.end.column + totalAdjustment
+                            )}=undefined${declarationLine.substring(declaraction.id.loc.end.column + totalAdjustment)}`;
+
+                            // Update adjustments.
+                            if (typeof currentAdjustments.firstOriginallyAdjustedColumn === 'undefined') {
+                                currentAdjustments.firstOriginallyAdjustedColumn = declaraction.id.loc.end.column;
+                            }
+                            currentAdjustments.totalAdjustment += '=undefined'.length;
                         }
+                    });
 
-                        // Ok, now we need to add the `)`
-                        const endLine = lines[end.line - 1];
-                        // Remember, last character would be `;`, we need to add `)` before that.
-                        lines[end.line - 1] = `${endLine.substring(0, end.column - 2)})${endLine.substring(
-                            end.column - 2
-                        )}`;
+                    // Ok, now we need to add the `)`
+                    const endLine = lines[end.line - 1];
+                    const indexOfLastSimiColon = endLine.lastIndexOf(';');
 
-                        // TODO: Keep track to udpate source maps;
-                        // const lastUpdated = linesUpdatedAndIncrementedColumns.get(position.line);
-                        // const addedCharacters = lastUpdated?.addedCharacters || 0;
-                        // const changesToCode = linesUpdated.get(end.line) || new Map<OldColumn, NewColumn>();
-                        // changesToCode.set(end.line, end.column + addedCharacters + extraCharacters.length);
-                        // linesUpdated.set(position.line, changesToCode);
-                    }
-                    // if (!wrappedWithIIFE) {
-                    //     return;
-                    // }
-                    // const linesUpdatedAndIncrementedColumns = new Map<number, { addedCharacters: number }>();
-                    // variableDeclaration.declarations.forEach((declaration) => {
-                    //     // if we have `var xyz = 1234`, replace that with `var xyz = this.xyz = 1234`;
-                    //     // if we have `var xyz = 1234, one = 234`, replace that with `var xyz = this.xyz = 1234, one = this.one = 234`;
-                    //     const name = declaration.id.name;
-                    //     const position = declaration.id.loc.end;
-                    //     const line = lines[position.line - 1];
-                    //     const extraCharacters = `=this.${name}`;
-
-                    //     const lastUpdated = linesUpdatedAndIncrementedColumns.get(position.line);
-                    //     const addedCharacters = lastUpdated?.addedCharacters || 0;
-                    //     lines[position.line - 1] = `${line.substring(
-                    //         0,
-                    //         position.column + addedCharacters
-                    //     )}${extraCharacters}${line.substring(declaration.id.loc.end.column + addedCharacters)}`;
-
-                    //     linesUpdatedAndIncrementedColumns.set(position.line, {
-                    //         addedCharacters: addedCharacters + extraCharacters.length
-                    //     });
-
-                    //     // Keep track to udpate source maps;
-                    //     const changesToCode = linesUpdated.get(loc.end.line) || new Map<OldColumn, NewColumn>();
-                    //     changesToCode.set(position.column, position.column + addedCharacters + extraCharacters.length);
-                    //     linesUpdated.set(position.line, changesToCode);
-                    // });
+                    // Remember, last character would be `;`, we need to add `)` before that.
+                    // Also we're using typescript compiler, hence it would add the necessary `;`.
+                    lines[end.line - 1] = `${endLine.substring(0, indexOfLastSimiColon)})${endLine.substring(
+                        indexOfLastSimiColon
+                    )}`;
                 }
                 break;
         }
@@ -479,14 +464,31 @@ function updateCodeAndAdjustSourceMaps(
     // })()
     // ```
     const lastExpression = body[body.length - 1];
-    if (wrappedWithIIFE && lastExpression.type === 'ExpressionStatement') {
+    let lastLineUpdatedWithReturn = false;
+    let lastLineNumber = -1;
+    if (lastExpression.type === 'ExpressionStatement') {
         lines[lastExpression.loc.start.line - 1] = `return ${lines[lastExpression.loc.start.line - 1]}`;
         // Keep track to udpate source maps;
-        const changesToCode = linesUpdated.get(lastExpression.loc.start.line) || new Map<OldColumn, NewColumn>();
-        changesToCode.set(0, 'return '.length);
-        linesUpdated.set(lastExpression.loc.start.line, changesToCode);
+        const currentAdjustments = linesUpdated.get(lastExpression.loc.start.line) || {
+            adjustedColumns: new Map<OldColumn, NewColumn>(),
+            firstOriginallyAdjustedColumn: undefined,
+            totalAdjustment: 0
+        };
+        linesUpdated.set(lastExpression.loc.start.line, currentAdjustments);
+
+        if (typeof currentAdjustments.firstOriginallyAdjustedColumn === 'undefined') {
+            currentAdjustments.firstOriginallyAdjustedColumn = lastExpression.loc.start.column;
+        }
+        currentAdjustments.totalAdjustment += 'return '.length;
+        currentAdjustments.adjustedColumns.set(
+            lastExpression.loc.start.column,
+            lastExpression.loc.start.column + 'return '.length
+        );
+        lastLineUpdatedWithReturn = true;
+        lastLineNumber = lastExpression.loc.start.line;
     }
 
+    // If we don't have any original source maps, then nothing to update.
     if (!sourceMap.original) {
         return lines.join(EOL);
     }
@@ -501,7 +503,7 @@ function updateCodeAndAdjustSourceMaps(
     original.eachMapping((mapping) => {
         const newMapping: MappingItem = {
             generatedColumn: mapping.generatedColumn,
-            generatedLine: mapping.generatedLine + (wrappedWithIIFE ? 1 : 0),
+            generatedLine: mapping.generatedLine + 2, // We added a top empty line and one for start of IIFE
             name: mapping.name,
             originalColumn: mapping.originalColumn,
             originalLine: mapping.originalLine,
@@ -509,12 +511,17 @@ function updateCodeAndAdjustSourceMaps(
         };
         // Check if we have adjusted the columns for this line.
         const adjustments = linesUpdated.get(mapping.generatedLine);
-        if (adjustments?.size) {
-            const positionsInAscendingOrder = Array.from(adjustments.keys()).sort();
+        if (adjustments?.adjustedColumns?.size) {
+            const positionsInAscendingOrder = Array.from(adjustments.adjustedColumns.keys()).sort();
             positionsInAscendingOrder.forEach((adjustedColumn) => {
-                const newColumn = adjustments.get(adjustedColumn)!;
-                if (mapping.generatedColumn === adjustedColumn) {
-                    newMapping.generatedColumn = newColumn;
+                const newColumn = adjustments.adjustedColumns.get(adjustedColumn)!;
+                if (lastLineNumber === mapping.generatedLine && lastLineUpdatedWithReturn) {
+                    newMapping.generatedColumn = newMapping.generatedColumn + newColumn;
+                } else {
+                    if (mapping.generatedColumn === adjustedColumn) {
+                        // THIS IS wrong, what about subsequent columns...
+                        newMapping.generatedColumn = newColumn;
+                    }
                 }
             });
         }
@@ -588,164 +595,6 @@ function getNotebookCellfromUri(uri?: Uri) {
     }
 }
 
-// function check(cell: NotebookCell) {
-//     const imports = getImports(cell);
-//     if (imports.length === 0) {
-//         return;
-//     }
-
-//     imports.forEach((item) => {
-//         if (item.modifiers){
-//             if (item.importClause?.isTypeOnly){
-//                 return;
-//             }
-//             item.modifiers.forEach(mod => {
-//                 if (mod.)
-//                 const moduleName = item.
-//                 const start = cell.document.positionAt(item.pos);
-//                 const end = cell.document.positionAt(item.end);
-//                 const name = item.namedBindings?.forEachChild(cbNode => );
-//                 const target = item.name?.escapedText;
-//                 const pair: Record<string, string> = {[item.name?.escapedText]}
-//             });
-//         } else {
-//             // We need just a `require(<moduleName>)`
-//             // TODO:
-//         }
-//     });
-// }
-
-type ImportType = {
-    importType: 'empty' | { var: string } | { named: string } | { named: string; as: string };
-    location: { start: number; end: number };
-};
-type ImportTypes = ImportType[];
-// function getImportAdjustments(cell: NotebookCell, transpiledSource: string | BodyDeclaration[]) {
-//     const requiredImports = getExpectedImports(cell);
-//     const registeredImports = getGeneratedImports(transpiledSource);
-//     const importsToRegister: string[] = [];
-//     requiredImports.forEach((imports, moduleName) => {
-//         const generatedImports = registeredImports.get(moduleName);
-//         const namedImports: string[] = [];
-//         function regsiterMissingImport(item: ImportType) {
-//             if (item.importType === 'empty') {
-//                 importsToRegister.push(`require('${moduleName}');`);
-//             } else if ('var' in item.importType) {
-//                 importsToRegister.push(`var ${item.importType.var} = require('${moduleName}');`);
-//             } else if ('as' in item.importType) {
-//                 namedImports.push(`${item.importType.named} as ${item.importType.as}`);
-//             } else {
-//                 namedImports.push(item.importType.named);
-//             }
-//         }
-//         if (!generatedImports) {
-//             imports.forEach(regsiterMissingImport);
-//         } else {
-//             imports
-//                 .filter((item) => {
-//                     return !generatedImports.find(
-//                         (generated) => generated.importType.toString() === item.importType.toString()
-//                     );
-//                 })
-//                 .forEach(regsiterMissingImport);
-//         }
-//         if (namedImports.length) {
-//             importsToRegister.push(`var {${namedImports.join(', ')}} = require('${moduleName}');`);
-//         }
-//     });
-
-//     // If we have a cell with `import * as fs from 'fs'`,
-//     return importsToRegister;
-// }
-// function getGeneratedImports(source: string | BodyDeclaration[]) {
-//     let body: BodyDeclaration[] = [];
-//     if (Array.isArray(source)) {
-//         body = source;
-//     } else {
-//         const node: acorn.Node = acorn.parse(source, { ecmaVersion: 2019 });
-//         body = (node as any).body;
-//     }
-//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-//     const varDecs = (body as any).filter(
-//         (item) => item.type === 'VariableDeclaration' || item.type === 'ExpressionStatement'
-//     );
-//     const requires = new Map<string, ImportTypes>();
-//     varDecs.forEach((item) => {
-//         if (item.type === 'ExpressionStatement') {
-//             if (
-//                 item.expression &&
-//                 item.expression.callee &&
-//                 item.expression.callee.type === 'Identifier' &&
-//                 item.expression.callee.name === 'require' &&
-//                 Array.isArray(item.expression.arguments) &&
-//                 item.expression.arguments.length === 1 &&
-//                 item.expression.arguments[0].type === 'Literal'
-//             ) {
-//                 const namedImports: ImportTypes = requires.get(item.expression.arguments[0].value) || [];
-//                 namedImports.push({ importType: 'empty', location: { start: item.start, end: item.end } });
-//                 requires.set(item.expression.arguments[0].value, namedImports);
-//             }
-//             return;
-//         }
-//         if (ts.isExpressionStatement(item)) {
-//             console.log('OK');
-//             const expression = item.expression;
-//             if (ts.isCallExpression(expression)) {
-//                 console.log(expression);
-//                 return;
-//             }
-//             return;
-//         }
-//         if (!Array.isArray(item.declarations) || item.declarations.length === 0) {
-//             console.log('WTF');
-//             return;
-//         }
-//         if (item.declarations.length !== 1) {
-//             return;
-//         }
-//         const init = item.declarations[0].init;
-//         if (
-//             !init ||
-//             init.type !== 'CallExpression' ||
-//             init.callee.name !== 'require' ||
-//             !Array.isArray(init.arguments) ||
-//             init.arguments.length !== 1 ||
-//             init.arguments[0].type !== 'Literal'
-//         ) {
-//             // console.log(JSON.stringify(item));
-//             return;
-//         }
-//         const importFrom = init.arguments[0].value;
-//         const namedImports: ImportTypes = requires.get(importFrom) || [];
-//         if (item.declarations[0].id.type === 'Identifier') {
-//             namedImports.push({
-//                 importType: { var: item.declarations[0].id.name },
-//                 location: { start: item.start, end: item.end }
-//             });
-//         } else if (
-//             item.declarations[0].id.type === 'ObjectPattern' &&
-//             item.declarations[0].id.properties.every((prop) => prop.type === 'Property' && prop.kind === 'init')
-//         ) {
-//             item.declarations[0].id.properties.forEach((prop) => {
-//                 if (prop.key.name === prop.value.name) {
-//                     namedImports.push({
-//                         importType: { named: prop.value.name as string },
-//                         location: { start: item.start, end: item.end }
-//                     });
-//                 } else {
-//                     namedImports.push({
-//                         importType: { named: prop.key.name, as: prop.value.name },
-//                         location: { start: item.start, end: item.end }
-//                     });
-//                 }
-//             });
-//         }
-//         if (namedImports.length) {
-//             requires.set(importFrom, namedImports);
-//         }
-//     });
-//     return requires;
-// }
 function getExpectedImports(cell: NotebookCell) {
     const program = ts.createSourceFile(
         cell.document.uri.fsPath,
@@ -760,9 +609,8 @@ function getExpectedImports(cell: NotebookCell) {
         .filter((item) => item.kind === ts.SyntaxKind.ImportDeclaration)
         .map((item) => item as ts.ImportDeclaration);
 
-    const expectedImports = new Map<string, { imports: ImportTypes; position: Position }>();
+    const requireStatements: string[] = [];
     imports.forEach((item: ts.ImportDeclaration) => {
-        const namedImports: ImportTypes = [];
         if (!ts.isStringLiteral(item.moduleSpecifier)) {
             return;
         }
@@ -773,45 +621,36 @@ function getExpectedImports(cell: NotebookCell) {
         if (!line.startsWith('import')) {
             return;
         }
-        expectedImports.set(importFrom, { imports: namedImports, position });
         const importClause = item.importClause;
         if (!importClause) {
-            namedImports.push({ importType: 'empty', location: { start: item.pos, end: item.end } });
+            requireStatements.push(`require('${importFrom}')`);
             return;
         }
         if (importClause.isTypeOnly) {
             return;
         }
         if (importClause.name) {
-            namedImports.push({
-                importType: { named: importClause.name.getText(program) },
-                location: { start: item.pos, end: item.end }
-            });
+            requireStatements.push(`${importClause.name.getText(program)} = require('${importFrom}')`);
         }
         if (importClause.namedBindings) {
             if (ts.isNamespaceImport(importClause.namedBindings)) {
-                namedImports.push({
-                    importType: { var: importClause.namedBindings.name.text },
-                    location: { start: item.pos, end: item.end }
+                requireStatements.push(`${importClause.namedBindings.name.text} = require('${importFrom}')`);
+            } else {
+                const namedImportsForModule: string[] = [];
+                importClause.namedBindings.elements.forEach((ele) => {
+                    if (ele.propertyName) {
+                        namedImportsForModule.push(`${ele.propertyName.text}:${ele.name.text}`);
+                    } else {
+                        namedImportsForModule.push(`${ele.name.text}`);
+                    }
                 });
-                return;
-            }
-            importClause.namedBindings.elements.forEach((ele) => {
-                if (ele.propertyName) {
-                    namedImports.push({
-                        importType: { named: ele.propertyName.text, as: ele.name.text },
-                        location: { start: item.pos, end: item.end }
-                    });
-                } else {
-                    namedImports.push({
-                        importType: { named: ele.name.text },
-                        location: { start: item.pos, end: item.end }
-                    });
+                if (namedImportsForModule.length) {
+                    requireStatements.push(`({${namedImportsForModule.join(', ')}} = require('${importFrom}'))`);
                 }
-            });
+            }
         }
     });
-    return expectedImports;
+    return requireStatements.join(';');
 }
 type TokenLocation = { line: number; column: number };
 type BodyLocation = { start: TokenLocation; end: TokenLocation };
@@ -831,7 +670,21 @@ type VariableDeclaration = {
 };
 type VariableDeclarator = {
     type: 'VariableDeclarator';
-    id: { name: string; loc: BodyLocation; type: 'ObjectPattern' | 'ArrayPattern' | '<other>' };
+    id:
+        | { name: string; loc: BodyLocation; type: 'Identifier' | '<other>' }
+        | {
+              name: string;
+              loc: BodyLocation;
+              type: 'ObjectPattern';
+              properties: { type: 'Property'; key: { name: string }; value: { name: string } }[];
+          }
+        | {
+              name: string;
+              loc: BodyLocation;
+              type: 'ArrayPattern';
+              elements: { name: string; type: 'Identifier' }[];
+          };
+    init?: { loc: BodyLocation };
     loc: BodyLocation;
 };
 type OtherNodes = { type: '<other>'; loc: BodyLocation };
