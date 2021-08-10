@@ -3,7 +3,7 @@ import { DebugProtocol } from 'vscode-debugprotocol';
 import { debug, NotebookDocument, NotebookCell, DebugSession, DebugAdapterTracker, Uri } from 'vscode';
 import * as path from 'path';
 import { JavaScriptKernel } from '../jsKernel';
-import { getCellFromTemporaryPath, getCodeObject, getSourceMapsInfo } from '../compiler';
+import { getCellFromTemporaryPath, getCodeObject, getMappedLocation, getSourceMapsInfo } from '../compiler';
 
 const activeDebuggers = new WeakMap<NotebookDocument, Debugger>();
 
@@ -34,6 +34,29 @@ export class Debugger implements DebugAdapterTracker {
                     }
                 }
             },
+            (request: { source?: DebugProtocol.Source }, location?: { line?: number; column?: number }[]) => {
+                if (!request.source?.path || !location) {
+                    return;
+                }
+                const cell = getCellFromTemporaryPath(request.source.path);
+                if (!cell) {
+                    return;
+                }
+                const codeObject = getCodeObject(cell);
+                if (!codeObject) {
+                    return;
+                }
+                const sourceMap = getSourceMapsInfo(codeObject);
+                if (!sourceMap) {
+                    return;
+                }
+                // const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
+                location.forEach((location) => {
+                    const mappedLocation = getMappedLocation(codeObject, location, 'VSCodeToDAP');
+                    location.line = mappedLocation.line;
+                    location.column = mappedLocation.column;
+                });
+            },
             'VSCodeToDAP'
         );
         console.log(message);
@@ -54,6 +77,29 @@ export class Debugger implements DebugAdapterTracker {
                         source.path = cell.document.uri.toString();
                     }
                 }
+            },
+            (request: { source?: DebugProtocol.Source }, location?: { line?: number; column?: number }[]) => {
+                if (!request.source?.path || !location) {
+                    return;
+                }
+                const cell = getCellFromTemporaryPath(request.source.path);
+                if (!cell) {
+                    return;
+                }
+                const codeObject = getCodeObject(cell);
+                if (!codeObject) {
+                    return;
+                }
+                const sourceMap = getSourceMapsInfo(codeObject);
+                if (!sourceMap) {
+                    return;
+                }
+                // const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
+                location.forEach((location) => {
+                    const mappedLocation = getMappedLocation(codeObject, location, 'DAPToVSCode');
+                    location.line = mappedLocation.line;
+                    location.column = mappedLocation.column;
+                });
             },
             'DAPToVSCode'
         );
@@ -83,7 +129,11 @@ export class Debugger implements DebugAdapterTracker {
 function visitSources(
     msg: DebugProtocol.ProtocolMessage,
     visitor: (source: DebugProtocol.Source) => void,
-    direction: 'VSCodeToDAP' | 'DAPToVSCode'
+    remapLocation: (
+        request: { source?: DebugProtocol.Source },
+        location?: { line?: number; column?: number }[]
+    ) => void,
+    _direction: 'DAPToVSCode' | 'VSCodeToDAP'
 ): void {
     const sourceHook = (source: DebugProtocol.Source | undefined) => {
         if (source) {
@@ -91,79 +141,79 @@ function visitSources(
         }
     };
 
-    function remapLocation(
-        request: { source?: DebugProtocol.Source },
-        location?: { line?: number; column?: number }[]
-    ) {
-        if (!request.source?.path || !location) {
-            return;
-        }
-        const cell = getCellFromTemporaryPath(request.source.path);
-        if (!cell) {
-            return;
-        }
-        const codeObject = getCodeObject(cell);
-        if (!codeObject) {
-            return;
-        }
-        const sourceMap = getSourceMapsInfo(codeObject);
-        if (!sourceMap) {
-            return;
-        }
-        const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
-        location.forEach((location) => {
-            if (typeof location.line !== 'number') {
-                return;
-            }
-            const cacheKey = `${location.line || ''},${location.column || ''}`;
-            const cachedData = cache.get(cacheKey);
-            if (cachedData) {
-                location.line = cachedData[0];
-                location.column = cachedData[1];
-                return;
-            }
-            if (direction === 'DAPToVSCode') {
-                const map = sourceMap.generatedToOriginal.get(location.line);
-                if (!map) {
-                    return;
-                }
-                const matchingItem = typeof location.column === 'number' ? map.get(location.column) : undefined;
-                if (matchingItem) {
-                    location.line = matchingItem.originalLine;
-                    location.column = matchingItem.originalColumn;
-                }
-                // get the first item that has the lowers column.
-                else if (map.has(0)) {
-                    location.line = map.get(0)!.originalLine;
-                    location.column = map.get(0)!.originalColumn;
-                } else {
-                    const column = Array.from(map.keys()).sort()[0];
-                    location.line = map.get(column)!.originalLine;
-                    location.column = map.get(column)!.originalColumn;
-                }
-            } else {
-                const map = sourceMap.originalToGenerated.get(location.line);
-                if (!map) {
-                    return;
-                }
-                const matchingItem = typeof location.column === 'number' ? map.get(location.column) : undefined;
-                if (matchingItem) {
-                    location.line = matchingItem.generatedLine;
-                    location.column = matchingItem.originalColumn;
-                }
-                // get the first item that has the lowers column.
-                else if (map.has(0)) {
-                    location.line = map.get(0)!.generatedLine;
-                    location.column = map.get(0)!.generatedColumn;
-                } else {
-                    const column = Array.from(map.keys()).sort()[0];
-                    location.line = map.get(column)!.generatedLine;
-                    location.column = map.get(column)!.generatedColumn;
-                }
-            }
-            cache.set(cacheKey, [location.line, location.column]);
-        });
-    }
+    // function remapLocation(
+    //     request: { source?: DebugProtocol.Source },
+    //     location?: { line?: number; column?: number }[]
+    // ) {
+    //     if (!request.source?.path || !location) {
+    //         return;
+    //     }
+    //     const cell = getCellFromTemporaryPath(request.source.path);
+    //     if (!cell) {
+    //         return;
+    //     }
+    //     const codeObject = getCodeObject(cell);
+    //     if (!codeObject) {
+    //         return;
+    //     }
+    //     const sourceMap = getSourceMapsInfo(codeObject);
+    //     if (!sourceMap) {
+    //         return;
+    //     }
+    //     // const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
+    //     location.forEach((location) => {
+    //         if (typeof location.line !== 'number') {
+    //             return;
+    //         }
+    //         // const cacheKey = `${location.line || ''},${location.column || ''}`;
+    //         // const cachedData = cache.get(cacheKey);
+    //         // if (cachedData) {
+    //         //     location.line = cachedData[0];
+    //         //     location.column = cachedData[1];
+    //         //     return;
+    //         // }
+    //         if (direction === 'DAPToVSCode') {
+    //             const map = sourceMap.generatedToOriginal.get(location.line);
+    //             if (!map) {
+    //                 return;
+    //             }
+    //             const matchingItem = typeof location.column === 'number' ? map.get(location.column) : undefined;
+    //             if (matchingItem) {
+    //                 location.line = matchingItem.originalLine;
+    //                 location.column = matchingItem.originalColumn;
+    //             }
+    //             // get the first item that has the lowers column.
+    //             else if (map.has(0)) {
+    //                 location.line = map.get(0)!.originalLine;
+    //                 location.column = map.get(0)!.originalColumn;
+    //             } else {
+    //                 const column = Array.from(map.keys()).sort()[0];
+    //                 location.line = map.get(column)!.originalLine;
+    //                 location.column = map.get(column)!.originalColumn;
+    //             }
+    //         } else {
+    //             const map = sourceMap.originalToGenerated.get(location.line);
+    //             if (!map) {
+    //                 return;
+    //             }
+    //             const matchingItem = typeof location.column === 'number' ? map.get(location.column) : undefined;
+    //             if (matchingItem) {
+    //                 location.line = matchingItem.generatedLine;
+    //                 location.column = matchingItem.generatedColumn;
+    //             }
+    //             // get the first item that has the lowers column.
+    //             else if (map.has(0)) {
+    //                 location.line = map.get(0)!.generatedLine;
+    //                 location.column = map.get(0)!.generatedColumn;
+    //             } else {
+    //                 const column = Array.from(map.keys()).sort()[0];
+    //                 location.line = map.get(column)!.generatedLine;
+    //                 location.column = map.get(column)!.generatedColumn;
+    //             }
+    //         }
+    //         // cache.set(cacheKey, [location.line, location.column]);
+    //     });
+    // }
 
     switch (msg.type) {
         case 'event': {

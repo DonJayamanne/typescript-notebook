@@ -62,11 +62,10 @@ export class DebuggerFactory {
             (workspace.workspaceFolders?.length ? workspace.workspaceFolders[0] : undefined);
         const started = await debug.startDebugging(folder, {
             type: 'pwa-node',
-            timeout: 100000,
+            timeout: 100000, // Hmm...
             name: name,
             port: port,
             request: 'attach',
-            internalConsoleOptions: 'neverOpen',
             __document: notebook.uri.toString(),
             sourceMaps: true,
             skipFiles: [

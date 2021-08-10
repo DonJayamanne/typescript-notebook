@@ -10,7 +10,7 @@ export function run(): Promise<void> {
     // (mocha as any).useColors(true);
 
     const testsRoot = path.resolve(__dirname, '..');
-
+    process.env.__IS_TEST = 'true';
     return new Promise((c, e) => {
         glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
             if (err) {

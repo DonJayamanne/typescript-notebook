@@ -1,12 +1,12 @@
 import * as ts from 'typescript';
 import { NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
 import { EOL } from 'os';
-import { parse } from 'recast';
 import { MappingItem, RawSourceMap, SourceMapConsumer, SourceMapGenerator } from 'source-map';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { CodeObject } from '../server/types';
+import { LineNumber, NewColumn, OldColumn, processTopLevelAwait } from './asyncWrapper';
 let tmpDirectory: string | undefined;
 const mapOfSourceFilesToNotebookUri = new Map<string, Uri>();
 const mapFromCellToPath = new WeakMap<NotebookCell, CodeObject>();
@@ -16,7 +16,8 @@ const codeObjectToSourceMaps = new WeakMap<
         raw: RawSourceMap;
         originalToGenerated: Map<number, Map<number, MappingItem>>;
         generatedToOriginal: Map<number, Map<number, MappingItem>>;
-        mappingCache?: Map<string, [line: number, column: number]>;
+        originalToGeneratedCache: Map<string, { line?: number; column?: number }>;
+        generatedToOriginalCache: Map<string, { line?: number; column?: number }>;
     }
 >();
 
@@ -82,10 +83,78 @@ const dummyFnToUseImports = 'adf8d89dff594ea79f38d03905825d73';
 export function getSourceMapsInfo(codeObject: CodeObject) {
     return codeObjectToSourceMaps.get(codeObject);
 }
-export function getCodeObject(cell: NotebookCell): CodeObject {
+export function getMappedLocation(
+    codeObject: CodeObject,
+    location: { line?: number; column?: number },
+    direction: 'VSCodeToDAP' | 'DAPToVSCode'
+): { line?: number; column?: number } {
+    if (typeof location.line !== 'number' && typeof location.column !== 'number') {
+        return location;
+    }
+    const sourceMap = getSourceMapsInfo(codeObject);
+    if (!sourceMap) {
+        return location;
+    }
+    if (typeof location.line !== 'number') {
+        return location;
+    }
+    const cacheKey = `${location.line || ''},${location.column || ''}`;
+    const cache = direction === 'VSCodeToDAP' ? sourceMap.originalToGeneratedCache : sourceMap.generatedToOriginalCache;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+        return cachedData;
+    }
+    const mappedLocation = { ...location };
+    if (direction === 'DAPToVSCode') {
+        // There's no such mapping of this line number.
+        const map = sourceMap.generatedToOriginal.get(location.line);
+        if (!map) {
+            return location;
+        }
+        const matchingItem = typeof location.column === 'number' ? map.get(location.column) : map.get(0)!;
+        if (matchingItem) {
+            mappedLocation.line = matchingItem.originalLine;
+            mappedLocation.column = matchingItem.originalColumn;
+        }
+        // get the first item that has the lowest column.
+        // TODO: Review this.
+        else if (map.has(0)) {
+            mappedLocation.line = map.get(0)!.originalLine;
+            mappedLocation.column = map.get(0)!.originalColumn;
+        } else {
+            const column = Array.from(map.keys()).sort()[0];
+            mappedLocation.line = map.get(column)!.originalLine;
+            mappedLocation.column = map.get(column)!.originalColumn;
+        }
+    } else {
+        const map = sourceMap.originalToGenerated.get(location.line);
+        if (!map) {
+            return location;
+        }
+        const matchingItem = typeof location.column === 'number' ? map.get(location.column) : map.get(0)!;
+        if (matchingItem) {
+            mappedLocation.line = matchingItem.generatedLine;
+            mappedLocation.column = matchingItem.generatedColumn;
+        }
+        // get the first item that has the lowest column.
+        // TODO: Review this.
+        else if (map.has(0)) {
+            mappedLocation.line = map.get(0)!.generatedLine;
+            mappedLocation.column = map.get(0)!.generatedColumn;
+        } else {
+            const column = Array.from(map.keys()).sort()[0];
+            mappedLocation.line = map.get(column)!.generatedLine;
+            mappedLocation.column = map.get(column)!.generatedColumn;
+        }
+    }
+
+    cache.set(cacheKey, mappedLocation);
+    return mappedLocation;
+}
+export function getCodeObject(cell: NotebookCell, code = cell.document.getText()): CodeObject {
     try {
         // Parser fails when we have comments in the last line, hence just add empty line.
-        let code = `${cell.document.getText()}${EOL}`;
+        code = `${code}${EOL}`;
         const details = createCodeObject(cell);
         if (details.textDocumentVersion === cell.document.version) {
             return details;
@@ -168,10 +237,13 @@ newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
         // Node debugger doesn't seem to support inlined source maps
         // https://github.com/microsoft/vscode/issues/130303
         // Once available, uncomment this file & the code.
-        // transpiledCode = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
+        // const transpiledCodeWithSourceFile = `${transpiledCode}${EOL}//# sourceURL=file:///${details.sourceFilename}`;
+        // const transpiledCodeWithSourceMap = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
         //     updatedSourceMap
         // ).toString('base64')}`;
 
+        // updateCodeObject(details, cell, transpiledCodeWithSourceMap, updatedSourceMap);
+        // details.code = transpiledCodeWithSourceFile;
         updateCodeObject(details, cell, transpiledCode, updatedSourceMap);
         const originalToGenerated = new Map<number, Map<number, MappingItem>>();
         const generatedToOriginal = new Map<number, Map<number, MappingItem>>();
@@ -187,9 +259,13 @@ newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
         codeObjectToSourceMaps.set(details, {
             raw: updatedRawSourceMap,
             originalToGenerated,
-            generatedToOriginal
+            generatedToOriginal,
+            originalToGeneratedCache: new Map<string, { line?: number; column?: number }>(),
+            generatedToOriginalCache: new Map<string, { line?: number; column?: number }>()
         });
-        console.debug(`Compiled TS cell ${cell.index} into ${details.code}`);
+        if (!process.env.__IS_TEST) {
+            console.debug(`Compiled TS cell ${cell.index} into ${details.code}`);
+        }
         return details;
     } catch (ex) {
         // Only for debugging.
@@ -250,247 +326,24 @@ function replaceTopLevelConstWithVar(
     sourceMap: { original?: string; updated?: string },
     expectedImports: string
 ) {
-    let parsedCode: ParsedCode;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const options: any = { ecmaVersion: 2019 }; // Support minimum of Node 12 (which has support for ES2019)
-    try {
-        // If the parser fails, then we have a top level await.
-        // In the catch block wrap the code.
-        parsedCode = parse(source, options);
-        // always wrap in IIFE (this was required only for top level awaits)
-        // But for consistency, lets alawys use IIFE.
-        source = `${expectedImports}${EOL}(() => {${EOL}${source}${EOL}})()`;
-        parsedCode = parse(source, options);
-    } catch (ex) {
-        try {
-            source = `${expectedImports}${EOL}(async () => {${EOL}${source}${EOL}})()`;
-            parsedCode = parse(source, options);
-        } catch (ex) {
-            console.error(`Failed to parse code ${source}`, ex);
-            return source;
-        }
-    }
-    if (parsedCode.type !== 'File' || !Array.isArray(parsedCode.program.body) || parsedCode.program.body.length === 0) {
-        return source;
-    }
-    const rangesToFix: LocationToFix[] = [];
-    const body = getBodyOfAsyncIIFE(parsedCode);
-    const variablesToDeclareGlobally: string[] = [];
-    body.forEach((item) => {
-        // Look for `const`, `var` & `let` and remove those keywords at the top level,
-        // to convert them into gloabl variables.
-        // This works great except for object destructing assignments, as follows
-        // const obj = {a: 'prop', b:'name'};
-        // var {a, b} = obj;
-        // This will ger converted into `{a, b} = obj;`
-        // But it needs to be `({a, b} = obj;)`
-        // If we have object destructuring assignments, we need to wrap with `( .... )`
-        if (item.type === 'VariableDeclaration') {
-            if (['const', 'let', 'var'].includes(item.kind)) {
-                rangesToFix.push(item);
+    const result = processTopLevelAwait(expectedImports, source);
 
-                item.declarations.forEach((declaration) => {
-                    if (declaration.id.type === 'Identifier') {
-                        variablesToDeclareGlobally.push(declaration.id.name);
-                    } else if (declaration.id.type === 'ObjectPattern') {
-                        declaration.id.properties.forEach((prop) => {
-                            if (prop.type !== 'Property') {
-                                return;
-                            }
-                            variablesToDeclareGlobally.push(prop.value.name);
-                        });
-                    } else if (declaration.id.type === 'ArrayPattern') {
-                        declaration.id.elements.forEach((ele) => {
-                            if (ele.type !== 'Identifier') {
-                                return;
-                            }
-                            variablesToDeclareGlobally.push(ele.name);
-                        });
-                    }
-                });
-            }
-        } else if (item.type === 'ClassDeclaration') {
-            // Look for `class` declarations and track them so we can change them to `this.<className> = class <className>`
-            rangesToFix.push(item);
-            variablesToDeclareGlobally.push(item.id.name);
-        } else if (item.type === 'FunctionDeclaration') {
-            // Look for `class` declarations and track them so we can change them to `this.<className> = class <className>`
-            rangesToFix.push(item);
-            variablesToDeclareGlobally.push(item.id.name);
-        }
-    });
-
-    let updatedSource = updateCodeAndAdjustSourceMaps(source, rangesToFix, body, sourceMap);
-
-    // Remember first line is empty, & that's reserved for declaration of global variables.
-    // We add this after we process the code as we don't want the code to processs the code we injected.
-    if (variablesToDeclareGlobally.length) {
-        updatedSource = `var ${variablesToDeclareGlobally.join(', ')};${updatedSource}`;
-    }
-    return updatedSource;
-}
-function getBodyOfAsyncIIFE(parsedCode: ParsedCode) {
-    const body = parsedCode.program.body[0];
-    if (
-        parsedCode.program.body.length === 1 &&
-        body.type === 'ExpressionStatement' &&
-        body.expression.type === 'CallExpression' &&
-        body.expression.callee.type === 'ArrowFunctionExpression'
-    ) {
-        return body.expression.callee.body.body;
-    }
-    return parsedCode.program.body;
+    updateCodeAndAdjustSourceMaps(source, result!.updatedCode, result!.lastLineNumber, result!.linesUpdated, sourceMap);
+    return result!.updatedCode;
 }
 function updateCodeAndAdjustSourceMaps(
-    source: string,
-    positions: LocationToFix[],
-    body: BodyDeclaration[],
-    sourceMap: { original?: string; updated?: string }
-): string {
-    // if (positions.length === 0 || body.length === 0) {
-    //     return source;
-    // }
-    // This is very slow, but shouldn't be too bad, we're not dealing with 100s of MB
-    // besides this only happens when user runs a cell.
-    const lines = source.split(/\r?\n/);
-    type LineNumber = number;
-    type OldColumn = number;
-    type NewColumn = number;
-    const linesUpdated = new Map<
+    originalCode: string,
+    updatedCode: string,
+    lastLineNumber: number,
+    linesUpdated: Map<
         LineNumber,
         { adjustedColumns: Map<OldColumn, NewColumn>; firstOriginallyAdjustedColumn?: number; totalAdjustment: number }
-    >();
-    positions.forEach((item) => {
-        const { loc, type } = item;
-        switch (type) {
-            case 'ClassDeclaration': {
-                // const line = lines[loc.end.line - 1];
-                const name = item.id.name;
-                // if we have code such as `class HelloWord{ .... }`,
-                // We inject `this.HelloWord = HelloWord;` in the first line of code.
-                lines[1] = `${lines[1]}this.${name} = ${name};`;
-                break;
-            }
-            case 'FunctionDeclaration': {
-                // const line = lines[loc.end.line - 1];
-                const name = item.id.name;
-                // // if we have code such as `function sayHello(){ .... }`,
-                // We inject `this.sayHello = sayHello;` in the first line of code.
-                lines[1] = `${lines[1]}this.${name} = ${name};`;
-                break;
-            }
-            case 'VariableDeclaration':
-                {
-                    const variableDeclaration = item as VariableDeclaration;
-                    const { start, end } = loc;
-
-                    if (variableDeclaration.kind === 'const') {
-                        // Replace `const a = 1234;` with `( a = 1234);`
-                        // We're just replacing the keyword `const` with `     (` ensuring we keep the same sapces.
-                        // Preserve the position with empty spaces so that source maps don't get screwed up.
-                        // Removing `const/var/let` keywords will make them global.
-                        lines[start.line - 1] = lines[start.line - 1].replace('const', '    (');
-
-                        // No need to update source maps, as the positions have not changed,
-                        // we've added empty spaces to keep it the same (less screwing around with source maps).
-                    } else {
-                        // We're just replacing the keyword `var/let` with `  (` ensuring we keep the same sapces.
-                        // Preserve the position with empty spaces so that source maps don't get screwed up.
-                        // Removing `const/var/let` keywords will make them global.
-                        lines[start.line - 1] = lines[start.line - 1].replace(variableDeclaration.kind, '  (');
-                        // No need to update source maps, as the positions have not changed,
-                        // we've added empty spaces to keep it the same (less screwing around with source maps).
-                    }
-
-                    // We could have multiple variables or constants
-                    // E.g. `var a,b,c = 1234` needs to be changed to `  (a=undefined, b=undefined, c= 1243)`
-                    variableDeclaration.declarations.forEach((declaraction) => {
-                        if (declaraction.init) {
-                            // Nothing to do.
-                        } else {
-                            // add `=undefined` after the variable name.
-                            const declarationLine = lines[declaraction.id.loc.end.line - 1];
-                            const currentAdjustments = linesUpdated.get(declaraction.id.loc.end.line) || {
-                                adjustedColumns: new Map<OldColumn, NewColumn>(),
-                                firstOriginallyAdjustedColumn: undefined,
-                                totalAdjustment: 0
-                            };
-                            linesUpdated.set(declaraction.id.loc.end.line, currentAdjustments);
-                            const totalAdjustment = currentAdjustments.totalAdjustment;
-                            currentAdjustments.adjustedColumns.set(
-                                declaraction.id.loc.end.column,
-                                declaraction.id.loc.end.column + totalAdjustment + '=undefined'.length
-                            );
-                            lines[declaraction.id.loc.end.line - 1] = `${declarationLine.substring(
-                                0,
-                                declaraction.id.loc.end.column + totalAdjustment
-                            )}=undefined${declarationLine.substring(declaraction.id.loc.end.column + totalAdjustment)}`;
-
-                            // Update adjustments.
-                            if (typeof currentAdjustments.firstOriginallyAdjustedColumn === 'undefined') {
-                                currentAdjustments.firstOriginallyAdjustedColumn = declaraction.id.loc.end.column;
-                            }
-                            currentAdjustments.totalAdjustment += '=undefined'.length;
-                        }
-                    });
-
-                    // Ok, now we need to add the `)`
-                    const endLine = lines[end.line - 1];
-                    const indexOfLastSimiColon = endLine.lastIndexOf(';');
-
-                    // Remember, last character would be `;`, we need to add `)` before that.
-                    // Also we're using typescript compiler, hence it would add the necessary `;`.
-                    lines[end.line - 1] = `${endLine.substring(0, indexOfLastSimiColon)})${endLine.substring(
-                        indexOfLastSimiColon
-                    )}`;
-                }
-                break;
-        }
-    });
-
-    // If the last node in the Body is a class, function or expression & we're in an IIFE, then return that value.
-    // Because if you have code such as
-    // ```typescript
-    // const value = 1234;
-    // value
-    // ```
-    // At this point the value of `value` will be printed out.
-    // But if we wrap this in IIFE, then nothing will happen, hence we need a return `statement`
-    // Ie. we need
-    // ```typescript
-    // (async () => {
-    // const value = 1234;
-    // return value
-    // })()
-    // ```
-    const lastExpression = body[body.length - 1];
-    let lastLineUpdatedWithReturn = false;
-    let lastLineNumber = -1;
-    if (lastExpression.type === 'ExpressionStatement') {
-        lines[lastExpression.loc.start.line - 1] = `return ${lines[lastExpression.loc.start.line - 1]}`;
-        // Keep track to udpate source maps;
-        const currentAdjustments = linesUpdated.get(lastExpression.loc.start.line) || {
-            adjustedColumns: new Map<OldColumn, NewColumn>(),
-            firstOriginallyAdjustedColumn: undefined,
-            totalAdjustment: 0
-        };
-        linesUpdated.set(lastExpression.loc.start.line, currentAdjustments);
-
-        if (typeof currentAdjustments.firstOriginallyAdjustedColumn === 'undefined') {
-            currentAdjustments.firstOriginallyAdjustedColumn = lastExpression.loc.start.column;
-        }
-        currentAdjustments.totalAdjustment += 'return '.length;
-        currentAdjustments.adjustedColumns.set(
-            lastExpression.loc.start.column,
-            lastExpression.loc.start.column + 'return '.length
-        );
-        lastLineUpdatedWithReturn = true;
-        lastLineNumber = lastExpression.loc.start.line;
-    }
-
+    >,
+    sourceMap: { original?: string; updated?: string }
+) {
     // If we don't have any original source maps, then nothing to update.
     if (!sourceMap.original) {
-        return lines.join(EOL);
+        return;
     }
 
     // If we have changes, update the source maps now.
@@ -503,27 +356,36 @@ function updateCodeAndAdjustSourceMaps(
     original.eachMapping((mapping) => {
         const newMapping: MappingItem = {
             generatedColumn: mapping.generatedColumn,
-            generatedLine: mapping.generatedLine + 2, // We added a top empty line and one for start of IIFE
+            generatedLine: mapping.generatedLine + 2, // We added a top empty line and one after start of IIFE
             name: mapping.name,
             originalColumn: mapping.originalColumn,
             originalLine: mapping.originalLine,
             source: mapping.source
         };
-        // Check if we have adjusted the columns for this line.
-        const adjustments = linesUpdated.get(mapping.generatedLine);
+        // // Check if we have adjusted the columns for this line.
+        const adjustments = linesUpdated.get(newMapping.generatedLine);
         if (adjustments?.adjustedColumns?.size) {
             const positionsInAscendingOrder = Array.from(adjustments.adjustedColumns.keys()).sort();
-            positionsInAscendingOrder.forEach((adjustedColumn) => {
-                const newColumn = adjustments.adjustedColumns.get(adjustedColumn)!;
-                if (lastLineNumber === mapping.generatedLine && lastLineUpdatedWithReturn) {
-                    newMapping.generatedColumn = newMapping.generatedColumn + newColumn;
-                } else {
-                    if (mapping.generatedColumn === adjustedColumn) {
-                        // THIS IS wrong, what about subsequent columns...
-                        newMapping.generatedColumn = newColumn;
-                    }
-                }
-            });
+            // Get all columns upto this current column, get the max column & its new position.
+            const lastColumnUpdatedUptoThisColumn = positionsInAscendingOrder.filter(
+                (item) => item <= newMapping.generatedColumn
+            );
+            if (lastColumnUpdatedUptoThisColumn.length) {
+                const lastColumn = lastColumnUpdatedUptoThisColumn[lastColumnUpdatedUptoThisColumn.length - 1];
+                const incrementBy = adjustments.adjustedColumns.get(lastColumn)! - lastColumn;
+                newMapping.generatedColumn += incrementBy;
+            }
+            // positionsInAscendingOrder.forEach((adjustedColumn, index) => {
+            //     const newColumn = adjustments.adjustedColumns.get(adjustedColumn)!;
+            //     // if (lastLineNumber === mapping.generatedLine && lastLineUpdatedWithReturn) {
+            //     //     newMapping.generatedColumn = newMapping.generatedColumn + newColumn;
+            //     // } else {
+            //     if (mapping.generatedColumn === adjustedColumn) {
+            //         // THIS IS wrong, what about subsequent columns...
+            //         newMapping.generatedColumn = newColumn;
+            //     }
+            //     // }
+            // });
         }
         updated.addMapping({
             generated: {
@@ -538,12 +400,8 @@ function updateCodeAndAdjustSourceMaps(
             name: newMapping.name
         });
     });
-    const contents = lines.join(EOL);
 
-    updated.setSourceContent(originalSourceMap.file || '', contents);
     sourceMap.updated = updated.toString();
-
-    return contents;
 }
 function createCodeObject(cell: NotebookCell) {
     if (mapFromCellToPath.has(cell)) {
@@ -552,7 +410,7 @@ function createCodeObject(cell: NotebookCell) {
     const codeObject: CodeObject = {
         code: '',
         sourceFilename: '',
-        // sourceMapFilename: '',
+        sourceMapFilename: '',
         friendlyName: `${path.basename(cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`,
         textDocumentVersion: -1
     };
@@ -560,9 +418,10 @@ function createCodeObject(cell: NotebookCell) {
         tmpDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-nodebook-'));
     }
     codeObject.code = '';
+    // codeObject.sourceFilename = codeObject.sourceFilename || cell.document.uri.toString();
     codeObject.sourceFilename =
         codeObject.sourceFilename || path.join(tmpDirectory, `nodebook_cell_${cell.document.uri.fragment}.js`);
-    // codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
+    codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
     mapOfSourceFilesToNotebookUri.set(codeObject.sourceFilename, cell.document.uri);
     mapOfSourceFilesToNotebookUri.set(cell.document.uri.toString(), cell.document.uri);
     mapFromCellToPath.set(cell, codeObject);
@@ -652,65 +511,66 @@ function getExpectedImports(cell: NotebookCell) {
     });
     return requireStatements.join(';');
 }
+export type BaseNode<T> = {
+    type: T;
+    start: number;
+    end: number;
+    loc: BodyLocation;
+    range?: [number, number];
+};
 type TokenLocation = { line: number; column: number };
 type BodyLocation = { start: TokenLocation; end: TokenLocation };
-type LocationToFix = FunctionDeclaration | ClassDeclaration | VariableDeclaration;
-type FunctionDeclaration = {
-    type: 'FunctionDeclaration';
+// type LocationToFix = FunctionDeclaration | ClassDeclaration | VariableDeclaration;
+type FunctionDeclaration = BaseNode<'FunctionDeclaration'> & {
     body: BlockStatement;
     id: { name: string; loc: BodyLocation };
-    loc: BodyLocation;
+    // loc: BodyLocation;
 };
-type VariableDeclaration = {
-    type: 'VariableDeclaration';
+export type VariableDeclaration = BaseNode<'VariableDeclaration'> & {
     kind: 'const' | 'var' | 'let';
     id: { name: string; loc: BodyLocation };
-    loc: BodyLocation;
+    // loc: BodyLocation;
     declarations: VariableDeclarator[];
 };
-type VariableDeclarator = {
-    type: 'VariableDeclarator';
+type VariableDeclarator = BaseNode<'VariableDeclarator'> & {
     id:
-        | { name: string; loc: BodyLocation; type: 'Identifier' | '<other>' }
-        | {
+        | (BaseNode<string> & { name: string; loc: BodyLocation; type: 'Identifier' | '<other>' })
+        | (BaseNode<'ObjectPattern'> & {
               name: string;
-              loc: BodyLocation;
-              type: 'ObjectPattern';
               properties: { type: 'Property'; key: { name: string }; value: { name: string } }[];
-          }
-        | {
+          })
+        | (BaseNode<'ArrayPattern'> & {
               name: string;
-              loc: BodyLocation;
-              type: 'ArrayPattern';
               elements: { name: string; type: 'Identifier' }[];
-          };
+          });
     init?: { loc: BodyLocation };
     loc: BodyLocation;
 };
-type OtherNodes = { type: '<other>'; loc: BodyLocation };
-type ClassDeclaration = { type: 'ClassDeclaration'; id: { name: string; loc: BodyLocation }; loc: BodyLocation };
-type BodyDeclaration = ExpressionStatement | VariableDeclaration | ClassDeclaration | FunctionDeclaration | OtherNodes;
-type ParsedCode = {
-    type: 'File' | '<other>';
-    program: {
-        type: 'Program';
-        body: BodyDeclaration[];
-    };
+type OtherNodes = BaseNode<'other'> & { loc: BodyLocation };
+type ClassDeclaration = BaseNode<'ClassDeclaration'> & {
+    id: { name: string; loc: BodyLocation };
 };
+type BodyDeclaration = ExpressionStatement | VariableDeclaration | ClassDeclaration | FunctionDeclaration | OtherNodes;
+// type ParsedCode = {
+//     type: 'File' | '<other>';
+//     program: {
+//         type: 'Program';
+//         body: BodyDeclaration[];
+//     };
+// };
 type BlockStatement = {
     body: BodyDeclaration[];
 };
-type ExpressionStatement = {
-    type: 'ExpressionStatement';
+type ExpressionStatement = BaseNode<'ExpressionStatement'> & {
     expression:
-        | {
-              callee: { body: BlockStatement; type: 'ArrowFunctionExpression'; loc: BodyLocation };
-              type: 'CallExpression';
-              loc: BodyLocation;
-          }
-        | {
-              type: '<other>';
-              loc: BodyLocation;
-          };
+        | (BaseNode<'CallExpression'> & {
+              callee:
+                  | (BaseNode<'ArrowFunctionExpression'> & { body: BlockStatement })
+                  | (BaseNode<'CallExpression'> & {
+                        body: BlockStatement;
+                        callee: { name: string; loc: BodyLocation };
+                    });
+          })
+        | BaseNode<'other'>;
     loc: BodyLocation;
 };

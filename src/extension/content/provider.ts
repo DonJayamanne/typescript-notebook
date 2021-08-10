@@ -31,7 +31,7 @@ export class ContentProvider implements vscode.NotebookSerializer {
                     outputCollapsed: item.metadata?.outputCollapsed
                 };
                 const kind = item.language === 'markdown' ? NotebookCellKind.Markup : NotebookCellKind.Code;
-                const cell = new NotebookCellData(kind, item.source, item.language);
+                const cell = new NotebookCellData(kind, item.source, item.language || 'javascript');
                 cell.metadata = metadata;
                 return cell;
             });
