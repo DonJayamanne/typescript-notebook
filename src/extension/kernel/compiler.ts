@@ -375,17 +375,6 @@ function updateCodeAndAdjustSourceMaps(
                 const incrementBy = adjustments.adjustedColumns.get(lastColumn)! - lastColumn;
                 newMapping.generatedColumn += incrementBy;
             }
-            // positionsInAscendingOrder.forEach((adjustedColumn, index) => {
-            //     const newColumn = adjustments.adjustedColumns.get(adjustedColumn)!;
-            //     // if (lastLineNumber === mapping.generatedLine && lastLineUpdatedWithReturn) {
-            //     //     newMapping.generatedColumn = newMapping.generatedColumn + newColumn;
-            //     // } else {
-            //     if (mapping.generatedColumn === adjustedColumn) {
-            //         // THIS IS wrong, what about subsequent columns...
-            //         newMapping.generatedColumn = newColumn;
-            //     }
-            //     // }
-            // });
         }
         updated.addMapping({
             generated: {
@@ -551,13 +540,6 @@ type ClassDeclaration = BaseNode<'ClassDeclaration'> & {
     id: { name: string; loc: BodyLocation };
 };
 type BodyDeclaration = ExpressionStatement | VariableDeclaration | ClassDeclaration | FunctionDeclaration | OtherNodes;
-// type ParsedCode = {
-//     type: 'File' | '<other>';
-//     program: {
-//         type: 'Program';
-//         body: BodyDeclaration[];
-//     };
-// };
 type BlockStatement = {
     body: BodyDeclaration[];
 };

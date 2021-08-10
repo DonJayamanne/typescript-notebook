@@ -127,19 +127,6 @@ const visitorsWithoutAncestors = {
                         currentAdjustments.firstOriginallyAdjustedColumn ?? decl.loc.end.column;
                     currentAdjustments.totalAdjustment += textToAdd.length;
                 });
-
-                // if (node.declarations.length !== 1) {
-                //     // Ok, now we need to add the `)`
-                //     const endLine = state.lines[node.loc.end.line - 1];
-                //     const indexOfLastSimiColon = endLine.lastIndexOf(';');
-
-                //     // Remember, last character would be `;`, we need to add `)` before that.
-                //     // Also we're using typescript compiler, hence it would add the necessary `;`.
-                //     state.lines[node.loc.end.line - 1] = `${endLine.substring(
-                //         0,
-                //         indexOfLastSimiColon
-                //     )})${endLine.substring(indexOfLastSimiColon)}`;
-                // }
             }
             // eslint-disable-next-line no-inner-declarations
             function registerVariableDeclarationIdentifiers(node) {
@@ -342,13 +329,6 @@ type BodyDeclaration =
     | FunctionDeclaration
     | OtherNodes
     | BlockStatement;
-// type ParsedCode = {
-//     type: 'File' | '<other>';
-//     program: {
-//         type: 'Program';
-//         body: BodyDeclaration[];
-//     };
-// };
 type BlockStatement = {
     body: BodyDeclaration[];
 };
