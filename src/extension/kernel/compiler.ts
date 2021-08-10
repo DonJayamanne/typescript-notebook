@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { CodeObject } from '../server/types';
 import { LineNumber, NewColumn, OldColumn, processTopLevelAwait } from './asyncWrapper';
+import { getNotebookCwd } from '../utils';
 let tmpDirectory: string | undefined;
 const mapOfSourceFilesToNotebookUri = new Map<string, Uri>();
 const mapFromCellToPath = new WeakMap<NotebookCell, CodeObject>();
@@ -178,18 +179,24 @@ export function getCodeObject(cell: NotebookCell, code = cell.document.getText()
                 sourceRoot: path.dirname(details.sourceFilename),
                 noImplicitUseStrict: true,
                 importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
-                strict: false,
+                strict: false, // No way.
                 fileName: details.sourceFilename,
                 resolveJsonModule: true,
                 removeComments: true,
-                target: ts.ScriptTarget.ES2019, // Minimum Node12
+                target: ts.ScriptTarget.ESNext, // Minimum Node12 (but let users use what ever they want). Lets look into user defined tsconfig.json.
                 module: ts.ModuleKind.CommonJS,
                 alwaysStrict: false,
-                checkJs: false,
+                checkJs: false, // We're not going to give errors, the user can get this from vscode problems window & linters, etc... why re-invent the wheel here.
                 noEmitHelpers: true,
-                // esModuleInterop: true,
+                esModuleInterop: true,
+                moduleResolution: ts.ModuleResolutionKind.NodeJs,
+                experimentalDecorators: true,
+                allowUnreachableCode: true,
+                preserveConstEnums: true,
                 allowJs: true,
-                allowSyntheticDefaultImports: true
+                rootDir: path.dirname(cell.notebook.uri.fsPath),
+                allowSyntheticDefaultImports: true,
+                skipLibCheck: true // We expect users to rely on VS Code to let them know if they have issues in their code.
             },
             details.sourceFilename
         );
@@ -396,11 +403,14 @@ function createCodeObject(cell: NotebookCell) {
     if (mapFromCellToPath.has(cell)) {
         return mapFromCellToPath.get(cell)!;
     }
+    const cwd = getNotebookCwd(cell.notebook);
     const codeObject: CodeObject = {
         code: '',
         sourceFilename: '',
         sourceMapFilename: '',
-        friendlyName: `${path.basename(cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`,
+        friendlyName: cwd
+            ? `${path.relative(cwd, cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`
+            : `${path.basename(cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`,
         textDocumentVersion: -1
     };
     if (!tmpDirectory) {

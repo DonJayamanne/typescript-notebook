@@ -219,6 +219,12 @@ function visitSources(
                             remapLocation(bp, [bp]);
                         });
                         break;
+                    // case 'exceptionInfo':
+                    //     (<DebugProtocol.ExceptionInfoResponse>response).body.details..breakpoints.forEach((bp) => {
+                    //         sourceHook(bp.source);
+                    //         remapLocation(bp, [bp]);
+                    //     });
+                    //     break;
                     default:
                         break;
                 }
