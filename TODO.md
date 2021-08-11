@@ -65,6 +65,10 @@ turn off a flag, but source maps will not work when debugging.
 * tests
 * tests
 # Bugs
+* Enable `supportBreakingOnExceptionsInDebugger`
+    For break point exceptions
+* Fix stack traces in exceptions
+
 * Following code fails
 ```
 console.log(typeof some)

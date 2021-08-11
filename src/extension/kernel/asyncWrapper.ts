@@ -7,11 +7,15 @@ import * as walk from 'acorn-walk';
 import { EOL } from 'os';
 
 function isTopLevelDeclaration(state) {
-    return state.ancestors[state.ancestors.length - 2] === state.body;
+    return (
+        state.ancestors[state.ancestors.length - 2] === state.body ||
+        state.ancestors[state.ancestors.length - 2] === state.tryStatementBody
+    );
 }
 
 type State = {
     body: BodyDeclaration;
+    tryStatementBody: BodyDeclaration;
     lines: string[];
     containsAwait: boolean;
     containsReturn: boolean;
@@ -174,8 +178,17 @@ for (const nodeType of Object.keys(walk.base)) {
 }
 
 export function processTopLevelAwait(expectedImports: string, src: string) {
-    const wrapPrefix = '(async () => { ';
-    const wrapped = `${expectedImports}${EOL}${wrapPrefix}${EOL}${src}${EOL}})()`;
+    const supportBreakingOnExceptionsInDebugger = false; // This makes the try..catch another body & is not considered the root body.
+    let wrapPrefix: string;
+    let wrapped: string;
+    if (supportBreakingOnExceptionsInDebugger) {
+        // for some reason not having a try..catch won't allow debugger to break on unhandled exceptions.
+        wrapPrefix = '(async () => { try { ';
+        wrapped = `${expectedImports}${EOL}${wrapPrefix}${EOL}${src}${EOL}} catch (__compilerEx){throw __compilerEx;}})()`;
+    } else {
+        wrapPrefix = '(async () => { ';
+        wrapped = `${expectedImports}${EOL}${wrapPrefix}${EOL}${src}${EOL}})()`;
+    }
     let root;
     try {
         root = parser.parse(wrapped, { ecmaVersion: 'latest', locations: true });
@@ -210,13 +223,25 @@ export function processTopLevelAwait(expectedImports: string, src: string) {
         // eslint-disable-next-line no-restricted-syntax
         throw new SyntaxError(message);
     }
-    const body = root.body[0].expression.callee.body;
+    let body = root.body[0].expression.callee.body;
+    let tryStatementBody: undefined | any;
+    if (
+        supportBreakingOnExceptionsInDebugger &&
+        'body' in body &&
+        Array.isArray(body.body) &&
+        body.body.length === 1 &&
+        body.body[0].type === 'TryStatement'
+    ) {
+        tryStatementBody = body;
+        body = body.body[0].block;
+    }
     const linesUpdated = new Map<
         LineNumber,
         { adjustedColumns: Map<OldColumn, NewColumn>; firstOriginallyAdjustedColumn?: number; totalAdjustment: number }
     >();
     const state: State = {
         body,
+        tryStatementBody,
         ancestors: [],
         lines: wrapped.split(/\r?\n/),
         hoistedDeclarations: [],
