@@ -229,7 +229,7 @@ export function processTopLevelAwait(expectedImports: string, src: string, suppo
         // eslint-disable-next-line no-restricted-syntax
         throw new SyntaxError(message);
     }
-    let body = root.body[0].expression.callee.body;
+    let body = root.body[root.body.length - 1].expression.callee.body;
     let tryStatementBody: undefined | any;
     if (
         supportBreakingOnExceptionsInDebugger &&

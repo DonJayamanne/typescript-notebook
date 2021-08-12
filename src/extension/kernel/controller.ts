@@ -63,7 +63,7 @@ export class Controller implements IDisposable {
         );
         if (type === 'node') {
             controller.description = '';
-            controller.detail = 'Supports debugging, variables, tensor visualization, etc';
+            controller.detail = 'Execute & debug in node';
             controller.supportedLanguages = ['javascript', 'typescript', 'html', 'shellscript', 'powershell'];
         } else {
             controller.description = 'JavaScript/TypeScript Kernel running in Browser';

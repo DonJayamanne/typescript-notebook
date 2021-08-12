@@ -3,7 +3,6 @@
 .vscode-test/**
 build/**
 out/test/**
-out/**/*.map
 out/**/*.stats.json
 out/**/*..analyzer.html
 src/**

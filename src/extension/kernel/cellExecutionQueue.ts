@@ -98,7 +98,8 @@ export class CellExecutionQueue implements IDisposable {
             try {
                 if (cell.kind === NotebookCellKind.Code) {
                     switch (cell.document.languageId) {
-                        case 'shellscript': {
+                        case 'shellscript':
+                        case 'powershell': {
                             const result = await ShellKernel.execute(task, token.token);
                             if (result == CellExecutionState.error) {
                                 this.stop();

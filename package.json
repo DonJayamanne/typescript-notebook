@@ -2,7 +2,7 @@
     "name": "typescript-notebook",
     "displayName": "JavaScript/TypeScript Notebooks",
     "description": "JavaScript & TypeScript Notebooks for Node.js",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "engines": {
         "vscode": "^1.58.0"
     },

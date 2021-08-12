@@ -68,6 +68,7 @@ export class DebuggerFactory {
             request: 'attach',
             __document: notebook.uri.toString(),
             sourceMaps: true,
+            internalConsoleOptions: 'neverOpen',
             skipFiles: [
                 '<node_internals>/**',
                 path.join(path.dirname(DebuggerFactory.extensionDirectory.fsPath), '**', '*.js')

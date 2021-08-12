@@ -479,6 +479,7 @@ function getExpectedImports(cell: NotebookCell) {
         .map((item) => item as ts.ImportDeclaration);
 
     const requireStatements: string[] = [];
+    const variables: string[] = [];
     imports.forEach((item: ts.ImportDeclaration) => {
         if (!ts.isStringLiteral(item.moduleSpecifier)) {
             return;
@@ -492,34 +493,38 @@ function getExpectedImports(cell: NotebookCell) {
         }
         const importClause = item.importClause;
         if (!importClause) {
-            requireStatements.push(`require('${importFrom}')`);
+            requireStatements.push(`require('${importFrom}');`);
             return;
         }
         if (importClause.isTypeOnly) {
             return;
         }
         if (importClause.name) {
-            requireStatements.push(`${importClause.name.getText(program)} = require('${importFrom}')`);
+            variables.push(`var ${importClause.name.getText(program)};`);
+            requireStatements.push(`${importClause.name.getText(program)} = require('${importFrom}');`);
         }
         if (importClause.namedBindings) {
             if (ts.isNamespaceImport(importClause.namedBindings)) {
-                requireStatements.push(`${importClause.namedBindings.name.text} = require('${importFrom}')`);
+                variables.push(`var ${importClause.namedBindings.name.text};`);
+                requireStatements.push(`${importClause.namedBindings.name.text} = require('${importFrom}');`);
             } else {
                 const namedImportsForModule: string[] = [];
                 importClause.namedBindings.elements.forEach((ele) => {
                     if (ele.propertyName) {
+                        variables.push(`var ${ele.name.text};`);
                         namedImportsForModule.push(`${ele.propertyName.text}:${ele.name.text}`);
                     } else {
+                        variables.push(`var ${ele.name.text};`);
                         namedImportsForModule.push(`${ele.name.text}`);
                     }
                 });
                 if (namedImportsForModule.length) {
-                    requireStatements.push(`({${namedImportsForModule.join(', ')}} = require('${importFrom}'))`);
+                    requireStatements.push(`({${namedImportsForModule.join(', ')}} = require('${importFrom}'));`);
                 }
             }
         }
     });
-    return requireStatements.join(';');
+    return `${variables.join()}${requireStatements.join('')}`;
 }
 export type BaseNode<T> = {
     type: T;
