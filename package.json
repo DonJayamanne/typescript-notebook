@@ -182,6 +182,7 @@
         "yargs": "^17.0.1"
     },
     "devDependencies": {
+        "@babel/generator": "^7.15.0",
         "@types/mocha": "^9.0.0",
         "@types/node": "^12.11.7",
         "@types/plotly.js": "^1.54.13",

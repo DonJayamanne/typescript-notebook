@@ -4,7 +4,10 @@ import { IDisposable } from '../../extension/types';
 import * as tmp from 'tmp';
 import * as fs from 'fs';
 import { getCodeObject } from '../../extension/kernel/compiler';
-import { parse, prettyPrint } from 'recast';
+import * as recast from 'recast';
+import { parse } from 'acorn';
+const { default: generate } = require('@babel/generator');
+
 suite('Top level await compiler tests', () => {
     const testCases: [string, string][] = [
         ['0', '(async () => {    return 0;})();'],
@@ -44,11 +47,12 @@ suite('Top level await compiler tests', () => {
             'var b, d; (async () => {  ( ({a: [b]} = {a: [await 1]}),' + ' ([{d}] = [{d: 3}])) })()'
         ],
         /* eslint-disable no-template-curly-in-string */
-        // // This test doesn't work, for some reason the parser fails here.
-        // [
-        //     'console.log(`' + '${(await { a: 1 }).a' + '}`)',
-        //     '(async () => { return (console.log(`' + '${(await { ' + 'a: 1 }).a}`)) })()'
-        // ],
+        // acorn parser falls over if we don't put `(..)` around the `{a:1}`
+        // Hence the original code was 'console.log(`${(await { a: 1 }).a}`)'
+        [
+            'console.log(`${(await ({ a: 1 })).a}`)',
+            '(async () => { return (console.log(`${(await { a: 1 }).a}`)) })()'
+        ],
         /* eslint-enable no-template-curly-in-string */
         ['await 0; function foo() {}', 'var foo; (async () => {this.foo = foo; await 0; function foo() {} })()'],
         ['await 0; class Foo {}', 'var Foo;(async () => {this.Foo = Foo;await 0; class Foo {} })()'],
@@ -149,34 +153,31 @@ suite('Top level await compiler tests', () => {
                             expected.substring(0, expected.lastIndexOf('})()')) +
                             '} catch (__compilerEx){throw __compilerEx;}})()';
                     }
-                    // recast parser fails when parsing async iterables,
-                    // hence don't use re-cast for testing where possible, i.e. compare the code as is.
-                    if (expected === codeObject.code) {
-                        return assert.strictEqual(expected, codeObject.code);
-                    }
-                    const lines = codeObject.code.split(/\r?\n/);
-                    if (expected === lines.join('')) {
-                        return assert.strictEqual(expected, lines.join(''));
-                    }
-                    if (expected === lines.map((item) => item.trim()).join('')) {
-                        return assert.strictEqual(expected, lines.map((item) => item.trim()).join(''));
-                    }
                     let prettyExpectedCode = '';
                     let prettyGeneratedCode = '';
                     try {
-                        prettyExpectedCode = getPrettyfiedCode(expected);
-                        prettyGeneratedCode = getPrettyfiedCode(codeObject.code);
+                        prettyExpectedCode = getPrettyfiedCode(expected, 'recast');
+                        prettyGeneratedCode = getPrettyfiedCode(codeObject.code, 'recast');
                     } catch (ex) {
-                        return assert.strictEqual(expected, lines.join(''), 'Failed to parse code');
+                        // recast parser fails when parsing async iterables,
+                        // Hence use babel in this case.
+                        // Could use babel always, but thats more work (plugins, etc).
+                        prettyExpectedCode = getPrettyfiedCode(expected, 'babel');
+                        prettyGeneratedCode = getPrettyfiedCode(codeObject.code, 'babel');
                     }
                     assert.strictEqual(prettyExpectedCode, prettyGeneratedCode);
                 });
             });
         });
     });
-    function getPrettyfiedCode(source: string) {
-        const parsedCode = parse(source, { ecmaVersion: 'latest' } as any);
-        return prettyPrint(parsedCode).code.split(/\r?\n/).join('').trim();
+    function getPrettyfiedCode(source: string, formatter: 'recast' | 'babel') {
+        if (formatter === 'recast') {
+            const parsedCode = parse(source, { ecmaVersion: 'latest' } as any);
+            return recast.prettyPrint(parsedCode).code.split(/\r?\n/).join('').trim();
+        } else {
+            const parsedCode = parse(source, { ecmaVersion: 'latest' });
+            return generate(parsedCode, { compact: true }).code.split(/\r?\n/).join('').trim();
+        }
     }
     async function createNotebook(source: string) {
         const result = tmp.fileSync({ postfix: '.jsnb' });
