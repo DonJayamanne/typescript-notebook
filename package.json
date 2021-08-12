@@ -113,35 +113,6 @@
                     }
                 ]
             }
-        ],
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "icon": "resources/icons/ts-logo-256.png",
-                    "id": "typescript-notebook",
-                    "title": "TypeScript Notebook"
-                }
-            ]
-        },
-        "views": {
-            "typescript-notebook": [
-                {
-                    "name": "Tensorflow Visualization",
-                    "id": "tfjs-vis",
-                    "type": "webview"
-                }
-            ]
-        },
-        "notebookRenderer": [
-            {
-                "id": "typescript-notebook-plot-renderer",
-                "entrypoint": "./out/views/plotGenerator.js",
-                "displayName": "Plotly Renderer",
-                "mimeTypes": [
-                    "application/vnd.ts.notebook.plotly+json"
-                ],
-                "requiresMessaging": "always"
-            }
         ]
     },
     "scripts": {
