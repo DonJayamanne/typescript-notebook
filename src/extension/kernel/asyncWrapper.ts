@@ -177,8 +177,14 @@ for (const nodeType of Object.keys(walk.base)) {
     };
 }
 
-export function processTopLevelAwait(expectedImports: string, src: string) {
-    const supportBreakingOnExceptionsInDebugger = false; // This makes the try..catch another body & is not considered the root body.
+/**
+ * Changes code to support top level awaits.
+ * @param {boolean} [supportBreakingOnExceptionsInDebugger]
+ * `Defaults to false`
+ * This flag enables exception breakpionts when debugging by simply wrapping the code in a try..catch.
+ * Currently a flag so we can turn this on/off.
+ */
+export function processTopLevelAwait(expectedImports: string, src: string, supportBreakingOnExceptionsInDebugger?: boolean) {
     let wrapPrefix: string;
     let wrapped: string;
     if (supportBreakingOnExceptionsInDebugger) {

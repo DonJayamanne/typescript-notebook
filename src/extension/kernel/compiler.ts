@@ -152,7 +152,11 @@ export function getMappedLocation(
     cache.set(cacheKey, mappedLocation);
     return mappedLocation;
 }
-export function getCodeObject(cell: NotebookCell, code = cell.document.getText()): CodeObject {
+export function getCodeObject(
+    cell: NotebookCell,
+    code = cell.document.getText(),
+    supportBreakingOnExceptionsInDebugger?: boolean
+): CodeObject {
     try {
         // Parser fails when we have comments in the last line, hence just add empty line.
         code = `${code}${EOL}`;
@@ -230,7 +234,13 @@ newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
         // Update the source to account for top level awaits & other changes, etc.
         const sourceMap = Buffer.from(sourceMapLine.substring(sourceMapLine.indexOf(',') + 1), 'base64').toString();
         const sourceMapInfo = { original: sourceMap, updated: '' };
-        transpiledCode = replaceTopLevelConstWithVar(cell, transpiledCode, sourceMapInfo, expectedImports);
+        transpiledCode = replaceTopLevelConstWithVar(
+            cell,
+            transpiledCode,
+            sourceMapInfo,
+            expectedImports,
+            supportBreakingOnExceptionsInDebugger
+        );
 
         // Re-generate source maps correctly
         const updatedRawSourceMap: RawSourceMap = JSON.parse(
@@ -331,9 +341,10 @@ function replaceTopLevelConstWithVar(
     cell: NotebookCell,
     source: string,
     sourceMap: { original?: string; updated?: string },
-    expectedImports: string
+    expectedImports: string,
+    supportBreakingOnExceptionsInDebugger?: boolean
 ) {
-    const result = processTopLevelAwait(expectedImports, source);
+    const result = processTopLevelAwait(expectedImports, source, supportBreakingOnExceptionsInDebugger);
 
     updateCodeAndAdjustSourceMaps(source, result!.updatedCode, result!.lastLineNumber, result!.linesUpdated, sourceMap);
     return result!.updatedCode;
