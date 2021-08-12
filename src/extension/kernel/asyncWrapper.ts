@@ -184,7 +184,11 @@ for (const nodeType of Object.keys(walk.base)) {
  * This flag enables exception breakpionts when debugging by simply wrapping the code in a try..catch.
  * Currently a flag so we can turn this on/off.
  */
-export function processTopLevelAwait(expectedImports: string, src: string, supportBreakingOnExceptionsInDebugger?: boolean) {
+export function processTopLevelAwait(
+    expectedImports: string,
+    src: string,
+    supportBreakingOnExceptionsInDebugger?: boolean
+) {
     let wrapPrefix: string;
     let wrapped: string;
     if (supportBreakingOnExceptionsInDebugger) {
@@ -277,30 +281,34 @@ export function processTopLevelAwait(expectedImports: string, src: string, suppo
     //     return null;
     // }
 
-    const last = body.body[body.body.length - 1] as ExpressionStatement;
+    // Possible theres no code (e.g. if you have an import that is not used, then the body of
+    // the try..catch that we add is empty, meaning the body is now empty)
     let lastLineNumber = -1;
-    if (last.type === 'ExpressionStatement') {
-        lastLineNumber = last.loc.start.line;
-        const lastLine = state.lines[last.loc.start.line - 1];
-        const currentAdjustments = state.getAdjustment(last.loc.start.line);
-        state.lines[last.loc.start.line - 1] = `${lastLine.substring(
-            0,
-            last.loc.start.column + currentAdjustments.totalAdjustment
-        )}return (${lastLine.substring(last.loc.start.column + currentAdjustments.totalAdjustment)}`;
-        currentAdjustments.totalAdjustment += 'return ('.length;
-        currentAdjustments.firstOriginallyAdjustedColumn =
-            currentAdjustments.firstOriginallyAdjustedColumn ?? last.loc.start.column;
-        // Keep track to udpate source maps;
+    if (body.body.length) {
+        const last = body.body[body.body.length - 1] as ExpressionStatement;
+        if (last.type === 'ExpressionStatement') {
+            lastLineNumber = last.loc.start.line;
+            const lastLine = state.lines[last.loc.start.line - 1];
+            const currentAdjustments = state.getAdjustment(last.loc.start.line);
+            state.lines[last.loc.start.line - 1] = `${lastLine.substring(
+                0,
+                last.loc.start.column + currentAdjustments.totalAdjustment
+            )}return (${lastLine.substring(last.loc.start.column + currentAdjustments.totalAdjustment)}`;
+            currentAdjustments.totalAdjustment += 'return ('.length;
+            currentAdjustments.firstOriginallyAdjustedColumn =
+                currentAdjustments.firstOriginallyAdjustedColumn ?? last.loc.start.column;
+            // Keep track to udpate source maps;
 
-        // Ok, now we need to add the `)`
-        const endLine = state.lines[last.loc.end.line - 1];
-        const indexOfLastSimiColon = endLine.lastIndexOf(';');
+            // Ok, now we need to add the `)`
+            const endLine = state.lines[last.loc.end.line - 1];
+            const indexOfLastSimiColon = endLine.lastIndexOf(';');
 
-        // Remember, last character would be `;`, we need to add `)` before that.
-        // Also we're using typescript compiler, hence it would add the necessary `;`.
-        state.lines[last.loc.end.line - 1] = `${endLine.substring(0, indexOfLastSimiColon)})${endLine.substring(
-            indexOfLastSimiColon
-        )}`;
+            // Remember, last character would be `;`, we need to add `)` before that.
+            // Also we're using typescript compiler, hence it would add the necessary `;`.
+            state.lines[last.loc.end.line - 1] = `${endLine.substring(0, indexOfLastSimiColon)})${endLine.substring(
+                indexOfLastSimiColon
+            )}`;
+        }
     }
 
     // Add the variable declarations & hoisted functions/vars.

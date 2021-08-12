@@ -8,6 +8,7 @@ import { formatValue } from './extensions/format';
 import { DanfoJsFormatter } from './extensions/danfoFormatter';
 import { TensorflowJsVisualizer } from './extensions/tfjsVisProxy';
 import { Plotly } from './extensions/plotly';
+import { init as injectTslib } from '../../../resources/scripts/tslib';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Module = require('module');
 
@@ -53,6 +54,7 @@ startRepl();
 function startRepl() {
     replServer = repl.start({ prompt: '', eval: replEvalCode, ignoreUndefined: true, terminal: true, useColors: true });
     replServer.context.$$ = Utils.instance;
+    injectTslib(replServer.context);
     return replServer;
 }
 

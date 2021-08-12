@@ -49,10 +49,7 @@ suite('Top level await compiler tests', () => {
         /* eslint-disable no-template-curly-in-string */
         // acorn parser falls over if we don't put `(..)` around the `{a:1}`
         // Hence the original code was 'console.log(`${(await { a: 1 }).a}`)'
-        [
-            'console.log(`${(await ({ a: 1 })).a}`)',
-            '(async () => { return (console.log(`${(await { a: 1 }).a}`)) })()'
-        ],
+        ['console.log(`${(await ({ a: 1 })).a}`)', '(async () => { return (console.log(`${(await { a: 1 }).a}`)) })()'],
         /* eslint-enable no-template-curly-in-string */
         ['await 0; function foo() {}', 'var foo; (async () => {this.foo = foo; await 0; function foo() {} })()'],
         ['await 0; class Foo {}', 'var Foo;(async () => {this.Foo = Foo;await 0; class Foo {} })()'],
@@ -121,7 +118,20 @@ suite('Top level await compiler tests', () => {
         ['for (var i in {x:1}) { await 1 }', 'var i; (async () => { for (i in {x:1}) { await 1 } })()'],
         ['for (var [a,b] in {xy:1}) { await 1 }', 'var a, b; (async () => { for ([a,b] in {xy:1}) { await 1 } })()'],
         ['for (let i in {x:1}) { await 1 }', '(async () => { for (let i in {x:1}) { await 1 } })()'],
-        ['for (const i in {x:1}) { await 1 }', '(async () => { for (const i in {x:1}) { await 1 } })()']
+        ['for (const i in {x:1}) { await 1 }', '(async () => { for (const i in {x:1}) { await 1 } })()'],
+        ['import * as fs from "fs"', 'var fs;fs = require("fs");(async () => {})();'],
+        [
+            'import * as fs from "fs"; await fs.readFileSync("filename");',
+            'var fs;fs = require("fs");var fs;(async () => {    fs = __importStar(require("fs"));    return await fs.readFileSync("filename");})();'
+        ],
+        [
+            'import {readFileSync, readFile} from "fs"; await readFileSync("filename");',
+            'var readFileSync;var readFile;({    readFileSync,    readFile} = require("fs"));var fs_1;(async () => {    fs_1 = require("fs");    return await fs_1.readFileSync("filename");})();'
+        ],
+        [
+            'import {readFileSync:Read, readFile} from "fs"; await Read("filename");',
+            'var readFileSync;var Read;var readFile;({    readFileSync,    Read,    readFile} = require("fs"));var fs_1;(async () => {    fs_1 = require("fs");    return await fs_1.Read("filename");})();'
+        ]
     ];
     const disposables: IDisposable[] = [];
     suiteTeardown(async () => {
@@ -139,7 +149,7 @@ suite('Top level await compiler tests', () => {
         assert.equal(-1, [1, 2, 3].indexOf(0));
         // const x = getCodeObject(undefined as any);
     });
-    [true, false].forEach((supportsExceptionBreakpoints) => {
+    [false, true].forEach((supportsExceptionBreakpoints) => {
         suite(`${supportsExceptionBreakpoints ? 'With' : 'Without'} exception breakpoints`, () => {
             testCases.forEach(([code, expected]) => {
                 test(`test - ${code}`, async () => {

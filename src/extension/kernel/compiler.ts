@@ -524,7 +524,7 @@ function getExpectedImports(cell: NotebookCell) {
             }
         }
     });
-    return `${variables.join()}${requireStatements.join('')}`;
+    return `${variables.join('')}${requireStatements.join('')}`;
 }
 export type BaseNode<T> = {
     type: T;
