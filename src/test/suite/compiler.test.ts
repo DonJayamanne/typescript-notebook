@@ -22,7 +22,7 @@ suite('Top level await compiler tests', () => {
         ['async () => await 0', '(async () => {return (async () => await 0);})()'],
         [
             'class A { async method() { await 0 } }',
-            'var A;(async () => {this.A = A;class A {    async method() { await 0; }}})()'
+            'var A;(async () => {this.A = class A {    async method() { await 0; }}})()'
         ],
         ['await 0; return 0;', '(async () => {await 0;return 0;})()'],
         ['var a = await 1', 'var a;(async () => { a = await 1;})()'],
@@ -51,11 +51,11 @@ suite('Top level await compiler tests', () => {
         // Hence the original code was 'console.log(`${(await { a: 1 }).a}`)'
         ['console.log(`${(await ({ a: 1 })).a}`)', '(async () => { return (console.log(`${(await { a: 1 }).a}`)) })()'],
         /* eslint-enable no-template-curly-in-string */
-        ['await 0; function foo() {}', 'var foo; (async () => {this.foo = foo; await 0; function foo() {} })()'],
-        ['await 0; class Foo {}', 'var Foo;(async () => {this.Foo = Foo;await 0; class Foo {} })()'],
+        ['await 0; function foo() {}', 'var foo; (async () => {await 0; this.foo = foo; function foo() {} })()'],
+        ['await 0; class Foo {}', 'var Foo;(async () => {await 0; this.Foo = class Foo {} })()'],
         [
             'if (await true) { function foo() {} }',
-            'var foo;(async () => {this.foo = foo; if (await true) { function foo() {} } })()'
+            'var foo;(async () => {if (await true) { this.foo = foo; function foo() {} } })()'
         ],
         ['if (await true) { class Foo{} }', '(async () => { if (await true) { class Foo{} } })()'],
         ['if (await true) { var a = 1; }', 'var a; (async () => { if (await true) {  (a = 1); } })()'],

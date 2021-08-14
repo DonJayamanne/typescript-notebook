@@ -37,8 +37,27 @@ const noop = () => {};
 const visitorsWithoutAncestors = {
     ClassDeclaration(node, state: State, c) {
         if (isTopLevelDeclaration(state)) {
-            state.hoistedDeclarations.push(`this.${node.id.name} = ${node.id.name}; `);
+            const textToInsert = `this.${node.id.name} = `;
+            // state.hoistedDeclarations.push(textToInsert);
             state.variablesToDeclare.push(node.id.name);
+
+            const line = state.lines[node.loc.start.line - 1];
+            const adjustment = state.getAdjustment(node.loc.start.line);
+            let totalAdjustment = adjustment.totalAdjustment;
+
+            state.lines[node.loc.start.line - 1] = `${line.substring(
+                0,
+                node.loc.start.column + totalAdjustment
+            )}${textToInsert}${line.substring(node.loc.start.column + totalAdjustment)}`;
+
+            // 1.a Track this adjustment
+            adjustment.adjustedColumns.set(
+                node.loc.start.column,
+                node.loc.start.column + totalAdjustment + textToInsert.length
+            );
+            adjustment.firstOriginallyAdjustedColumn =
+                adjustment.firstOriginallyAdjustedColumn ?? node.loc.start.column;
+            adjustment.totalAdjustment += textToInsert.length;
         }
 
         walk.base.ClassDeclaration(node, state, c);
@@ -50,8 +69,27 @@ const visitorsWithoutAncestors = {
         walk.base.ForOfStatement(node, state, c);
     },
     FunctionDeclaration(node, state) {
-        state.hoistedDeclarations.push(`this.${node.id.name} = ${node.id.name}; `);
+        const textToInsert = `this.${node.id.name} = ${node.id.name}; `;
+        // state.hoistedDeclarations.push(textToInsert);
         state.variablesToDeclare.push(node.id.name);
+
+        const line = state.lines[node.loc.start.line - 1];
+        const adjustment = state.getAdjustment(node.loc.start.line);
+        let totalAdjustment = adjustment.totalAdjustment;
+
+        // 1. First add the leading `(` (only if we have array or object patterns, i.e `var {a} = ...`)
+        state.lines[node.loc.start.line - 1] = `${line.substring(
+            0,
+            node.loc.start.column + totalAdjustment
+        )}${textToInsert}${line.substring(node.loc.start.column + totalAdjustment)}`;
+
+        // 1.a Track this adjustment
+        adjustment.adjustedColumns.set(
+            node.loc.start.column,
+            node.loc.start.column + totalAdjustment + textToInsert.length
+        );
+        adjustment.firstOriginallyAdjustedColumn = adjustment.firstOriginallyAdjustedColumn ?? node.loc.start.column;
+        adjustment.totalAdjustment += textToInsert.length;
     },
     FunctionExpression: noop,
     ArrowFunctionExpression: noop,
