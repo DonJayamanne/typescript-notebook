@@ -8,7 +8,8 @@ out/**/*..analyzer.html
 src/**
 temp/**
 .gitignore
-node_modules
+!resources/scripts/node_modules/**
+node_modules/**
 vsc-extension-quickstart.md
 **/tsconfig.json
 **/tsconfig-base.json

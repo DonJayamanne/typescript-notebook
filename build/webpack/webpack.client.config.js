@@ -26,7 +26,8 @@ module.exports = {
     },
     mode: isProdBuild ? 'production' : 'development',
     devtool: isProdBuild ? 'source-map' : 'inline-source-map',
-    externals: ['@tensorflow/tfjs-vis', '@tensorflow/tfjs'],
+    externals: ['@tensorflow/tfjs'],
+    // externals: ['@tensorflow/tfjs-vis', '@tensorflow/tfjs'],
     plugins: [
         ...common.getDefaultPlugins('client'),
         // new FixDefaultImportPlugin(),

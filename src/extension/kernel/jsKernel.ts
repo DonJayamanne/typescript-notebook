@@ -17,12 +17,14 @@ import * as path from 'path';
 import { ChildProcess, spawn } from 'child_process';
 import { createDeferred, Deferred, generateId } from '../coreUtils';
 import { ServerLogger } from '../serverLogger';
-import { CellStdOutput } from './cellStdOutput';
+import { CellStdOutput as CellOutput } from './cellStdOutput';
 import { getNotebookCwd } from '../utils';
 import { TensorflowVisClient } from '../tfjsvis';
 import { ExecutionOrder } from './executionOrder';
-import { getCodeObject } from './compiler';
+import { Compiler } from './compiler';
 import { CodeObject, RequestType, ResponseType } from '../server/types';
+import { writeConfigurationToTempFile } from '../configuration';
+import { quote } from 'shell-quote';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
@@ -35,7 +37,7 @@ export class JavaScriptKernel implements IDisposable {
     private lastSeenTime?: number;
     private webSocket = createDeferred<WebSocket>();
     private serverProcess?: ChildProcess;
-    private serverProcessInitialized?: boolean;
+    private startHandlingStreamOutput?: boolean;
     private disposed?: boolean;
     private readonly _debugPort = createDeferred<number>();
     public get debugPort(): Promise<number> {
@@ -48,21 +50,22 @@ export class JavaScriptKernel implements IDisposable {
             task: NotebookCellExecution;
             requestId: string;
             result: Deferred<CellExecutionState>;
-            stdOutput: CellStdOutput;
+            stdOutput: CellOutput;
         }
     >();
     private currentTask?: {
         task: NotebookCellExecution;
         requestId: string;
         result: Deferred<CellExecutionState>;
-        stdOutput: CellStdOutput;
+        stdOutput: CellOutput;
     };
-    private lastStdOutput?: CellStdOutput;
+    private lastStdOutput?: CellOutput;
     private get lastSeen() {
         return this.lastSeenTime ? Date.now() - this.lastSeenTime : undefined;
     }
     private readonly cwd?: string;
     constructor(private readonly notebook: NotebookDocument, private readonly controller: NotebookController) {
+        // TODO: Do we need this? What was the plan for this?
         console.log(this.lastSeen);
         this.cwd = getNotebookCwd(notebook);
     }
@@ -97,7 +100,7 @@ export class JavaScriptKernel implements IDisposable {
         this.disposed = true;
         Array.from(this.tasks.values()).forEach((item) => {
             try {
-                item.task.end(undefined);
+                item.stdOutput.end(undefined);
             } catch (ex) {
                 //
             }
@@ -116,12 +119,12 @@ export class JavaScriptKernel implements IDisposable {
         _token: CancellationToken
     ): Promise<CellExecutionState> {
         if (JavaScriptKernel.isEmptyCell(task.cell)) {
+            task.end(undefined);
             return CellExecutionState.notExecutedEmptyCell;
         }
         const requestId = generateId();
         const result = createDeferred<CellExecutionState>();
-        const stdOutput = CellStdOutput.getOrCreate(task, this.controller);
-        stdOutput.hackyReset();
+        const stdOutput = CellOutput.getOrCreate(task, this.controller);
         this.currentTask = { task, requestId, result, stdOutput };
         this.lastStdOutput = stdOutput;
         this.tasks.set(requestId, { task, requestId, result, stdOutput });
@@ -130,13 +133,13 @@ export class JavaScriptKernel implements IDisposable {
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
         let code: CodeObject;
         try {
-            code = getCodeObject(task.cell);
+            code = Compiler.getCodeObject(task.cell);
         } catch (ex: unknown) {
             console.error(`Failed to generate code object`, ex);
             const error = new Error(`Failed to generate code object, ${(ex as Partial<Error> | undefined)?.message}`);
             error.stack = ''; // Don't show stack trace pointing to our internal code (its not useful & its ugly)
             stdOutput.appendError(error);
-            task.end(false, Date.now());
+            stdOutput.end(false, Date.now());
             return CellExecutionState.error;
         }
         this.mapOfCodeObjectsToCellIndex.set(code.sourceFilename, task.cell.index);
@@ -146,21 +149,7 @@ export class JavaScriptKernel implements IDisposable {
         return result.promise;
     }
     private static isEmptyCell(cell: NotebookCell) {
-        const cmd = cell.document.getText();
-        if (cmd.trim().length === 0) {
-            return true;
-        }
-        // If we have at least one line without a comment, then we have code in this cell.
-        if (
-            cmd
-                .split(/\r?\n/)
-                .map((line) => line.trim())
-                .filter((line) => line.length > 0)
-                .some((line) => !line.startsWith('#'))
-        ) {
-            return false;
-        }
-        return true;
+        return cell.document.getText().trim().length === 0;
     }
     private async start() {
         if (!this.starting) {
@@ -169,7 +158,11 @@ export class JavaScriptKernel implements IDisposable {
         return this.starting;
     }
     private async startInternal() {
-        const [port, debugPort] = await Promise.all([this.getPort(), this.getPort()]);
+        const [port, debugPort, configFile] = await Promise.all([
+            this.getPort(),
+            this.getPort(),
+            writeConfigurationToTempFile()
+        ]);
         this.server = new WebSocket.Server({ port });
         this.server.on('connection', (ws) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,7 +172,7 @@ export class JavaScriptKernel implements IDisposable {
                         const msg: ResponseType = JSON.parse(message);
                         this.onMessage(msg);
                         if (msg.type === 'initialized') {
-                            this.serverProcessInitialized = true;
+                            this.startHandlingStreamOutput = true;
                             this._debugPort.resolve(debugPort);
                         }
                     } catch (ex) {
@@ -206,10 +199,14 @@ export class JavaScriptKernel implements IDisposable {
             );
             ServerLogger.appendLine(`Starting node & listening on ${debugPort} & websock on ${port}`);
 
-            this.serverProcess = spawn('node', [`--inspect=${debugPort}`, serverFile, `--port=${port}`], {
-                // this.serverProcess = spawn('node', [serverFile, `--port=${port}`], {
-                cwd: this.cwd
-            });
+            this.serverProcess = spawn(
+                'node',
+                [`--inspect=${debugPort}`, serverFile, `--port=${port}`, `--config=${quote([configFile])}`],
+                {
+                    // this.serverProcess = spawn('node', [serverFile, `--port=${port}`], {
+                    cwd: this.cwd
+                }
+            );
             this.serverProcess.on('close', (code: number) => {
                 ServerLogger.appendLine(`Server Exited, code = ${code}`);
             });
@@ -217,20 +214,20 @@ export class JavaScriptKernel implements IDisposable {
                 ServerLogger.appendLine('Server Exited, error:', error);
             });
             this.serverProcess.stderr?.on('data', (data: Buffer | string) => {
-                if (this.serverProcessInitialized) {
-                    const item = this.currentTask || this.getLastUsedStdOutput();
-                    if (item?.stdOutput) {
-                        item?.stdOutput.appendStdErr(data.toString());
+                if (this.startHandlingStreamOutput) {
+                    const output = this.getCellOutput();
+                    if (output) {
+                        output.appendStdErr(data.toString());
                     }
                 } else {
                     ServerLogger.append(data.toString());
                 }
             });
             this.serverProcess.stdout?.on('data', (data: Buffer | string) => {
-                if (this.serverProcessInitialized) {
-                    const item = this.currentTask || this.getLastUsedStdOutput();
-                    if (item?.stdOutput) {
-                        item.stdOutput.appendStdOut(data.toString());
+                if (this.startHandlingStreamOutput) {
+                    const output = this.getCellOutput();
+                    if (output) {
+                        output.appendStdErr(data.toString());
                     }
                 } else {
                     ServerLogger.append(data.toString());
@@ -246,7 +243,7 @@ export class JavaScriptKernel implements IDisposable {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private onMessage(message: ResponseType) {
-        console.info(`Got message ${message.type} with ${message}`);
+        console.info(`Ext got message ${message.type} with ${message}`);
         switch (message.type) {
             case 'pong':
                 this.lastSeenTime = Date.now();
@@ -256,7 +253,7 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'initialized': {
-                this.serverProcessInitialized = true;
+                this.startHandlingStreamOutput = true;
                 break;
             }
             case 'replRestarted': {
@@ -268,12 +265,12 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'cellExec': {
-                const item = this.tasks.get(message.requestId || -1);
+                const item = this.tasks.get(message.requestId || '');
                 if (item) {
-                    if (message.result) {
+                    if (message.success == true && message.result) {
                         item.stdOutput.appendOutput(message.result);
                     }
-                    if (message.ex) {
+                    if (message.success === false && message.ex) {
                         const responseEx = message.ex as unknown as Partial<Error>;
                         const error = new Error(responseEx.message || 'unknown');
                         error.name = responseEx.name || error.name;
@@ -282,15 +279,11 @@ export class JavaScriptKernel implements IDisposable {
                     }
                     const state = message.success ? CellExecutionState.success : CellExecutionState.error;
                     if (this.currentTask?.task === item.task) {
-                        this.currentTask.stdOutput.completed.finally(() => {
-                            item.task.end(message.success, Date.now());
-                            item.stdOutput.end();
-                            item.result.resolve(state);
-                        });
+                        item.stdOutput.end(message.success, message.end || Date.now());
+                        item.result.resolve(state);
                         this.currentTask = undefined;
                     } else {
-                        item.task.end(message.success, Date.now());
-                        item.stdOutput.end();
+                        item.stdOutput.end(message.success, message.end || Date.now());
                         item.result.resolve(state);
                     }
                 }
@@ -298,13 +291,13 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'output': {
-                const item = this.tasks.get(message.requestId ?? -1) || this.currentTask || this.getLastUsedStdOutput();
+                const item = this.tasks.get(message.requestId || '')?.stdOutput || this.getCellOutput();
                 if (item) {
                     if (message.data) {
-                        item.stdOutput.appendOutput(message.data);
+                        item.appendOutput(message.data);
                     }
                     if (message.ex) {
-                        item.stdOutput.appendError(message.ex as unknown as Error);
+                        item.appendError(message.ex as unknown as Error);
                     }
                 }
                 break;
@@ -313,15 +306,8 @@ export class JavaScriptKernel implements IDisposable {
                 break;
         }
     }
-    private getLastUsedStdOutput() {
-        if (this.lastStdOutput) {
-            return {
-                task: undefined,
-                requestId: '',
-                result: createDeferred(),
-                stdOutput: this.lastStdOutput
-            };
-        }
+    private getCellOutput() {
+        return this.currentTask?.stdOutput || this.lastStdOutput;
     }
     private getPort() {
         return new Promise<number>((resolve) => {

@@ -2,7 +2,7 @@ import { Diagnostic, DiagnosticSeverity, ExtensionContext, languages, NotebookDo
 import { IDisposable } from '../types';
 import { disposeAllDisposables } from '../utils';
 import { parse as parseStack } from 'error-stack-parser';
-import { getCellFromTemporaryPath } from './compiler';
+import { Compiler } from './compiler';
 
 const diagnosticsCollection = languages.createDiagnosticCollection('Typscript Notebook');
 
@@ -32,7 +32,7 @@ export class CellDiagnosticsProvider {
             return;
         }
         const topStack = stacks[0];
-        const cell = topStack.fileName && getCellFromTemporaryPath(topStack.fileName);
+        const cell = topStack.fileName && Compiler.getCellFromTemporaryPath(topStack.fileName);
         if (!cell) {
             return;
         }

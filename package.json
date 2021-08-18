@@ -142,14 +142,29 @@
                 ],
                 "requiresMessaging": "always"
             }
-        ]
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Typescript Notebook",
+            "properties": {
+                "typescript.notebook.registerTsNode": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Register ts-node that allows importing TypeScript modules without the user having to transpile TypeScript into JavaScript.",
+                    "scope": "machine"
+                }
+            }
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run build",
-        "dev": "concurrently -r npm:compile:extension:watch npm:compile:client:watch",
+        "dev": "concurrently -r npm:compile:typscript npm:compile:extension:watch npm:compile:client:watch",
+        "installtsnode": "cd resources/scripts && npm i -S ts-node",
         "build": "webpack --config=build/webpack/webpack.config.js --mode=production",
         "compile:extension:watch": "tsc --watch -p ./",
         "compile:client:watch": "webpack --config=build/webpack/webpack.client.config.js --watch",
+        "compile:extension:webpack": "webpack --config=build/webpack/webpack.extension.config.js",
+        "compile:typscript": "webpack --config=build/webpack/webpack.typescript.config.js",
         "lint": "eslint src/client --ext ts && eslint src/extension --ext ts && eslint build --ext js",
         "lint-format": "npx prettier 'src/**/*.ts*' --check && npx prettier 'build/**/*.js' --check",
         "package": "vsce package --yarn -o typescript-notebooks.vsix",
@@ -157,7 +172,7 @@
         "prettier-fix": "prettier 'src/**/*.ts*' --write && prettier 'build/**/*.js' --write",
         "download-api": "vscode-dts dev",
         "postdownload-api": "vscode-dts main",
-        "postinstall": "npm run download-api"
+        "postinstall": "npm run download-api && npm run installtsnode"
     },
     "dependencies": {
         "@tensorflow/tfjs-vis": "^1.5.1",
@@ -167,6 +182,7 @@
         "file-type": "^16.5.2",
         "get-port": "^5.1.1",
         "is-plain-object": "^5.0.0",
+        "json-stringify-safe": "^5.0.1",
         "kind-of": "^6.0.3",
         "node-pty": "^0.10.1",
         "plotly.js-dist": "^2.3.1",
@@ -184,7 +200,7 @@
     "devDependencies": {
         "@babel/generator": "^7.15.0",
         "@types/mocha": "^9.0.0",
-        "@types/node": "^12.11.7",
+        "@types/node": "^14.0.1",
         "@types/plotly.js": "^1.54.13",
         "@types/shell-quote": "^1.7.1",
         "@types/tmp": "^0.2.1",

@@ -3,7 +3,7 @@ import { commands, Uri, workspace } from 'vscode';
 import { IDisposable } from '../../extension/types';
 import * as tmp from 'tmp';
 import * as fs from 'fs';
-import { getCodeObject } from '../../extension/kernel/compiler';
+import { Compiler } from '../../extension/kernel/compiler';
 import * as recast from 'recast';
 import { parse } from 'acorn';
 const { default: generate } = require('@babel/generator');
@@ -119,18 +119,18 @@ suite('Top level await compiler tests', () => {
         ['for (var [a,b] in {xy:1}) { await 1 }', 'var a, b; (async () => { for ([a,b] in {xy:1}) { await 1 } })()'],
         ['for (let i in {x:1}) { await 1 }', '(async () => { for (let i in {x:1}) { await 1 } })()'],
         ['for (const i in {x:1}) { await 1 }', '(async () => { for (const i in {x:1}) { await 1 } })()'],
-        ['import * as fs from "fs"', 'var fs;fs = require("fs");(async () => {})();'],
+        ['import * as fs from "fs"', 'var fs;void (fs = __importStar(require("fs")));'],
         [
             'import * as fs from "fs"; await fs.readFileSync("filename");',
-            'var fs;fs = require("fs");var fs;(async () => {    fs = __importStar(require("fs"));    return await fs.readFileSync("filename");})();'
+            'var fs;void (fs = __importStar(require("fs")));var fs;(async () => {    fs = __importStar(require("fs"));    return await fs.readFileSync("filename");})();'
         ],
         [
             'import {readFileSync, readFile} from "fs"; await readFileSync("filename");',
-            'var readFileSync;var readFile;({    readFileSync,    readFile} = require("fs"));var fs_1;(async () => {    fs_1 = require("fs");    return await fs_1.readFileSync("filename");})();'
+            'var readFileSync;var readFile;void ({    readFileSync,    readFile} = require("fs"));var fs_1;(async () => {    fs_1 = require("fs");    return await fs_1.readFileSync("filename");})();'
         ],
         [
             'import {readFileSync:Read, readFile} from "fs"; await Read("filename");',
-            'var readFileSync;var Read;var readFile;({    readFileSync,    Read,    readFile} = require("fs"));var fs_1;(async () => {    fs_1 = require("fs");    return await fs_1.Read("filename");})();'
+            'var readFileSync;var Read;var readFile;void ({    readFileSync,    Read,    readFile} = require("fs"));var fs_1;(async () => {    fs_1 = require("fs");    return await fs_1.Read("filename");})();'
         ]
     ];
     const disposables: IDisposable[] = [];
@@ -154,26 +154,28 @@ suite('Top level await compiler tests', () => {
             testCases.forEach(([code, expected]) => {
                 test(`test - ${code}`, async () => {
                     const nb = await createNotebook(code);
-                    const codeObject = getCodeObject(nb.cellAt(0), code, supportsExceptionBreakpoints);
+                    const codeObject = Compiler.getCodeObject(nb.cellAt(0), code, supportsExceptionBreakpoints);
 
                     // When supporting breakpoints in debugger, all we do is wrap the code in a try..catch..
-                    if (supportsExceptionBreakpoints) {
+                    if (supportsExceptionBreakpoints && expected.includes('})()')) {
                         expected = expected.replace('(async () => {', '(async () => { try {');
                         expected =
                             expected.substring(0, expected.lastIndexOf('})()')) +
                             '} catch (__compilerEx){throw __compilerEx;}})()';
                     }
-                    let prettyExpectedCode = '';
-                    let prettyGeneratedCode = '';
-                    try {
-                        prettyExpectedCode = getPrettyfiedCode(expected, 'recast');
-                        prettyGeneratedCode = getPrettyfiedCode(codeObject.code, 'recast');
-                    } catch (ex) {
-                        // recast parser fails when parsing async iterables,
-                        // Hence use babel in this case.
-                        // Could use babel always, but thats more work (plugins, etc).
-                        prettyExpectedCode = getPrettyfiedCode(expected, 'babel');
-                        prettyGeneratedCode = getPrettyfiedCode(codeObject.code, 'babel');
+                    let prettyExpectedCode = expected.trim();
+                    let prettyGeneratedCode = codeObject.code.trim();
+                    if (prettyExpectedCode !== prettyGeneratedCode) {
+                        try {
+                            prettyExpectedCode = getPrettyfiedCode(expected, 'recast');
+                            prettyGeneratedCode = getPrettyfiedCode(codeObject.code, 'recast');
+                        } catch (ex) {
+                            // recast parser fails when parsing async iterables,
+                            // Hence use babel in this case.
+                            // Could use babel always, but thats more work (plugins, etc).
+                            prettyExpectedCode = getPrettyfiedCode(expected, 'babel');
+                            prettyGeneratedCode = getPrettyfiedCode(codeObject.code, 'babel');
+                        }
                     }
                     assert.strictEqual(prettyExpectedCode, prettyGeneratedCode);
                 });

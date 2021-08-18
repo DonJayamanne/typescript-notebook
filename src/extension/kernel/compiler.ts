@@ -1,5 +1,5 @@
-import * as ts from 'typescript';
-import { NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
+import type { ImportDeclaration, SyntaxList } from 'typescript';
+import { ExtensionContext, NotebookCell, NotebookDocument, Uri, workspace } from 'vscode';
 import { EOL } from 'os';
 import { MappingItem, RawSourceMap, SourceMapConsumer, SourceMapGenerator } from 'source-map';
 import * as path from 'path';
@@ -8,6 +8,9 @@ import * as os from 'os';
 import { CodeObject } from '../server/types';
 import { LineNumber, NewColumn, OldColumn, processTopLevelAwait } from './asyncWrapper';
 import { getNotebookCwd } from '../utils';
+
+let ts: typeof import('typescript');
+
 let tmpDirectory: string | undefined;
 const mapOfSourceFilesToNotebookUri = new Map<string, Uri>();
 const mapFromCellToPath = new WeakMap<NotebookCell, CodeObject>();
@@ -23,17 +26,27 @@ const codeObjectToSourceMaps = new WeakMap<
 >();
 
 const vmStartFrame = 'at Script.runInContext';
-
-export function getCellFromTemporaryPath(sourceFilename: string): NotebookCell | undefined {
-    if (mapOfSourceFilesToNotebookUri.has(sourceFilename)) {
-        return getNotebookCellfromUri(mapOfSourceFilesToNotebookUri.get(sourceFilename));
+export namespace Compiler {
+    export function register(context: ExtensionContext) {
+        const typescriptPath = path.join(
+            context.extensionUri.fsPath,
+            'resources',
+            'scripts',
+            'node_modules',
+            'typescript'
+        );
+        ts = require(typescriptPath);
     }
-    if (sourceFilename.endsWith('.jsnb') || sourceFilename.endsWith('.tsjn') || sourceFilename.endsWith('.ipynb')) {
-        const key = Array.from(mapOfSourceFilesToNotebookUri.keys()).find((item) => sourceFilename.includes(item));
-        return getNotebookCellfromUri(key ? mapOfSourceFilesToNotebookUri.get(key) : undefined);
+    export function getCellFromTemporaryPath(sourceFilename: string): NotebookCell | undefined {
+        if (mapOfSourceFilesToNotebookUri.has(sourceFilename)) {
+            return getNotebookCellfromUri(mapOfSourceFilesToNotebookUri.get(sourceFilename));
+        }
+        if (sourceFilename.endsWith('.jsnb') || sourceFilename.endsWith('.tsjn') || sourceFilename.endsWith('.ipynb')) {
+            const key = Array.from(mapOfSourceFilesToNotebookUri.keys()).find((item) => sourceFilename.includes(item));
+            return getNotebookCellfromUri(key ? mapOfSourceFilesToNotebookUri.get(key) : undefined);
+        }
     }
-}
-/**
+    /**
     * Will replace the bogus paths in stack trace with user friendly paths.
     * E.g. if the following is the stack trace we get back:
     * /var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000013.js:2
@@ -55,162 +68,168 @@ export function getCellFromTemporaryPath(sourceFilename: string): NotebookCell |
     * We need to repace the temporary paths `/var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000013.js` with the cell index.
     * & also remove all of the messages that are not relevant (VM stack trace).
     */
-export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, error?: Error | string): string {
-    if (typeof error === 'object' && error.name === 'InvalidCode_CodeExecution') {
-        error.name = 'SyntaxError';
-        error.stack = '';
-        return '';
-    }
-    let stackTrace = (typeof error === 'string' ? error : error?.stack) || '';
-    const index = stackTrace.indexOf(vmStartFrame);
-    if (index < 1) {
+    export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, error?: Error | string): string {
+        if (typeof error === 'object' && error.name === 'InvalidCode_CodeExecution') {
+            error.name = 'SyntaxError';
+            error.stack = '';
+            return '';
+        }
+        let stackTrace = (typeof error === 'string' ? error : error?.stack) || '';
+        const index = stackTrace.indexOf(vmStartFrame);
+        if (index < 1) {
+            return stackTrace;
+        }
+        stackTrace = stackTrace.substring(0, index);
+        document.getCells().forEach((cell) => {
+            const tempPath = mapFromCellToPath.get(cell);
+            if (!tempPath) {
+                return;
+            }
+            if (stackTrace.includes(tempPath.sourceFilename)) {
+                const regex = new RegExp(tempPath.sourceFilename, 'g');
+                stackTrace = stackTrace.replace(regex, `Cell ${cell.index + 1} `);
+            }
+        });
         return stackTrace;
     }
-    stackTrace = stackTrace.substring(0, index);
-    document.getCells().forEach((cell) => {
-        const tempPath = mapFromCellToPath.get(cell);
-        if (!tempPath) {
-            return;
-        }
-        if (stackTrace.includes(tempPath.sourceFilename)) {
-            const regex = new RegExp(tempPath.sourceFilename, 'g');
-            stackTrace = stackTrace.replace(regex, `Cell ${cell.index + 1} `);
-        }
-    });
-    return stackTrace;
-}
 
-const dummyFnToUseImports = 'adf8d89dff594ea79f38d03905825d73';
-export function getSourceMapsInfo(codeObject: CodeObject) {
-    return codeObjectToSourceMaps.get(codeObject);
-}
-export function getMappedLocation(
-    codeObject: CodeObject,
-    location: { line?: number; column?: number },
-    direction: 'VSCodeToDAP' | 'DAPToVSCode'
-): { line?: number; column?: number } {
-    if (typeof location.line !== 'number' && typeof location.column !== 'number') {
-        return location;
+    const dummyFnToUseImports = 'adf8d89dff594ea79f38d03905825d73';
+    export function getSourceMapsInfo(codeObject: CodeObject) {
+        return codeObjectToSourceMaps.get(codeObject);
     }
-    const sourceMap = getSourceMapsInfo(codeObject);
-    if (!sourceMap) {
-        return location;
-    }
-    if (typeof location.line !== 'number') {
-        return location;
-    }
-    const cacheKey = `${location.line || ''},${location.column || ''}`;
-    const cache = direction === 'VSCodeToDAP' ? sourceMap.originalToGeneratedCache : sourceMap.generatedToOriginalCache;
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) {
-        return cachedData;
-    }
-    const mappedLocation = { ...location };
-    if (direction === 'DAPToVSCode') {
-        // There's no such mapping of this line number.
-        const map = sourceMap.generatedToOriginal.get(location.line);
-        if (!map) {
+    export function getMappedLocation(
+        codeObject: CodeObject,
+        location: { line?: number; column?: number },
+        direction: 'VSCodeToDAP' | 'DAPToVSCode'
+    ): { line?: number; column?: number } {
+        if (typeof location.line !== 'number' && typeof location.column !== 'number') {
             return location;
         }
-        const matchingItem = typeof location.column === 'number' ? map.get(location.column) : map.get(0)!;
-        if (matchingItem) {
-            mappedLocation.line = matchingItem.originalLine;
-            mappedLocation.column = matchingItem.originalColumn;
-        }
-        // get the first item that has the lowest column.
-        // TODO: Review this.
-        else if (map.has(0)) {
-            mappedLocation.line = map.get(0)!.originalLine;
-            mappedLocation.column = map.get(0)!.originalColumn;
-        } else {
-            const column = Array.from(map.keys()).sort()[0];
-            mappedLocation.line = map.get(column)!.originalLine;
-            mappedLocation.column = map.get(column)!.originalColumn;
-        }
-    } else {
-        const map = sourceMap.originalToGenerated.get(location.line);
-        if (!map) {
+        const sourceMap = getSourceMapsInfo(codeObject);
+        if (!sourceMap) {
             return location;
         }
-        const matchingItem = typeof location.column === 'number' ? map.get(location.column) : map.get(0)!;
-        if (matchingItem) {
-            mappedLocation.line = matchingItem.generatedLine;
-            mappedLocation.column = matchingItem.generatedColumn;
+        if (typeof location.line !== 'number') {
+            return location;
         }
-        // get the first item that has the lowest column.
-        // TODO: Review this.
-        else if (map.has(0)) {
-            mappedLocation.line = map.get(0)!.generatedLine;
-            mappedLocation.column = map.get(0)!.generatedColumn;
+        const cacheKey = `${location.line || ''},${location.column || ''}`;
+        const cache =
+            direction === 'VSCodeToDAP' ? sourceMap.originalToGeneratedCache : sourceMap.generatedToOriginalCache;
+        const cachedData = cache.get(cacheKey);
+        if (cachedData) {
+            return cachedData;
+        }
+        const mappedLocation = { ...location };
+        if (direction === 'DAPToVSCode') {
+            // There's no such mapping of this line number.
+            const map = sourceMap.generatedToOriginal.get(location.line);
+            if (!map) {
+                return location;
+            }
+            const matchingItem = typeof location.column === 'number' ? map.get(location.column) : map.get(0)!;
+            if (matchingItem) {
+                mappedLocation.line = matchingItem.originalLine;
+                mappedLocation.column = matchingItem.originalColumn;
+            }
+            // get the first item that has the lowest column.
+            // TODO: Review this.
+            else if (map.has(0)) {
+                mappedLocation.line = map.get(0)!.originalLine;
+                mappedLocation.column = map.get(0)!.originalColumn;
+            } else {
+                const column = Array.from(map.keys()).sort()[0];
+                mappedLocation.line = map.get(column)!.originalLine;
+                mappedLocation.column = map.get(column)!.originalColumn;
+            }
         } else {
-            const column = Array.from(map.keys()).sort()[0];
-            mappedLocation.line = map.get(column)!.generatedLine;
-            mappedLocation.column = map.get(column)!.generatedColumn;
+            const map = sourceMap.originalToGenerated.get(location.line);
+            if (!map) {
+                return location;
+            }
+            const matchingItem = typeof location.column === 'number' ? map.get(location.column) : map.get(0)!;
+            if (matchingItem) {
+                mappedLocation.line = matchingItem.generatedLine;
+                mappedLocation.column = matchingItem.generatedColumn;
+            }
+            // get the first item that has the lowest column.
+            // TODO: Review this.
+            else if (map.has(0)) {
+                mappedLocation.line = map.get(0)!.generatedLine;
+                mappedLocation.column = map.get(0)!.generatedColumn;
+            } else {
+                const column = Array.from(map.keys()).sort()[0];
+                mappedLocation.line = map.get(column)!.generatedLine;
+                mappedLocation.column = map.get(column)!.generatedColumn;
+            }
         }
-    }
 
-    cache.set(cacheKey, mappedLocation);
-    return mappedLocation;
-}
-export function getCodeObject(
-    cell: NotebookCell,
-    code = cell.document.getText(),
-    supportBreakingOnExceptionsInDebugger?: boolean
-): CodeObject {
-    try {
-        // Parser fails when we have comments in the last line, hence just add empty line.
-        code = `${code}${EOL}`;
-        const details = createCodeObject(cell);
-        if (details.textDocumentVersion === cell.document.version) {
-            return details;
-        }
-        let expectedImports = '';
+        cache.set(cacheKey, mappedLocation);
+        return mappedLocation;
+    }
+    export function getCodeObject(
+        cell: NotebookCell,
+        code = cell.document.getText(),
+        supportBreakingOnExceptionsInDebugger?: boolean
+    ): CodeObject {
         try {
-            // If imports are not used, typescript will drop them.
-            // Solution, add dummy code into ts that will make the compiler think the imports are used.
-            // E.g. if we have `import * as fs from 'fs'`, then add `myFunction(fs)` at the bottom of the code
-            // And once the JS is generated remove that dummy code.
-            expectedImports = getExpectedImports(cell);
-        } catch (ex) {
-            console.error(`Failed to generate dummy placeholders for imports`);
-        }
-        // Even if the code is JS, transpile it (possibel user accidentally selected JS cell & wrote TS code)
-        const result = ts.transpile(
-            code,
-            {
-                sourceMap: true,
-                inlineSourceMap: true,
-                sourceRoot: path.dirname(details.sourceFilename),
-                noImplicitUseStrict: true,
-                importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
-                strict: false, // No way.
-                fileName: details.sourceFilename,
-                resolveJsonModule: true,
-                removeComments: true,
-                target: ts.ScriptTarget.ESNext, // Minimum Node12 (but let users use what ever they want). Lets look into user defined tsconfig.json.
-                module: ts.ModuleKind.CommonJS,
-                alwaysStrict: false,
-                checkJs: false, // We're not going to give errors, the user can get this from vscode problems window & linters, etc... why re-invent the wheel here.
-                noEmitHelpers: true,
-                esModuleInterop: true,
-                moduleResolution: ts.ModuleResolutionKind.NodeJs,
-                experimentalDecorators: true,
-                allowUnreachableCode: true,
-                preserveConstEnums: true,
-                allowJs: true,
-                rootDir: path.dirname(cell.notebook.uri.fsPath),
-                allowSyntheticDefaultImports: true,
-                skipLibCheck: true // We expect users to rely on VS Code to let them know if they have issues in their code.
-            },
-            details.sourceFilename
-        );
-        let transpiledCode = result.replace(
-            'Object.defineProperty(exports, "__esModule", { value: true });',
-            ' '.repeat('Object.defineProperty(exports, "__esModule", { value: true });'.length)
-        );
-        // Remove `use strict`, this causes issues some times.
-        // E.g. this code fails (dfd not found).
-        /*
+            // Parser fails when we have comments in the last line, hence just add empty line.
+            code = `${code}${EOL}`;
+            const details = createCodeObject(cell);
+            if (details.textDocumentVersion === cell.document.version) {
+                return details;
+            }
+            let expectedImports = '';
+            try {
+                // If imports are not used, typescript will drop them.
+                // Solution, add dummy code into ts that will make the compiler think the imports are used.
+                // E.g. if we have `import * as fs from 'fs'`, then add `myFunction(fs)` at the bottom of the code
+                // And once the JS is generated remove that dummy code.
+                expectedImports = getExpectedImports(cell);
+            } catch (ex) {
+                console.error(`Failed to generate dummy placeholders for imports`);
+            }
+            // Even if the code is JS, transpile it (possibel user accidentally selected JS cell & wrote TS code)
+            const result = ts.transpile(
+                code,
+                {
+                    sourceMap: true,
+                    inlineSourceMap: true,
+                    sourceRoot: path.dirname(details.sourceFilename),
+                    noImplicitUseStrict: true,
+                    importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
+                    strict: false, // No way.
+                    fileName: details.sourceFilename,
+                    resolveJsonModule: true,
+                    removeComments: true,
+                    target: ts.ScriptTarget.ESNext, // Minimum Node12 (but let users use what ever they want). Lets look into user defined tsconfig.json.
+                    module: ts.ModuleKind.CommonJS,
+                    alwaysStrict: false,
+                    checkJs: false, // We're not going to give errors, the user can get this from vscode problems window & linters, etc... why re-invent the wheel here.
+                    noEmitHelpers: true,
+                    esModuleInterop: true,
+                    moduleResolution: ts.ModuleResolutionKind.NodeJs,
+                    experimentalDecorators: true,
+                    allowUnreachableCode: true,
+                    preserveConstEnums: true,
+                    allowJs: true,
+                    rootDir: path.dirname(cell.notebook.uri.fsPath),
+                    allowSyntheticDefaultImports: true,
+                    skipLibCheck: true // We expect users to rely on VS Code to let them know if they have issues in their code.
+                },
+                details.sourceFilename
+            );
+            // let transpiledCode = result;
+            // let transpiledCode = result.replace(
+            //     'Object.defineProperty(exports, "__esModule", { value: true });',
+            //     'Object.defineProperty(module.exports, "__esModule", { value: true });'
+            // );
+            let transpiledCode = result.replace(
+                'Object.defineProperty(exports, "__esModule", { value: true });',
+                ' '.repeat('Object.defineProperty(exports, "__esModule", { value: true });'.length)
+            );
+            // Remove `use strict`, this causes issues some times.
+            // E.g. this code fails (dfd not found).
+            /*
 import * as dfd from 'danfojs-node';
 const df: dfd.DataFrame = await dfd.read_csv('./finance-charts-apple.csv');
 const layout = {
@@ -226,70 +245,72 @@ const newDf = df.set_index({ key: "Date" })
 newDf.plot("").line({ columns: ["AAPL.Open", "AAPL.High"], layout })
             */
 
-        // Split generated source & source maps
-        const lines = transpiledCode.split(/\r?\n/).filter((line) => !line.startsWith(dummyFnToUseImports));
-        const sourceMapLine = lines.pop()!;
-        transpiledCode = lines.join(EOL);
+            // Split generated source & source maps
+            const lines = transpiledCode.split(/\r?\n/).filter((line) => !line.startsWith(dummyFnToUseImports));
+            const sourceMapLine = lines.pop()!;
+            transpiledCode = lines.join(EOL);
 
-        // Update the source to account for top level awaits & other changes, etc.
-        const sourceMap = Buffer.from(sourceMapLine.substring(sourceMapLine.indexOf(',') + 1), 'base64').toString();
-        const sourceMapInfo = { original: sourceMap, updated: '' };
-        transpiledCode = replaceTopLevelConstWithVar(
-            cell,
-            transpiledCode,
-            sourceMapInfo,
-            expectedImports,
-            supportBreakingOnExceptionsInDebugger
-        );
+            // Update the source to account for top level awaits & other changes, etc.
+            const sourceMap = Buffer.from(sourceMapLine.substring(sourceMapLine.indexOf(',') + 1), 'base64').toString();
+            const sourceMapInfo = { original: sourceMap, updated: '' };
+            transpiledCode = replaceTopLevelConstWithVar(
+                cell,
+                transpiledCode,
+                sourceMapInfo,
+                expectedImports,
+                supportBreakingOnExceptionsInDebugger
+            );
 
-        // Re-generate source maps correctly
-        const updatedRawSourceMap: RawSourceMap = JSON.parse(
-            sourceMapInfo.updated || sourceMapInfo.updated || sourceMap || ''
-        );
-        updatedRawSourceMap.file = path.basename(details.sourceFilename);
-        updatedRawSourceMap.sourceRoot = path.dirname(details.sourceFilename);
-        updatedRawSourceMap.sources = [path.basename(details.sourceFilename)];
+            // Re-generate source maps correctly
+            const updatedRawSourceMap: RawSourceMap = JSON.parse(
+                sourceMapInfo.updated || sourceMapInfo.updated || sourceMap || ''
+            );
+            updatedRawSourceMap.file = path.basename(details.sourceFilename);
+            updatedRawSourceMap.sourceRoot = path.dirname(details.sourceFilename);
+            updatedRawSourceMap.sources = [path.basename(details.sourceFilename)];
 
-        const updatedSourceMap = JSON.stringify(updatedRawSourceMap);
-        // Node debugger doesn't seem to support inlined source maps
-        // https://github.com/microsoft/vscode/issues/130303
-        // Once available, uncomment this file & the code.
-        // const transpiledCodeWithSourceFile = `${transpiledCode}${EOL}//# sourceURL=file:///${details.sourceFilename}`;
-        // const transpiledCodeWithSourceMap = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
-        //     updatedSourceMap
-        // ).toString('base64')}`;
+            const updatedSourceMap = JSON.stringify(updatedRawSourceMap);
+            // Node debugger doesn't seem to support inlined source maps
+            // https://github.com/microsoft/vscode/issues/130303
+            // Once available, uncomment this file & the code.
+            // const transpiledCodeWithSourceFile = `${transpiledCode}${EOL}//# sourceURL=file:///${details.sourceFilename}`;
+            // const transpiledCodeWithSourceMap = `${transpiledCode}${EOL}//# sourceMappingURL=data:application/json;base64,${Buffer.from(
+            //     updatedSourceMap
+            // ).toString('base64')}`;
 
-        // updateCodeObject(details, cell, transpiledCodeWithSourceMap, updatedSourceMap);
-        // details.code = transpiledCodeWithSourceFile;
-        updateCodeObject(details, cell, transpiledCode, updatedSourceMap);
-        const originalToGenerated = new Map<number, Map<number, MappingItem>>();
-        const generatedToOriginal = new Map<number, Map<number, MappingItem>>();
-        new SourceMapConsumer(updatedRawSourceMap).eachMapping((mapping) => {
-            let maps = originalToGenerated.get(mapping.originalLine) || new Map<number, MappingItem>();
-            originalToGenerated.set(mapping.originalLine, maps);
-            maps.set(mapping.originalColumn, mapping);
+            // updateCodeObject(details, cell, transpiledCodeWithSourceMap, updatedSourceMap);
+            // details.code = transpiledCodeWithSourceFile;
+            updateCodeObject(details, cell, transpiledCode, updatedSourceMap);
+            const originalToGenerated = new Map<number, Map<number, MappingItem>>();
+            const generatedToOriginal = new Map<number, Map<number, MappingItem>>();
+            new SourceMapConsumer(updatedRawSourceMap).eachMapping((mapping) => {
+                let maps = originalToGenerated.get(mapping.originalLine) || new Map<number, MappingItem>();
+                originalToGenerated.set(mapping.originalLine, maps);
+                maps.set(mapping.originalColumn, mapping);
 
-            maps = generatedToOriginal.get(mapping.generatedLine) || new Map<number, MappingItem>();
-            generatedToOriginal.set(mapping.generatedLine, maps);
-            maps.set(mapping.generatedColumn, mapping);
-        });
-        codeObjectToSourceMaps.set(details, {
-            raw: updatedRawSourceMap,
-            originalToGenerated,
-            generatedToOriginal,
-            originalToGeneratedCache: new Map<string, { line?: number; column?: number }>(),
-            generatedToOriginalCache: new Map<string, { line?: number; column?: number }>()
-        });
-        if (!process.env.__IS_TEST) {
-            console.debug(`Compiled TS cell ${cell.index} into ${details.code}`);
+                maps = generatedToOriginal.get(mapping.generatedLine) || new Map<number, MappingItem>();
+                generatedToOriginal.set(mapping.generatedLine, maps);
+                maps.set(mapping.generatedColumn, mapping);
+            });
+            codeObjectToSourceMaps.set(details, {
+                raw: updatedRawSourceMap,
+                originalToGenerated,
+                generatedToOriginal,
+                originalToGeneratedCache: new Map<string, { line?: number; column?: number }>(),
+                generatedToOriginalCache: new Map<string, { line?: number; column?: number }>()
+            });
+            if (!process.env.__IS_TEST) {
+                console.debug(`Compiled TS cell ${cell.index} into ${details.code}`);
+            }
+            return details;
+        } catch (ex) {
+            // Only for debugging.
+            console.error('Yikes', ex);
+            throw ex;
         }
-        return details;
-    } catch (ex) {
-        // Only for debugging.
-        console.error('Yikes', ex);
-        throw ex;
     }
 }
+
 /**
      * Found that sometimes the repl crashes when we have trailing commas and an async.
      * The following sample code fails (but removing the trailing comments work):
@@ -344,15 +365,15 @@ function replaceTopLevelConstWithVar(
     expectedImports: string,
     supportBreakingOnExceptionsInDebugger?: boolean
 ) {
-    const result = processTopLevelAwait(expectedImports, source, supportBreakingOnExceptionsInDebugger);
+    if (source.trim().length === 0) {
+        return expectedImports;
+    }
 
-    updateCodeAndAdjustSourceMaps(source, result!.updatedCode, result!.lastLineNumber, result!.linesUpdated, sourceMap);
+    const result = processTopLevelAwait(expectedImports, source, supportBreakingOnExceptionsInDebugger);
+    updateCodeAndAdjustSourceMaps(result!.linesUpdated, sourceMap);
     return result!.updatedCode;
 }
 function updateCodeAndAdjustSourceMaps(
-    originalCode: string,
-    updatedCode: string,
-    lastLineNumber: number,
     linesUpdated: Map<
         LineNumber,
         { adjustedColumns: Map<OldColumn, NewColumn>; firstOriginallyAdjustedColumn?: number; totalAdjustment: number }
@@ -472,15 +493,15 @@ function getExpectedImports(cell: NotebookCell) {
         false,
         ts.ScriptKind.TS
     );
-    const sourceList = program.getChildAt(0) as ts.SyntaxList;
+    const sourceList = program.getChildAt(0) as SyntaxList;
     const imports = sourceList
         .getChildren()
         .filter((item) => item.kind === ts.SyntaxKind.ImportDeclaration)
-        .map((item) => item as ts.ImportDeclaration);
+        .map((item) => item as ImportDeclaration);
 
     const requireStatements: string[] = [];
     const variables: string[] = [];
-    imports.forEach((item: ts.ImportDeclaration) => {
+    imports.forEach((item: ImportDeclaration) => {
         if (!ts.isStringLiteral(item.moduleSpecifier)) {
             return;
         }
@@ -493,7 +514,7 @@ function getExpectedImports(cell: NotebookCell) {
         }
         const importClause = item.importClause;
         if (!importClause) {
-            requireStatements.push(`require('${importFrom}');`);
+            requireStatements.push(`void (require("${importFrom}"));`);
             return;
         }
         if (importClause.isTypeOnly) {
@@ -501,12 +522,16 @@ function getExpectedImports(cell: NotebookCell) {
         }
         if (importClause.name) {
             variables.push(`var ${importClause.name.getText(program)};`);
-            requireStatements.push(`${importClause.name.getText(program)} = require('${importFrom}');`);
+            requireStatements.push(
+                `void (${importClause.name.getText(program)} = __importDefault(require("${importFrom}")));`
+            );
         }
         if (importClause.namedBindings) {
             if (ts.isNamespaceImport(importClause.namedBindings)) {
                 variables.push(`var ${importClause.namedBindings.name.text};`);
-                requireStatements.push(`${importClause.namedBindings.name.text} = require('${importFrom}');`);
+                requireStatements.push(
+                    `void (${importClause.namedBindings.name.text} = __importStar(require("${importFrom}")));`
+                );
             } else {
                 const namedImportsForModule: string[] = [];
                 importClause.namedBindings.elements.forEach((ele) => {
@@ -519,7 +544,7 @@ function getExpectedImports(cell: NotebookCell) {
                     }
                 });
                 if (namedImportsForModule.length) {
-                    requireStatements.push(`({${namedImportsForModule.join(', ')}} = require('${importFrom}'));`);
+                    requireStatements.push(`void ({${namedImportsForModule.join(', ')}} = require("${importFrom}"));`);
                 }
             }
         }

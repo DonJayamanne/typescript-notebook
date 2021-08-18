@@ -9484,6 +9484,13 @@ declare module 'vscode' {
 		 * The icon path or {@link ThemeIcon} for the terminal.
 		 */
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon;
+
+		/**
+		 * The icon {@link ThemeColor} for the terminal.
+		 * The `terminal.ansi*` theme keys are
+		 * recommended for the best contrast and consistency across themes.
+		 */
+		color?: ThemeColor;
 	}
 
 	/**
@@ -9505,6 +9512,13 @@ declare module 'vscode' {
 		 * The icon path or {@link ThemeIcon} for the terminal.
 		 */
 		iconPath?: Uri | { light: Uri; dark: Uri } | ThemeIcon;
+
+		/**
+		 * The icon {@link ThemeColor} for the terminal.
+		 * The standard `terminal.ansi*` theme keys are
+		 * recommended for the best contrast and consistency across themes.
+		 */
+		color?: ThemeColor;
 	}
 
 	/**
@@ -10468,8 +10482,8 @@ declare module 'vscode' {
 		export const fs: FileSystem;
 
 		/**
-		 * The workspace folder that is open in the editor. `undefined` when no workspace
-		 * has been opened.
+		 * The uri of the first entry of {@linkcode workspace.workspaceFolders workspaceFolders}
+		 * as `string`. `undefined` if there is no first entry.
 		 *
 		 * Refer to https://code.visualstudio.com/docs/editor/workspaces for more information
 		 * on workspaces.
@@ -10479,13 +10493,11 @@ declare module 'vscode' {
 		export const rootPath: string | undefined;
 
 		/**
-		 * List of workspace folders that are open in the editor. `undefined` when no workspace
+		 * List of workspace folders (0-N) that are open in the editor. `undefined` when no workspace
 		 * has been opened.
 		 *
 		 * Refer to https://code.visualstudio.com/docs/editor/workspaces for more information
 		 * on workspaces.
-		 *
-		 * *Note* that the first entry corresponds to the value of `rootPath`.
 		 */
 		export const workspaceFolders: readonly WorkspaceFolder[] | undefined;
 
@@ -11675,7 +11687,7 @@ declare module 'vscode' {
 		readonly executionOrder?: number;
 
 		/**
-		 * If the exclusive finished successfully.
+		 * If the execution finished successfully.
 		 */
 		readonly success?: boolean;
 
@@ -13923,7 +13935,7 @@ declare module 'vscode' {
 
 		/**
 		 * A collection of "top-level" {@link TestItem} instances, which can in
-		 * turn have their own {@link TestItem.children | children} to form the
+		 * turn have their own {@link TestItem.children children} to form the
 		 * "test tree."
 		 *
 		 * The extension controls when to add tests. For example, extensions should

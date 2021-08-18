@@ -321,11 +321,11 @@ export function processTopLevelAwait(
 
     // Possible theres no code (e.g. if you have an import that is not used, then the body of
     // the try..catch that we add is empty, meaning the body is now empty)
-    let lastLineNumber = -1;
+    // let lastLineNumber = -1;
     if (body.body.length) {
         const last = body.body[body.body.length - 1] as ExpressionStatement;
         if (last.type === 'ExpressionStatement') {
-            lastLineNumber = last.loc.start.line;
+            // lastLineNumber = last.loc.start.line;
             const lastLine = state.lines[last.loc.start.line - 1];
             const currentAdjustments = state.getAdjustment(last.loc.start.line);
             state.lines[last.loc.start.line - 1] = `${lastLine.substring(
@@ -355,8 +355,7 @@ export function processTopLevelAwait(
     state.lines[1] = `${variables}${state.lines[1]}${hoisted}`;
     return {
         updatedCode: state.lines.join(EOL),
-        linesUpdated,
-        lastLineNumber
+        linesUpdated
     };
 }
 

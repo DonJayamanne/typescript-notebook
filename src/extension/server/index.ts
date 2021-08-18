@@ -2,7 +2,7 @@
 import * as yargs from 'yargs';
 import * as WebSocket from 'ws';
 import { logErrorMessage, logMessage } from './logger';
-import { execCode } from './codeExecution';
+import { execCode, initialize } from './codeExecution';
 import { RequestType } from './types';
 import { emitter, initializeComms, sendMessage } from './comms';
 import { createDeferred } from '../coreUtils';
@@ -13,6 +13,9 @@ const argv = yargs(process.argv).argv;
 logMessage(`Started ${argv}`);
 console.log(argv);
 const port = 'port' in argv ? (argv.port as number) : 0;
+const config = 'config' in argv ? (argv.config as string) : undefined;
+initialize(config);
+
 if (!port) {
     console.error(`Port not provided, got ${JSON.stringify(argv)}`);
     logErrorMessage(`Port not provided, got ${JSON.stringify(argv)}`);
@@ -34,10 +37,10 @@ function connectToServer(port: number) {
     });
 
     connection.on('message', (e) => {
-        logMessage('Got message');
         try {
             if (typeof e === 'string') {
                 const data: RequestType = JSON.parse(e);
+                logMessage(`Kernel got message ${data.type}`);
                 switch (data.type) {
                     case 'initialize':
                         sendMessage({ type: 'initialized', requestId: '' });

@@ -7,9 +7,7 @@ module.exports = {
     context: constants.ExtensionRootDir,
     target: 'node',
     entry: {
-        extension: './src/extension/index.ts',
-        server: './src/extension/server/index.ts',
-        test: './src/test/runTest.ts'
+        typescript: './node_modules/typescript'
     },
     output: {
         filename: (pathData) => {
@@ -28,16 +26,6 @@ module.exports = {
     },
     mode: 'production',
     devtool: 'source-map',
-    externals: [
-        'vscode',
-        'commonjs',
-        'bufferutil',
-        'utf-8-validate',
-        'node-pty',
-        'profoundjs-node-pty',
-        'xterm',
-        'xterm-addon-serialize'
-    ],
     plugins: [...common.getDefaultPlugins('extension')],
     resolve: {
         extensions: ['.ts', '.js']

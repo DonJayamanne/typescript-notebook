@@ -3,7 +3,7 @@ import { DebugProtocol } from 'vscode-debugprotocol';
 import { debug, NotebookDocument, NotebookCell, DebugSession, DebugAdapterTracker, Uri } from 'vscode';
 import * as path from 'path';
 import { JavaScriptKernel } from '../jsKernel';
-import { getCellFromTemporaryPath, getCodeObject, getMappedLocation, getSourceMapsInfo } from '../compiler';
+import { Compiler } from '../compiler';
 
 const activeDebuggers = new WeakMap<NotebookDocument, Debugger>();
 
@@ -38,21 +38,21 @@ export class Debugger implements DebugAdapterTracker {
                 if (!request.source?.path || !location) {
                     return;
                 }
-                const cell = getCellFromTemporaryPath(request.source.path);
+                const cell = Compiler.getCellFromTemporaryPath(request.source.path);
                 if (!cell) {
                     return;
                 }
-                const codeObject = getCodeObject(cell);
+                const codeObject = Compiler.getCodeObject(cell);
                 if (!codeObject) {
                     return;
                 }
-                const sourceMap = getSourceMapsInfo(codeObject);
+                const sourceMap = Compiler.getSourceMapsInfo(codeObject);
                 if (!sourceMap) {
                     return;
                 }
                 // const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
                 location.forEach((location) => {
-                    const mappedLocation = getMappedLocation(codeObject, location, 'VSCodeToDAP');
+                    const mappedLocation = Compiler.getMappedLocation(codeObject, location, 'VSCodeToDAP');
                     location.line = mappedLocation.line;
                     location.column = mappedLocation.column;
                 });
@@ -68,7 +68,7 @@ export class Debugger implements DebugAdapterTracker {
             message,
             (source) => {
                 if (source.path) {
-                    const cell = getCellFromTemporaryPath(source.path);
+                    const cell = Compiler.getCellFromTemporaryPath(source.path);
                     if (cell && !cell.document.isClosed) {
                         source.name = path.basename(cell.document.uri.path);
                         if (cell.index >= 0) {
@@ -82,21 +82,21 @@ export class Debugger implements DebugAdapterTracker {
                 if (!request.source?.path || !location) {
                     return;
                 }
-                const cell = getCellFromTemporaryPath(request.source.path);
+                const cell = Compiler.getCellFromTemporaryPath(request.source.path);
                 if (!cell) {
                     return;
                 }
-                const codeObject = getCodeObject(cell);
+                const codeObject = Compiler.getCodeObject(cell);
                 if (!codeObject) {
                     return;
                 }
-                const sourceMap = getSourceMapsInfo(codeObject);
+                const sourceMap = Compiler.getSourceMapsInfo(codeObject);
                 if (!sourceMap) {
                     return;
                 }
                 // const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
                 location.forEach((location) => {
-                    const mappedLocation = getMappedLocation(codeObject, location, 'DAPToVSCode');
+                    const mappedLocation = Compiler.getMappedLocation(codeObject, location, 'DAPToVSCode');
                     location.line = mappedLocation.line;
                     location.column = mappedLocation.column;
                 });
@@ -115,7 +115,7 @@ export class Debugger implements DebugAdapterTracker {
                 // find cell in document by matching its URI
                 const cell = this.document.getCells().find((c) => c.document.uri.toString() === uri);
                 if (cell) {
-                    return getCodeObject(cell).sourceFilename;
+                    return Compiler.getCodeObject(cell).sourceFilename;
                 }
             }
         } catch (e) {

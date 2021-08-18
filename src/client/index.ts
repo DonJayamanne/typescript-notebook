@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // declare const tfvis: typeof import('@tensorflow/tfjs-vis');
 import * as tfvis from '@tensorflow/tfjs-vis';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-core';
 import type { fitCallbacks } from '@tensorflow/tfjs-vis/dist/show/history';
 import './index.css';
 import { deserialize } from './serializer';

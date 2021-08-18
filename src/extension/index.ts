@@ -10,8 +10,11 @@ import { PlotlyDownloadRenderer } from './kernel/plotly';
 import { ShellKernel } from './kernel/shellKernel';
 import { CellExecutionQueue } from './kernel/cellExecutionQueue';
 import { JavaScriptKernel } from './kernel/jsKernel';
+import { Compiler } from './kernel/compiler';
+
 export async function activate(context: ExtensionContext) {
     registerDisposableRegistry(context);
+    Compiler.register(context);
     ContentProvider.register();
     Controller.regsiter();
     ServerLogger.register();

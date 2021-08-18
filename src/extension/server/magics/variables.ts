@@ -23,6 +23,7 @@ export class VariableListingMagicCommandHandler {
             .some((line) => line.toLowerCase().startsWith('%who'));
     }
     public async handleCommand(request: RunCellRequest, replServer: repl.REPLServer) {
+        const start = Date.now();
         const vars = Object.keys(replServer.context);
         const execResult: RunCellResponse = {
             requestId: request.requestId,
@@ -32,7 +33,9 @@ export class VariableListingMagicCommandHandler {
                 .sort()
                 .map((name) => `${name} (type '${typeof replServer.context[name]}')`)
                 .join('\n'),
-            type: 'cellExec'
+            type: 'cellExec',
+            start,
+            end: Date.now()
         };
         sendMessage(execResult);
     }

@@ -1,0 +1,21 @@
+{
+    "name": "tsnotebook",
+    "version": "1.0.0",
+    "description": "Contains an npm package that provides helper functions for [Type Script notebooks in VS Code](https://marketplace.visualstudio.com/items?itemName=donjayamanne.typescript-notebook)",
+    "main": "index.js",
+    "keywords": [],
+    "publisher": "donjayamanne",
+    "author": {
+        "name": "Don Jayamanne"
+    },
+    "homepage": "https://marketplace.visualstudio.com/items?itemName=donjayamanne.typescript-notebook",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DonJayamanne/typescript-notebook"
+    },
+    "bugs": {
+        "url": "https://github.com/DonJayamanne/typescript-notebook"
+    },
+    "types": "./index.d.ts",
+    "license": "MIT"
+}
