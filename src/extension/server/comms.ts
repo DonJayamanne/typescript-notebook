@@ -1,6 +1,6 @@
 import { RequestType, ResponseType } from './types';
 import * as WebSocket from 'ws';
-import { EventEmitter } from 'stream';
+import { EventEmitter } from 'events';
 import { createDeferred } from '../coreUtils';
 
 const ws = createDeferred<WebSocket>();

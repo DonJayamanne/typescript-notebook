@@ -16,7 +16,7 @@ export function log(category: 'info' | 'error', ...param: any[]) {
         type: 'logMessage',
         requestId: '',
         category,
-        message: util.format(...param)
+        message: util.format(param[0], ...param.slice(1))
     };
     sendMessage(msg);
 }
