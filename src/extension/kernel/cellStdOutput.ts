@@ -15,7 +15,6 @@ const { isPlainObject } = require('is-plain-object');
 const taskMap = new WeakMap<NotebookCell, CellStdOutput>();
 export class CellStdOutput {
     private ended?: boolean;
-    private lastOutputForStdOut?: NotebookCellOutput;
     private promise = Promise.resolve();
     private _tempTask?: NotebookCellExecution;
     public get completed() {
@@ -42,9 +41,6 @@ export class CellStdOutput {
         this.ended = false;
         this._task = task;
     }
-    public hackyReset() {
-        this.lastOutputForStdOut = undefined;
-    }
     public end(success?: boolean, endTimne?: number) {
         if (this.ended) {
             return;
@@ -59,16 +55,35 @@ export class CellStdOutput {
         output.setTask(task);
         return output;
     }
-    public appendStdOut(value: string) {
+    public appendStreamOutput(value: string, stream: 'stdout' | 'stderr') {
         // value = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
         this.promise = this.promise
             .finally(() => {
-                const item = NotebookCellOutputItem.stdout(value);
-                if (this.lastOutputForStdOut) {
-                    return this.task.appendOutputItems(item, this.lastOutputForStdOut);
+                const cell = this.task.cell;
+                let output: NotebookCellOutput | undefined;
+                if (cell.outputs.length) {
+                    const lastOutput = cell.outputs[cell.outputs.length - 1];
+                    const expectedMime =
+                        stream === 'stdout'
+                            ? 'application/vnd.code.notebook.stdout'
+                            : 'application/vnd.code.notebook.stderr';
+                    if (lastOutput.items.length === 1 && lastOutput.items[0].mime === expectedMime) {
+                        output = lastOutput;
+                    }
+                }
+                if (output) {
+                    const newText = `${output.items[0].data.toString()}${value}`;
+                    const item =
+                        stream === 'stderr'
+                            ? NotebookCellOutputItem.stderr(newText)
+                            : NotebookCellOutputItem.stdout(newText);
+                    return this.task.replaceOutputItems(item, output);
                 } else {
-                    this.lastOutputForStdOut = new NotebookCellOutput([item]);
-                    return this.task.appendOutput(this.lastOutputForStdOut);
+                    const item =
+                        stream === 'stderr'
+                            ? NotebookCellOutputItem.stderr(value)
+                            : NotebookCellOutputItem.stdout(value);
+                    return this.task.appendOutput(new NotebookCellOutput([item]));
                 }
             })
             .finally(() => this.endTempTask());
@@ -77,7 +92,6 @@ export class CellStdOutput {
      * This is all wrong.
      */
     public appendOutput(output: DisplayData) {
-        this.hackyReset();
         this.promise = this.promise
             .finally(() => {
                 const individualOutputItems: DisplayData[] = [];
@@ -117,18 +131,7 @@ export class CellStdOutput {
             })
             .finally(() => this.endTempTask());
     }
-    public appendStdErr(value: string) {
-        this.hackyReset();
-        // value = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
-        this.promise = this.promise
-            .finally(() => {
-                const item = NotebookCellOutputItem.stderr(value);
-                return this.task.appendOutput(new NotebookCellOutput([item]));
-            })
-            .finally(() => this.endTempTask());
-    }
     public appendError(ex?: Partial<Error>) {
-        this.hackyReset();
         CellDiagnosticsProvider.trackErrors(this.task.cell.notebook, ex);
         const newEx = new Error(ex?.message || '<unknown>');
         newEx.name = ex?.name || '';
@@ -166,8 +169,8 @@ export class CellStdOutput {
 
 // // eslint-disable-next-line @typescript-eslint/no-var-requires
 // const { isPlainObject } = require('is-plain-object');
-// const taskMap = new WeakMap<NotebookCell, CellOutput>();
-// export class CellOutput {
+// const taskMap = new WeakMap<NotebookCell, CellStdOutput>();
+// export class CellStdOutput {
 //     private ended?: boolean;
 //     private lastStreamOutput?: { output: NotebookCellOutput; stream: 'stdout' | 'stderr'; value: string };
 //     private _tempTask?: NotebookCellExecution;
@@ -200,7 +203,7 @@ export class CellStdOutput {
 //         this._task.end(success, endTimne);
 //     }
 //     public static getOrCreate(task: NotebookCellExecution, controller: NotebookController) {
-//         taskMap.set(task.cell, taskMap.get(task.cell) || new CellOutput(task, controller));
+//         taskMap.set(task.cell, taskMap.get(task.cell) || new CellStdOutput(task, controller));
 //         const output = taskMap.get(task.cell)!;
 //         output.setTask(task);
 //         return output;
@@ -219,12 +222,14 @@ export class CellStdOutput {
 //         const items = individualOutputItems.map((value) => {
 //             if (value && typeof value === 'object' && 'type' in value && value.type === 'image') {
 //                 return new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
-//             } else if (value && typeof value === 'object' && 'type' in value && value.type === 'json') {
-//                 return NotebookCellOutputItem.json(value.value);
-//             } else if (value && typeof value === 'object' && 'type' in value && value.type === 'array') {
-//                 return NotebookCellOutputItem.json(value.value);
-//             } else if (value && typeof value === 'object' && 'type' in value && value.type === 'tensor') {
-//                 return NotebookCellOutputItem.json(value.value);
+//             } else if (
+//                 (value && typeof value === 'object' && 'type' in value && value.type === 'json') ||
+//                 (value && typeof value === 'object' && 'type' in value && value.type === 'array') ||
+//                 (value && typeof value === 'object' && 'type' in value && value.type === 'tensor')
+//             ) {
+//                 return NotebookCellOutputItem.json(
+//                     typeof value.value === 'string' ? JSON.parse(value.value) : value.value
+//                 );
 //             } else if (value && typeof value === 'object' && 'type' in value && value.type === 'html') {
 //                 return NotebookCellOutputItem.text(value.value, 'text/html');
 //             } else if (value && typeof value === 'object' && 'type' in value && value.type === 'generatePlog') {
@@ -239,30 +244,6 @@ export class CellStdOutput {
 //         void this.task.appendOutput(new NotebookCellOutput(items));
 //         this.endTempTask();
 //     }
-//     public appendStdOut(value: string) {
-//         value = Compiler.updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
-//         if (this.lastStreamOutput?.stream !== 'stdout') {
-//             this.lastStreamOutput = { output: new NotebookCellOutput([]), stream: 'stdout', value: '' };
-//         }
-//         this.lastStreamOutput.value += value;
-//         void this.task.replaceOutputItems(
-//             NotebookCellOutputItem.stdout(this.lastStreamOutput.value),
-//             this.lastStreamOutput.output
-//         );
-//         this.endTempTask();
-//     }
-//     public appendStdErr(value: string) {
-//         value = Compiler.updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
-//         if (this.lastStreamOutput?.stream !== 'stderr') {
-//             this.lastStreamOutput = { output: new NotebookCellOutput([]), stream: 'stderr', value: '' };
-//         }
-//         this.lastStreamOutput.value += value;
-//         void this.task.replaceOutputItems(
-//             NotebookCellOutputItem.stderr(this.lastStreamOutput.value),
-//             this.lastStreamOutput.output
-//         );
-//         this.endTempTask();
-//     }
 //     public appendError(ex?: Partial<Error>) {
 //         this.lastStreamOutput = undefined;
 //         CellDiagnosticsProvider.trackErrors(this.task.cell.notebook, ex);
@@ -272,6 +253,27 @@ export class CellStdOutput {
 //         newEx.stack = Compiler.updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, newEx);
 //         const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
 //         void this.task.appendOutput(output);
+//         this.endTempTask();
+//     }
+//     public appendStreamOutput(value: string, stream: 'stdout' | 'stderr') {
+//         value = Compiler.updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
+//         if (this.lastStreamOutput?.stream === stream) {
+//             this.lastStreamOutput.value += value;
+//             const item =
+//                 stream === 'stdout'
+//                     ? NotebookCellOutputItem.stdout(this.lastStreamOutput.value)
+//                     : NotebookCellOutputItem.stderr(this.lastStreamOutput.value);
+//             void this.task.appendOutputItems(item, this.lastStreamOutput.output);
+//         } else {
+//             this.lastStreamOutput = { output: new NotebookCellOutput([]), stream: 'stdout', value: '' };
+//             this.lastStreamOutput.value += value;
+//             const item =
+//                 stream === 'stdout'
+//                     ? NotebookCellOutputItem.stdout(this.lastStreamOutput.value)
+//                     : NotebookCellOutputItem.stderr(this.lastStreamOutput.value);
+//             this.lastStreamOutput.output.items.push(item);
+//             void this.task.appendOutput(this.lastStreamOutput.output);
+//         }
 //         this.endTempTask();
 //     }
 //     private renderPlotScript(request: GeneratePlot) {

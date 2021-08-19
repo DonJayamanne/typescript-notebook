@@ -78,16 +78,16 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
     } else if (value && Array.isArray(value)) {
         return {
             type: 'array',
-            value: stringify(value)
+            value: stringify(value) // We use this in case we have circular references in the Objects.
         };
     } else if (value && DanfoJsFormatter.instance.canFormatAsDanfo(value)) {
         return DanfoJsFormatter.instance.formatDanfoObject(value);
     } else if (value && typeof value === 'object' && value.constructor?.name === 'Tensor') {
         return {
             type: 'tensor',
-            value: stringify(value)
+            value: stringify(value) // We use this in case we have circular references in the Objects.
         };
-    } else if (value && (typeof value === 'object' || Array.isArray(value))) {
+    } else if (value && typeof value === 'object') {
         return {
             type: 'json',
             value: stringify(value) // We use this in case we have circular references in the Objects.

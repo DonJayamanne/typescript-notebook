@@ -129,7 +129,8 @@ export class JavaScriptKernel implements IDisposable {
         this.lastStdOutput = stdOutput;
         this.tasks.set(requestId, { task, requestId, result, stdOutput });
         task.start(Date.now());
-        void task.clearOutput();
+        // TODO: fix waiting on https://github.com/microsoft/vscode/issues/131123
+        await task.clearOutput();
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
         let code: CodeObject;
         try {
@@ -217,7 +218,7 @@ export class JavaScriptKernel implements IDisposable {
                 if (this.startHandlingStreamOutput) {
                     const output = this.getCellOutput();
                     if (output) {
-                        output.appendStdErr(data.toString());
+                        output.appendStreamOutput(data.toString(), 'stderr');
                     }
                 } else {
                     ServerLogger.append(data.toString());
@@ -227,7 +228,7 @@ export class JavaScriptKernel implements IDisposable {
                 if (this.startHandlingStreamOutput) {
                     const output = this.getCellOutput();
                     if (output) {
-                        output.appendStdErr(data.toString());
+                        output.appendStreamOutput(data.toString(), 'stdout');
                     }
                 } else {
                     ServerLogger.append(data.toString());
