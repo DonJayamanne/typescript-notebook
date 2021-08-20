@@ -23,6 +23,8 @@ export type Configuration = {
     registerTsNode: boolean;
     injectTsVis: boolean;
     injectPlotly: boolean;
+    terminalRows: number;
+    terminalColumns: number;
 };
 
 type BaseMessage<T extends string, B = {}> = {

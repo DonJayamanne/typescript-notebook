@@ -7,7 +7,7 @@ import {
     NotebookCellOutput,
     NotebookCellOutputItem
 } from 'vscode';
-import { getNotebookCwd } from '../utils';
+import { getNotebookCwd, registerDisposable } from '../utils';
 import { CellExecutionState } from './types';
 import { spawn } from 'child_process';
 import type { Terminal } from 'xterm';
@@ -18,6 +18,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { quote } from 'shell-quote';
 import { ExecutionOrder } from './executionOrder';
+import { IPty } from 'node-pty';
+import { noop } from '../coreUtils';
 
 const shell = os.platform() === 'win32' ? 'powershell.exe' : process.env['SHELL'] || 'bash';
 // const shell = '/bin/zsh';
@@ -31,7 +33,14 @@ env.SHLVL = '0';
 
 export class ShellKernel {
     public static register(context: ExtensionContext) {
-        ShellPty.shellJsPath = path.join(context.extensionUri.fsPath, 'resources', 'scripts', 'shell.js');
+        ShellPtyPool.shellJsPath = path.join(context.extensionUri.fsPath, 'resources', 'scripts', 'shell.js');
+        ShellPtyPool.nodePtyPath = path.join(
+            context.extensionUri.fsPath,
+            'resources',
+            'scripts',
+            'node_modules',
+            'profoundjs-node-pty'
+        );
     }
     public static async execute(task: NotebookCellExecution, token: CancellationToken): Promise<CellExecutionState> {
         const command = task.cell.document.getText();
@@ -39,10 +48,14 @@ export class ShellKernel {
             return CellExecutionState.notExecutedEmptyCell;
         }
         task.start(Date.now());
-        void task.clearOutput();
+        await task.clearOutput();
+        if (token.isCancellationRequested) {
+            task.end(undefined);
+            return CellExecutionState.success;
+        }
         task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
         const cwd = getNotebookCwd(task.cell.notebook);
-        if (isSimpleSingleLineShellCommand(command) || !ShellPty.available()) {
+        if (isSimpleSingleLineShellCommand(command) || !ShellPtyPool.available()) {
             return ShellProcess.execute(task, token, cwd);
         } else {
             return ShellPty.execute(task, token, cwd);
@@ -119,10 +132,10 @@ class ShellProcess {
                         data = data.toString();
                         const item = NotebookCellOutputItem.stdout(data.toString());
                         if (lastOutput?.stdout) {
-                            return task.appendOutputItems(item, lastOutput.stdout);
+                            return task.appendOutputItems(item, lastOutput.stdout).then(noop, noop);
                         } else {
                             lastOutput = { stdout: new NotebookCellOutput([item]) };
-                            return task.appendOutput(lastOutput.stdout!);
+                            return task.appendOutput(lastOutput.stdout!).then(noop, noop);
                         }
                     });
                 });
@@ -133,10 +146,10 @@ class ShellProcess {
                         }
                         const item = NotebookCellOutputItem.stderr(data.toString());
                         if (lastOutput?.stdErr) {
-                            return task.appendOutputItems(item, lastOutput.stdErr);
+                            return task.appendOutputItems(item, lastOutput.stdErr).then(noop, noop);
                         } else {
                             lastOutput = { stdErr: new NotebookCellOutput([item]) };
-                            return task.appendOutput(lastOutput.stdErr!);
+                            return task.appendOutput(lastOutput.stdErr!).then(noop, noop);
                         }
                     });
                 });
@@ -145,28 +158,58 @@ class ShellProcess {
                     if (token.isCancellationRequested) {
                         return;
                     }
-                    void task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
+                    task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)])).then(
+                        noop,
+                        noop
+                    );
                 });
                 endTask(false);
             }
         });
     }
 }
-class ShellPty {
+
+class ShellPtyPool {
     public static shellJsPath: string;
+    public static nodePtyPath: string;
+    public static instance = new ShellPtyPool();
     private static pty: typeof import('node-pty');
     public static available() {
-        if (ShellPty.pty) {
+        if (ShellPtyPool.pty) {
             return true;
         }
         try {
             // eslint-disable-next-line @typescript-eslint/no-var-requires
-            ShellPty.pty = require('profoundjs-node-pty') as typeof import('node-pty');
+            ShellPtyPool.pty = require(ShellPtyPool.nodePtyPath) as typeof import('node-pty');
             return true;
-        } catch {
+        } catch (ex) {
+            console.log(ex);
             return false;
         }
     }
+    public static get(cwd?: string) {
+        const proc = ShellPtyPool.pty.spawn(shell, [], {
+            name: 'tsNotebook',
+            cols: 80,
+            rows: 30,
+            cwd,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            env: { ...env, PDW: cwd, OLDPWD: cwd }
+        });
+        registerDisposable({
+            dispose: () => {
+                try {
+                    proc.kill();
+                } catch {
+                    //
+                }
+            }
+        });
+        return proc;
+    }
+}
+
+class ShellPty {
     public static async execute(task: NotebookCellExecution, token: CancellationToken, cwd?: string) {
         const command = task.cell.document.getText();
         // eslint-disable-next-line @typescript-eslint/ban-types
@@ -183,28 +226,22 @@ class ShellPty {
         return new Promise<CellExecutionState>((resolve) => {
             let taskExited = false;
             let promise = Promise.resolve();
+            let proc: IPty | undefined;
             const endTask = (success = true) => {
                 taskExited = true;
                 promise = promise.finally(() => task.end(true, Date.now()));
                 tmpFile.cleanupCallback();
                 terminal.dispose();
+                proc?.kill();
                 resolve(success ? CellExecutionState.success : CellExecutionState.error);
             };
             try {
                 // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const proc = ShellPty.pty.spawn(shell, [], {
-                    name: 'tsNotebook',
-                    cols: 80,
-                    rows: 30,
-                    cwd,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    env: { ...env, PDW: cwd, OLDPWD: cwd }
-                });
+                proc = ShellPtyPool.get(cwd);
                 token.onCancellationRequested(() => {
                     if (taskExited) {
                         return;
                     }
-                    proc.kill();
                     endTask();
                 });
                 proc.onExit((e) => {
@@ -243,7 +280,9 @@ class ShellPty {
                             }
                             const termOutput = await writePromise;
                             const item = NotebookCellOutputItem.stdout(termOutput);
-                            return task.replaceOutput(new NotebookCellOutput([item]));
+                            return task
+                                .replaceOutput(new NotebookCellOutput([item]))
+                                .then(noop, (ex) => console.error(ex));
                         })
                         .finally(() => {
                             if (!terminal.completed || token.isCancellationRequested) {
@@ -254,14 +293,16 @@ class ShellPty {
                             }
                         });
                 });
-                const shellCommand = `node ${quote([ShellPty.shellJsPath, tmpFile.path])}`;
+                const shellCommand = `node ${quote([ShellPtyPool.shellJsPath, tmpFile.path])}`;
                 proc.write(`${shellCommand}\r`);
             } catch (ex) {
                 promise = promise.finally(() => {
                     if (token.isCancellationRequested) {
                         return;
                     }
-                    void task.appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]));
+                    void task
+                        .appendOutput(new NotebookCellOutput([NotebookCellOutputItem.error(ex as Error)]))
+                        .then(noop, (ex) => console.error(ex));
                 });
                 endTask(false);
             }

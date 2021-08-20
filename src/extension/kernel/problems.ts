@@ -31,13 +31,27 @@ export class CellDiagnosticsProvider {
         if (stacks.length === 0) {
             return;
         }
-        const topStack = stacks[0];
-        const cell = topStack.fileName && Compiler.getCellFromTemporaryPath(topStack.fileName);
+        const stack = stacks[0];
+        const cell = stack.fileName && Compiler.getCellFromTemporaryPath(stack.fileName);
         if (!cell) {
             return;
         }
-        const startPosition = new Position((topStack.lineNumber || 1) - 1, (topStack.columnNumber || 1) - 1);
-        const wordRange = cell.document.getWordRangeAtPosition(startPosition);
+        const codeObject = Compiler.getCodeObject(cell);
+        if (!codeObject) {
+            return;
+        }
+        const sourceMap = Compiler.getSourceMapsInfo(codeObject);
+        if (!sourceMap) {
+            return;
+        }
+        const line = (stack.lineNumber || 1) - 1;
+        const column = (stack.columnNumber || 1) - 1;
+        const mappedLocation = Compiler.getMappedLocation(codeObject, { line, column }, 'DAPToVSCode');
+        if (typeof mappedLocation.column !== 'number' || typeof mappedLocation.line !== 'number') {
+            return;
+        }
+        const position = new Position(mappedLocation.line - 1, mappedLocation.column);
+        const wordRange = cell.document.getWordRangeAtPosition(position);
         if (!wordRange) {
             return;
         }

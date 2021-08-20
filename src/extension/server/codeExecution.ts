@@ -1,6 +1,5 @@
 import * as repl from 'repl';
 import * as vm from 'vm';
-import * as fs from 'fs';
 import { sendMessage } from './comms';
 import { logErrorMessage, logMessage } from './logger';
 import { CodeObject, Configuration, DisplayData, RunCellRequest, RunCellResponse } from './types';
@@ -83,18 +82,12 @@ class Utils {
 }
 
 let initialized = false;
-export function initialize(config?: string) {
+export function initialize(config?: Configuration) {
     if (initialized) {
         return;
     }
     initialized = true;
-    try {
-        if (config) {
-            configuration = JSON.parse(fs.readFileSync(config).toString());
-        }
-    } catch (ex) {
-        logErrorMessage(`Failed to read & parse configuration file ${config}`, ex);
-    }
+    configuration = config;
     startRepl();
 }
 // startRepl();

@@ -7,8 +7,9 @@ import {
     NotebookController
 } from 'vscode';
 import { CellDiagnosticsProvider } from './problems';
-// import { updateCellPathsInStackTraceOrOutput } from './compiler';
+import { Compiler } from './compiler';
 import { DisplayData, GeneratePlot } from '../server/types';
+import { noop } from '../coreUtils';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { isPlainObject } = require('is-plain-object');
@@ -46,7 +47,7 @@ export class CellStdOutput {
             return;
         }
         this.ended = true;
-        this._task.end(success, endTimne);
+        this.promise = this.promise.finally(() => this._task.end(success, endTimne));
         taskMap.delete(this._task.cell);
     }
     public static getOrCreate(task: NotebookCellExecution, controller: NotebookController) {
@@ -56,7 +57,7 @@ export class CellStdOutput {
         return output;
     }
     public appendStreamOutput(value: string, stream: 'stdout' | 'stderr') {
-        // value = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
+        value = Compiler.updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, value);
         this.promise = this.promise
             .finally(() => {
                 const cell = this.task.cell;
@@ -77,13 +78,13 @@ export class CellStdOutput {
                         stream === 'stderr'
                             ? NotebookCellOutputItem.stderr(newText)
                             : NotebookCellOutputItem.stdout(newText);
-                    return this.task.replaceOutputItems(item, output);
+                    return this.task.replaceOutputItems(item, output).then(noop, (ex) => console.error(ex));
                 } else {
                     const item =
                         stream === 'stderr'
                             ? NotebookCellOutputItem.stderr(value)
                             : NotebookCellOutputItem.stdout(value);
-                    return this.task.appendOutput(new NotebookCellOutput([item]));
+                    return this.task.appendOutput(new NotebookCellOutput([item])).then(noop, (ex) => console.error(ex));
                 }
             })
             .finally(() => this.endTempTask());
@@ -127,7 +128,7 @@ export class CellStdOutput {
                     }
                 });
 
-                return this.task.appendOutput(new NotebookCellOutput(items));
+                return this.task.appendOutput(new NotebookCellOutput(items)).then(noop, noop);
             })
             .finally(() => this.endTempTask());
     }
@@ -136,9 +137,15 @@ export class CellStdOutput {
         const newEx = new Error(ex?.message || '<unknown>');
         newEx.name = ex?.name || '';
         newEx.stack = ex?.stack || '';
-        // newEx.stack = updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, newEx);
+        // We dont want the same error thing display again
+        // (its already in the stack trace & the error renderer displays it again)
+        newEx.stack = newEx.stack.replace(`${newEx.name}: ${newEx.message}\n`, '');
+        newEx.stack = Compiler.updateCellPathsInStackTraceOrOutput(this.task.cell.notebook, newEx);
         const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
-        this.promise = this.promise.finally(() => this.task.appendOutput(output)).finally(() => this.endTempTask());
+        this.promise = this.promise
+            .finally(() => this.task.appendOutput(output))
+            .then(noop, (ex) => console.error(ex))
+            .finally(() => this.endTempTask());
     }
     private renderPlotScript(request: GeneratePlot) {
         const data = { ...request };

@@ -25,7 +25,6 @@ const codeObjectToSourceMaps = new WeakMap<
     }
 >();
 
-const vmStartFrame = 'at Script.runInContext';
 export namespace Compiler {
     export function register(context: ExtensionContext) {
         const typescriptPath = path.join(
@@ -75,19 +74,65 @@ export namespace Compiler {
             return '';
         }
         let stackTrace = (typeof error === 'string' ? error : error?.stack) || '';
-        const index = stackTrace.indexOf(vmStartFrame);
-        if (index < 1) {
+        let lineFound = false;
+        if (
+            stackTrace.includes('extension/server/codeExecution.ts') ||
+            stackTrace.includes('extension/server/codeExecution.js')
+        ) {
+            stackTrace = stackTrace.split(/\r?\n/).reduce((newStack, line, i) => {
+                const separator = i > 0 ? '\n' : '';
+                if (!lineFound) {
+                    lineFound =
+                        line.includes('extension/server/codeExecution.ts') ||
+                        line.includes('extension/server/codeExecution.js');
+                    if (!lineFound) {
+                        newStack += `${separator}${line}`;
+                    }
+                }
+                return newStack;
+            }, '');
+        }
+        if (!stackTrace.includes('vscode-notebook-') || !stackTrace.includes('notebook_cell_')) {
             return stackTrace;
         }
-        stackTrace = stackTrace.substring(0, index);
         document.getCells().forEach((cell) => {
             const tempPath = mapFromCellToPath.get(cell);
             if (!tempPath) {
                 return;
             }
             if (stackTrace.includes(tempPath.sourceFilename)) {
+                const codeObject = Compiler.getCodeObject(cell);
+                if (!codeObject) {
+                    return;
+                }
+                const sourceMap = Compiler.getSourceMapsInfo(codeObject);
+                if (!sourceMap) {
+                    return;
+                }
                 const regex = new RegExp(tempPath.sourceFilename, 'g');
-                stackTrace = stackTrace.replace(regex, `Cell ${cell.index + 1} `);
+                const lines = stackTrace.split(tempPath.sourceFilename);
+                lines
+                    .filter((line) => line.startsWith(':'))
+                    .forEach((stack) => {
+                        const parts = stack.split(':').slice(1);
+                        const line = parseInt(parts[0]);
+                        const column = parseInt(parts[1]);
+                        if (!isNaN(line) && !isNaN(column)) {
+                            const mappedLocation = Compiler.getMappedLocation(
+                                codeObject,
+                                { line: line - 1, column: column - 1 },
+                                'DAPToVSCode'
+                            );
+                            if (typeof mappedLocation.line === 'number' && typeof mappedLocation.column === 'number') {
+                                const textToReplace = `${tempPath.sourceFilename}:${line}:${column}`;
+                                const textToReplaceWith = `<Cell ${cell.index + 1}> [${mappedLocation.line}, ${
+                                    mappedLocation.column
+                                }]`;
+                                stackTrace = stackTrace.replace(textToReplace, textToReplaceWith);
+                            }
+                        }
+                    });
+                stackTrace = stackTrace.replace(regex, `<Cell ${cell.index + 1}> `);
             }
         });
         return stackTrace;
@@ -122,7 +167,7 @@ export namespace Compiler {
         const mappedLocation = { ...location };
         if (direction === 'DAPToVSCode') {
             // There's no such mapping of this line number.
-            const map = sourceMap.generatedToOriginal.get(location.line);
+            const map = sourceMap.generatedToOriginal.get(location.line + 1);
             if (!map) {
                 return location;
             }
@@ -446,12 +491,12 @@ function createCodeObject(cell: NotebookCell) {
         textDocumentVersion: -1
     };
     if (!tmpDirectory) {
-        tmpDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-nodebook-'));
+        tmpDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-notebook-'));
     }
     codeObject.code = '';
     // codeObject.sourceFilename = codeObject.sourceFilename || cell.document.uri.toString();
     codeObject.sourceFilename =
-        codeObject.sourceFilename || path.join(tmpDirectory, `nodebook_cell_${cell.document.uri.fragment}.js`);
+        codeObject.sourceFilename || path.join(tmpDirectory, `notebook_cell_${cell.document.uri.fragment}.js`);
     codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
     mapOfSourceFilesToNotebookUri.set(codeObject.sourceFilename, cell.document.uri);
     mapOfSourceFilesToNotebookUri.set(cell.document.uri.toString(), cell.document.uri);

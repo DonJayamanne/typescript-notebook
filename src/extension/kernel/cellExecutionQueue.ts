@@ -91,7 +91,7 @@ export class CellExecutionQueue implements IDisposable {
                 return;
             }
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            const { cell, task, token } = this.pendingCells.shift()!;
+            const { cell, task, token } = this.pendingCells[0];
             if (token.token.isCancellationRequested) {
                 return;
             }
@@ -135,6 +135,7 @@ export class CellExecutionQueue implements IDisposable {
                             break;
                     }
                 }
+                this.pendingCells.shift();
             } catch (ex) {
                 // Stop execution.
                 this.stop();

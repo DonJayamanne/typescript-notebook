@@ -9,7 +9,9 @@ export function getConfiguration(): Configuration {
     return {
         registerTsNode: config.get<boolean>('registerTsNode', true),
         injectTsVis: false,
-        injectPlotly: false
+        injectPlotly: false,
+        terminalColumns: 80,
+        terminalRows: 30
     };
 }
 export async function writeConfigurationToTempFile(): Promise<string> {

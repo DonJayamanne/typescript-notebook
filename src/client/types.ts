@@ -19,13 +19,24 @@ import type {
     XYPlotOptions
 } from '@tensorflow/tfjs-vis';
 
+export type Configuration = {
+    registerTsNode: boolean;
+    injectTsVis: boolean;
+    injectPlotly: boolean;
+    terminalRows: number;
+    terminalColumns: number;
+};
+
 type BaseMessage<T extends string, B = {}> = {
     type: T;
     requestId?: string;
 } & B;
 export type CodeObject = {
     code: string;
-    fileName: string;
+    textDocumentVersion: number;
+    sourceFilename: string;
+    friendlyName: string;
+    sourceMapFilename: string;
 };
 export type RequestType = RunCellRequest | PingRequest | InitializeRequest | TensorFlowVisRequest | PlotGenerated;
 export type RunCellRequest = BaseMessage<
@@ -71,11 +82,18 @@ export type LogMessage = BaseMessage<
 >;
 export type RunCellResponse = BaseMessage<
     'cellExec',
-    {
-        result?: DisplayData;
-        ex?: Error | { name?: string; message?: string; stack?: string };
-        success: boolean;
-    }
+    | {
+          result?: DisplayData;
+          success: true;
+          start: number;
+          end: number;
+      }
+    | {
+          ex: Error | { name?: string; message?: string; stack?: string };
+          success: false;
+          start: number;
+          end: number;
+      }
 >;
 export type OutputResponse = BaseMessage<
     'output',
@@ -91,14 +109,16 @@ export type Initialized = BaseMessage<'initialized'>;
 // Data types
 export type DisplayData =
     | string
-    | Base64Image
+    | ImageFile
+    | Base64OrSVGImage
     | TensorData
     | ArrayData
     | JsonData
     | HtmlData
     | GeneratePlot
     | { type: 'multi-mime'; data: DisplayData[] };
-type Base64Image = BaseMessage<'image', { value: string; mime: string }>;
+type Base64OrSVGImage = BaseMessage<'image', { value: string; mime: string }>;
+type ImageFile = BaseMessage<'imageFile', { value: string; mime: string }>;
 type TensorData = BaseMessage<'tensor', { value: any }>;
 type ArrayData = BaseMessage<'array', { value: any }>;
 type JsonData = BaseMessage<'json', { value: any }>;
