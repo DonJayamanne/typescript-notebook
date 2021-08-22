@@ -1,1 +1,1 @@
-export const notebookType = 'typescript-notebook';
+export const notebookType = 'node-notebook';

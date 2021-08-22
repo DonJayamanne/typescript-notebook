@@ -1,9 +1,16 @@
 # TypeScript Notebooks
 ## Features
-* Run JavaScript, TypeScript code in node.js
-* Debug JavaScript, TypeScript code in node.js
-* Run shell commands
+* Run & debug JavaScript, TypeScript code in node.js
+* Built in support for [plotly](https://plotly.com/javascript/) (plotly.js is shipped with the extension)
+* Rich (inline visualizations) using [@tensforflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis)
+* Excellent support for [danfo.js](https://danfo.jsdata.org/) (rich HTML output and plots)
+* Run shell commands within the notebook cell.
 * Quickly prototype and view HTML/JavaScript/CSS output
+
+**Note:**
+HTML (rich) visualzation is only supported in the browser for [plotly](https://plotly.com/javascript/), [tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [danfo.js](https://danfo.jsdata.org/).
+However, this extension leverages the power of Notebooks to provide the same rich visualzations when targetting node.js.
+
 
 ## Getting started
 * Create a file in VS Code with the extension `*.nnb`, e.g. `sample.nnb`
@@ -16,11 +23,6 @@
 * node.js needs to be in the current path
 
 ## Roadmap
-* Rich terminal output when running shell commands such as `npm install`
-* Tensorflow Visualization in node.js using [@tensforflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis)
-* Html output for Dataframes when using [Danfojs](https://danfo.jsdata.org/) in node.js
-* [Plotly](https://plotly.com/javascript/) support when using [Danfojs](https://danfo.jsdata.org/) in node.js
-* [Plotlyjs](https://plotly.com/javascript/) without having to install [Plotly](https://plotly.com/javascript/)
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
 * [See here for example](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/main.png)
 

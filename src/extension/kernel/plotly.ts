@@ -5,7 +5,7 @@ import { JavaScriptKernel } from './jsKernel';
 export class PlotlyDownloadRenderer {
     public static register(context: ExtensionContext) {
         notebooks
-            .createRendererMessaging('typescript-notebook-plot-renderer')
+            .createRendererMessaging('node-notebook-plot-renderer')
             .onDidReceiveMessage(onDidReceiveMessage, this, context.subscriptions);
     }
 }

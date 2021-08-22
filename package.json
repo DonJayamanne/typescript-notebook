@@ -50,7 +50,8 @@
         "virtualWorkspaces": true
     },
     "activationEvents": [
-        "onNotebook:typescript-notebook"
+        "onNotebook:node-notebook",
+        "onNotebook:jupyter-notebook"
     ],
     "main": "./out/extension/index.js",
     "contributes": {
@@ -61,7 +62,7 @@
                 "command": "jsNotebook.debugNotebook",
                 "shortTitle": "Debugx",
                 "title": "Debug Notebook",
-                "enablement": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
             },
             {
                 "category": "Notebook",
@@ -69,7 +70,7 @@
                 "command": "jsNotebook.kernel.restart",
                 "shortTitle": "Restart",
                 "title": "Restart Kernel",
-                "enablement": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
             }
         ],
         "menus": {
@@ -78,31 +79,31 @@
                     "command": "jsNotebook.debugNotebook",
                     "title": "Debug",
                     "group": "Notebook",
-                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 },
                 {
                     "command": "jsNotebook.kernel.restart",
                     "title": "Restart Kernel",
                     "group": "Notebook",
-                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 }
             ],
             "editor/title": [
                 {
                     "command": "jsNotebook.kernel.restart",
                     "group": "navigation@1",
-                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 },
                 {
                     "command": "jsNotebook.debugNotebook",
                     "group": "navigation@3",
-                    "when": "notebookType == 'typescript-notebook' && isWorkspaceTrusted"
+                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 }
             ]
         },
         "notebooks": [
             {
-                "type": "typescript-notebook",
+                "type": "node-notebook",
                 "displayName": "JavaScript & TypeScript Notebook",
                 "selector": [
                     {
@@ -115,13 +116,13 @@
             "activitybar": [
                 {
                     "icon": "resources/icons/tf.svg",
-                    "id": "typescript-notebook",
+                    "id": "node-notebook",
                     "title": "Tensorflow Visualzation"
                 }
             ]
         },
         "views": {
-            "typescript-notebook": [
+            "node-notebook": [
                 {
                     "name": "Tensorflow Visualization",
                     "id": "tfjs-vis",
@@ -131,7 +132,7 @@
         },
         "notebookRenderer": [
             {
-                "id": "typescript-notebook-plot-renderer",
+                "id": "node-notebook-plot-renderer",
                 "entrypoint": "./out/views/plotGenerator.js",
                 "displayName": "Plotly Renderer",
                 "mimeTypes": [
@@ -145,8 +146,7 @@
                 "displayName": "Tensorflow Visualzation",
                 "mimeTypes": [
                     "application/vnd.tfjsvis"
-                ],
-                "requiresMessaging": "always"
+                ]
             }
         ],
         "configuration": {
@@ -179,7 +179,7 @@
         "compile:typescript": "webpack --config=build/webpack/webpack.typescript.config.js",
         "lint": "eslint src/client --ext ts && eslint src/extension --ext ts && eslint build --ext js",
         "lint-format": "npx prettier 'src/**/*.ts*' --check && npx prettier 'build/**/*.js' --check",
-        "package": "vsce package --yarn -o typescript-notebooks.vsix",
+        "package": "vsce package --yarn -o node-notebooks.vsix",
         "test": "node ./out/test/runTest.js",
         "prettier-fix": "prettier 'src/**/*.ts*' --write && prettier 'build/**/*.js' --write",
         "download-api": "vscode-dts dev",

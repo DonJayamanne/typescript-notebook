@@ -70,7 +70,7 @@ export class ContentProvider implements vscode.NotebookSerializer {
     }
 
     public static register() {
-        const disposable = workspace.registerNotebookSerializer('typescript-notebook', new ContentProvider(), {
+        const disposable = workspace.registerNotebookSerializer('node-notebook', new ContentProvider(), {
             transientOutputs: true,
             transientDocumentMetadata: {}
         });

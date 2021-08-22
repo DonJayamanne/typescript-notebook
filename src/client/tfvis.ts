@@ -1,31 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// declare const tfvis: typeof import('@tensorflow/tfjs-vis');
 import * as tfvis from '@tensorflow/tfjs-vis';
 import { ActivationFunction, OutputItem } from 'vscode-notebook-renderer';
-import type { fitCallbacks } from '@tensorflow/tfjs-vis/dist/show/history';
-import { TensorFlowFitCallback, TensorFlowVis } from '../extension/server/types';
-// import './index.css';
-// import * as tf from '@tensorflow/tfjs-core';
-// import type { fitCallbacks } from '@tensorflow/tfjs-vis/dist/show/history';
-// import { deserialize } from '../extension/serializer';
-// import { TensorFlowVis, TensorFlowVisRequest } from '../extension/server/types';
-
-const fitCallbackHandlersMappedByContianer = new Map<string, ReturnType<typeof fitCallbacks>>();
+import { TensorFlowVis } from '../extension/server/types';
 export const activate: ActivationFunction = (context) => {
-    if (context.onDidReceiveMessage) {
-        context.onDidReceiveMessage((data?: TensorFlowFitCallback) => {
-            if (data?.request === 'fitCallback') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const callbacks = fitCallbackHandlersMappedByContianer.get(JSON.stringify(data.container));
-                if (!callbacks) {
-                    return console.error(`No callbacks registered for ${JSON.stringify(data.container)}`);
-                }
-                if (callbacks[data.handler]) {
-                    void callbacks[data.handler](data.iteration, data.log);
-                }
-            }
-        });
-    }
     return {
         renderOutputItem(outputItem: OutputItem, element: HTMLElement) {
             const data = outputItem.json() as TensorFlowVis;
@@ -46,33 +23,20 @@ export const activate: ActivationFunction = (context) => {
                     tfvis.show.modelSummary(element as any, model);
                     break;
                 case 'barchart':
-                    tfvis.render.barchart(element as any, data.data);
+                    tfvis.render.barchart(element as any, data.data, data.opts);
                     break;
-                case 'registerFitCallback':
-                    {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const callbacks = tfvis.show.fitCallbacks(element, data.metrics);
-                        fitCallbackHandlersMappedByContianer.set(JSON.stringify(data.container), callbacks);
-                        if (context.postMessage) {
-                            context.postMessage({
-                                type: 'tensorFlowVis',
-                                requestId: data.requestId,
-                                message: 'registerFitCallback'
-                            });
-                        }
-                    }
+                case 'linechart':
+                    tfvis.render.linechart(element as any, data.data, data.opts);
                     break;
-                // case 'fitCallback': {
-                //     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                //     const callbacks = fitCallbackHandlersMappedByContianer.get(JSON.stringify(data.container));
-                //     if (!callbacks) {
-                //         return console.error(`No callbacks registered for ${JSON.stringify(data.container)}`);
-                //     }
-                //     if (callbacks[data.handler]) {
-                //         void callbacks[data.handler](data.iteration, data.log);
-                //     }
-                //     break;
-                // }
+                case 'confusionMatrix':
+                    tfvis.render.confusionMatrix(element as any, data.data, data.opts);
+                    break;
+                case 'histogram':
+                    tfvis.render.histogram(element as any, data.data, data.opts);
+                    break;
+                case 'heatmap':
+                    tfvis.render.heatmap(element as any, data.data, data.opts);
+                    break;
                 default:
                     break;
             }

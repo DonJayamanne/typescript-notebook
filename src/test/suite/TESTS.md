@@ -86,3 +86,9 @@ import type {wow, that:isAwesome} from 'another';
 // Run this and ensure the source maps are right, it will be wrong today, needs to be fixed.
 console.log(x)
 ```
+
+* Test source maps for the following
+```javascript
+// Add unnecessary leading white space.
+    var a = 1234;
+```

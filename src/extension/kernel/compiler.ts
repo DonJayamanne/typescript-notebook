@@ -433,7 +433,11 @@ function replaceTopLevelConstWithVar(
     }
 
     const result = processTopLevelAwait(expectedImports, source, supportBreakingOnExceptionsInDebugger);
-    updateCodeAndAdjustSourceMaps(result!.linesUpdated, sourceMap);
+    try {
+        updateCodeAndAdjustSourceMaps(result!.linesUpdated, sourceMap);
+    } catch (ex) {
+        console.error(`Failed to adjust source maps`, ex);
+    }
     return result!.updatedCode;
 }
 function updateCodeAndAdjustSourceMaps(
@@ -465,6 +469,7 @@ function updateCodeAndAdjustSourceMaps(
             source: mapping.source
         };
         // // Check if we have adjusted the columns for this line.
+        const oldValue = newMapping.generatedColumn;
         const adjustments = linesUpdated.get(newMapping.generatedLine);
         if (adjustments?.adjustedColumns?.size) {
             const positionsInAscendingOrder = Array.from(adjustments.adjustedColumns.keys()).sort();
@@ -481,7 +486,13 @@ function updateCodeAndAdjustSourceMaps(
             typeof adjustments?.firstOriginallyAdjustedColumn === 'number' &&
             mapping.originalColumn >= adjustments?.firstOriginallyAdjustedColumn
         ) {
+            // Something is wrong in the code.
             newMapping.generatedColumn += adjustments.totalAdjustment;
+        }
+        // We need a test for this, assume we declare a variable and that line of code is indented
+        // E.g. we have `    var x = 1234` (note the leading spaces)
+        if (newMapping.generatedColumn < 0) {
+            newMapping.generatedColumn = oldValue;
         }
 
         updated.addMapping({

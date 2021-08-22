@@ -38,8 +38,6 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
             tfvis.visor().setActiveTab(message.tabName);
             break;
         case 'registerFitCallback': {
-            // const callbacks = tfvis.show.fitCallbacks(message.container as any, message.metrics, message.opts);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const callbacks = tfvis.show.fitCallbacks(message.container as any, message.metrics);
             fitCallbackHandlersMappedByContianer.set(JSON.stringify(message.container), callbacks);
             break;
@@ -57,7 +55,6 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
             break;
         }
         case 'fitCallback': {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const callbacks = fitCallbackHandlersMappedByContianer.get(JSON.stringify(message.container));
             if (!callbacks) {
                 return console.error(`No callbacks registered for ${JSON.stringify(message.container)}`);
