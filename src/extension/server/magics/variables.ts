@@ -15,6 +15,9 @@ const reservedVars = new Set([
 
 export class VariableListingMagicCommandHandler {
     public isMagicCommand(request: RunCellRequest): boolean {
+        if (!request.code.code.includes('%who')) {
+            return false;
+        }
         return request.code.code
             .trim()
             .split(/\r?\n/)
@@ -28,11 +31,14 @@ export class VariableListingMagicCommandHandler {
         const execResult: RunCellResponse = {
             requestId: request.requestId,
             success: true,
-            result: vars
-                .filter((item) => !reservedVars.has(item))
-                .sort()
-                .map((name) => `${name} (type '${typeof replServer.context[name]}')`)
-                .join('\n'),
+            result: {
+                type: 'text',
+                value: vars
+                    .filter((item) => !reservedVars.has(item))
+                    .sort()
+                    .map((name) => `${name} (type '${typeof replServer.context[name]}')`)
+                    .join('\n')
+            },
             type: 'cellExec',
             start,
             end: Date.now()

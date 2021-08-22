@@ -17,6 +17,12 @@ At the end of the day the shell is setup by the user.
     This way we can open the new webview on the side.
 12. Use ESBuild for extension (excluding `node-pty`, that's better bundled & shipped in node_modules folder, this way the bundle will pick it)
 13. Fix prettier, etc
+14. Links in error output
+15. Look at the break point settings & then determine if we need to wrap cells with try..catch (if. user is using caught & uncaught exception breakpoints we can determine this)
+    * Optionally we can let them know its an experiment and they can optionally enable it
+16. Fix stack traces recevied by debugger
+    Else when debugger breaks at the errors, the stack trace contains garbage (temporary file path for cell source)
+    TODO: How do we link to individual cells & their line/column in these stack traces?
 14. We know when we have hacked to ensure functions & classes are available in other cells.
 E.g. if we have a cell such as
 ```typescript

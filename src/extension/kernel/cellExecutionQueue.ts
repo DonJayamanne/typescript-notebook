@@ -13,9 +13,8 @@ import { IDisposable } from '../types';
 import { registerDisposable } from '../utils';
 import { JavaScriptKernel } from './jsKernel';
 import { ShellKernel } from './shellKernel';
-import { execute as browserExecute } from './browserExecution';
+import { execute as executeInBrowser } from './browserExecution';
 import { CellExecutionState } from './types';
-import { isBrowserController } from './controller';
 import { CellDiagnosticsProvider } from './problems';
 
 function wrapCancellationToken(token: CancellationToken): CancellationTokenSource {
@@ -51,8 +50,12 @@ export class CellExecutionQueue implements IDisposable {
         JavaScriptKernel.get(this.notebookDocument)?.dispose();
         cellExecutionQueues.delete(this.notebookDocument);
     }
-    public enqueueAndRun(cell: NotebookCell) {
+    public async enqueueAndRun(cell: NotebookCell) {
         if (this.pendingCells.some((item) => item.cell === cell)) {
+            return;
+        }
+        // Ignore non-code cells.
+        if (cell.kind === NotebookCellKind.Markup) {
             return;
         }
         // Nothing to do with empty cells.
@@ -68,7 +71,10 @@ export class CellExecutionQueue implements IDisposable {
     private stop() {
         this.pendingCells.forEach(({ task, token }) => {
             token.cancel();
-            task.end(undefined);
+            // This can fall over, as we may have already cancelled this task.
+            try {
+                task.end(undefined);
+            } catch {}
         });
         this.pendingCells = [];
         this.queue = undefined;
@@ -84,69 +90,53 @@ export class CellExecutionQueue implements IDisposable {
         if (!this.queue) {
             return;
         }
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        this.queue = this.queue!.then(async () => {
-            if (this.pendingCells.length === 0) {
-                this.queue = undefined;
-                return;
-            }
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            const { cell, task, token } = this.pendingCells[0];
-            if (token.token.isCancellationRequested) {
-                return;
-            }
-            try {
-                if (cell.kind === NotebookCellKind.Code) {
-                    switch (cell.document.languageId) {
-                        case 'shellscript':
-                        case 'powershell': {
-                            const result = await ShellKernel.execute(task, token.token);
-                            if (result == CellExecutionState.error) {
-                                this.stop();
-                            }
-                            break;
-                        }
-                        case 'javascript':
-                        case 'typescript': {
-                            if (isBrowserController(this.controller)) {
-                                const result = await browserExecute(task, token.token);
-                                if (result == CellExecutionState.error) {
-                                    this.stop();
-                                }
-                            } else {
-                                const kernel = JavaScriptKernel.getOrCreate(cell.notebook, this.controller);
-                                const result = await kernel.runCell(task, token.token);
-                                if (result == CellExecutionState.error) {
-                                    this.stop();
-                                }
-                            }
-                            break;
-                        }
-
-                        case 'html': {
-                            const result = await browserExecute(task, token.token);
-                            if (result == CellExecutionState.error) {
-                                this.stop();
-                            }
-                            break;
-                        }
-
-                        default:
-                            break;
-                    }
+        this.queue = this.queue
+            .then(async () => {
+                if (this.pendingCells.length === 0) {
+                    this.queue = undefined;
+                    return;
                 }
-                this.pendingCells.shift();
-            } catch (ex) {
-                // Stop execution.
-                this.stop();
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const { task, token } = this.pendingCells[0];
+                if (token.token.isCancellationRequested) {
+                    return;
+                }
+                try {
+                    const result = await this.runCell(task, token);
+                    if (result == CellExecutionState.error) {
+                        this.stop();
+                    }
+                    this.pendingCells.shift();
+                } catch (ex) {
+                    console.error('Error in running cells', ex);
+                    this.stop();
+                }
+            })
+            .finally(() => {
+                if (this.pendingCells.length === 0) {
+                    this.queue = undefined;
+                } else {
+                    this.runCells();
+                }
+            });
+    }
+    private async runCell(task: NotebookCellExecution, token: CancellationTokenSource): Promise<CellExecutionState> {
+        switch (task.cell.document.languageId) {
+            case 'shellscript':
+            case 'powershell': {
+                return ShellKernel.execute(task, token.token);
             }
-        }).finally(() => {
-            if (this.pendingCells.length === 0) {
-                this.queue = undefined;
-                return;
-            } else {
-                return this.runCells();
+            case 'javascript':
+            case 'typescript': {
+                const kernel = JavaScriptKernel.getOrCreate(task.cell.notebook, this.controller);
+                return kernel.runCell(task, token.token);
             }
-        });
+            case 'html': {
+                return executeInBrowser(task, token.token);
+            }
+            default:
+                break;
+        }
+        return CellExecutionState.success;
     }
 }

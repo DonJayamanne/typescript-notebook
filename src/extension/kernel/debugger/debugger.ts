@@ -4,6 +4,7 @@ import { debug, NotebookDocument, NotebookCell, DebugSession, DebugAdapterTracke
 import * as path from 'path';
 import { JavaScriptKernel } from '../jsKernel';
 import { Compiler } from '../compiler';
+import { noop } from '../../coreUtils';
 
 const activeDebuggers = new WeakMap<NotebookDocument, Debugger>();
 
@@ -34,8 +35,8 @@ export class Debugger implements DebugAdapterTracker {
                     }
                 }
             },
-            (request: { source?: DebugProtocol.Source }, location?: { line?: number; column?: number }[]) => {
-                if (!request.source?.path || !location) {
+            (request: { source?: DebugProtocol.Source }, locations?: { line?: number; column?: number }[]) => {
+                if (!request.source?.path || !locations) {
                     return;
                 }
                 const cell = Compiler.getCellFromTemporaryPath(request.source.path);
@@ -51,15 +52,15 @@ export class Debugger implements DebugAdapterTracker {
                     return;
                 }
                 // const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
-                location.forEach((location) => {
+                locations.forEach((location) => {
                     const mappedLocation = Compiler.getMappedLocation(codeObject, location, 'VSCodeToDAP');
                     location.line = mappedLocation.line;
                     location.column = mappedLocation.column;
                 });
             },
+            noop,
             'VSCodeToDAP'
         );
-        console.log(message);
     }
 
     public onDidSendMessage(message: DebugProtocol.ProtocolMessage) {
@@ -78,8 +79,8 @@ export class Debugger implements DebugAdapterTracker {
                     }
                 }
             },
-            (request: { source?: DebugProtocol.Source }, location?: { line?: number; column?: number }[]) => {
-                if (!request.source?.path || !location) {
+            (request: { source?: DebugProtocol.Source }, locations?: { line?: number; column?: number }[]) => {
+                if (!request.source?.path || !locations) {
                     return;
                 }
                 const cell = Compiler.getCellFromTemporaryPath(request.source.path);
@@ -95,15 +96,21 @@ export class Debugger implements DebugAdapterTracker {
                     return;
                 }
                 // const cache = (sourceMap.mappingCache = sourceMap.mappingCache || new Map<string, [number, number]>());
-                location.forEach((location) => {
+                locations.forEach((location) => {
                     const mappedLocation = Compiler.getMappedLocation(codeObject, location, 'DAPToVSCode');
                     location.line = mappedLocation.line;
                     location.column = mappedLocation.column;
                 });
             },
+            (body: DebugProtocol.ExceptionInfoResponse['body']) => {
+                if (body.details?.stackTrace) {
+                    const dummmyError = new Error('');
+                    dummmyError.stack = body.details.stackTrace;
+                    body.details.stackTrace = Compiler.fixCellPathsInStackTrace(this.document, dummmyError, true);
+                }
+            },
             'DAPToVSCode'
         );
-        console.log(message);
     }
     /**
      * Store cell in temporary file and return its path or undefined if uri does not denote a cell.
@@ -115,7 +122,7 @@ export class Debugger implements DebugAdapterTracker {
                 // find cell in document by matching its URI
                 const cell = this.document.getCells().find((c) => c.document.uri.toString() === uri);
                 if (cell) {
-                    return Compiler.getCodeObject(cell).sourceFilename;
+                    return Compiler.getOrCreateCodeObject(cell).sourceFilename;
                 }
             }
         } catch (e) {
@@ -133,6 +140,7 @@ function visitSources(
         request: { source?: DebugProtocol.Source },
         location?: { line?: number; column?: number }[]
     ) => void,
+    fixStackTrace: (body: DebugProtocol.ExceptionInfoResponse['body']) => void,
     _direction: 'DAPToVSCode' | 'VSCodeToDAP'
 ): void {
     const sourceHook = (source: DebugProtocol.Source | undefined) => {
@@ -170,16 +178,12 @@ function visitSources(
                 }
                 case 'breakpointLocations':
                     sourceHook((<DebugProtocol.BreakpointLocationsArguments>request.arguments).source);
-                    // sourceHook((<DebugProtocol.BreakpointLocationsArguments>request.arguments));
                     break;
                 case 'source':
                     sourceHook((<DebugProtocol.SourceArguments>request.arguments).source);
                     break;
                 case 'gotoTargets':
                     sourceHook((<DebugProtocol.GotoTargetsArguments>request.arguments).source);
-                    break;
-                case 'launchVSCode':
-                    //request.arguments.args.forEach(arg => fixSourcePath(arg));
                     break;
                 default:
                     break;
@@ -219,12 +223,9 @@ function visitSources(
                             remapLocation(bp, [bp]);
                         });
                         break;
-                    // case 'exceptionInfo':
-                    //     (<DebugProtocol.ExceptionInfoResponse>response).body.details..breakpoints.forEach((bp) => {
-                    //         sourceHook(bp.source);
-                    //         remapLocation(bp, [bp]);
-                    //     });
-                    //     break;
+                    case 'exceptionInfo':
+                        fixStackTrace((<DebugProtocol.ExceptionInfoResponse>response).body);
+                        break;
                     default:
                         break;
                 }

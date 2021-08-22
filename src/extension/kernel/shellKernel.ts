@@ -17,24 +17,23 @@ import * as tmp from 'tmp';
 import * as fs from 'fs';
 import * as path from 'path';
 import { quote } from 'shell-quote';
-import { ExecutionOrder } from './executionOrder';
 import { IPty } from 'node-pty';
 import { noop } from '../coreUtils';
+import { getNextExecutionOrder } from './executionOrder';
 
 const shell = os.platform() === 'win32' ? 'powershell.exe' : process.env['SHELL'] || 'bash';
-// const shell = '/bin/zsh';
 const startSeparator = '51e9f0e8-77a0-4bf0-9733-335153be2ec0:Start';
 const endSeparator = '51e9f0e8-77a0-4bf0-9733-335153be2ec0:End';
-// Totally guessing what this env variables are...
 const env = JSON.parse(JSON.stringify(process.env));
+// Totally guessing what this env variables are...
 delete env.ELECTRON_RUN_AS_NODE;
 env.XPC_SERVICE_NAME = '0';
 env.SHLVL = '0';
 
 export class ShellKernel {
     public static register(context: ExtensionContext) {
-        ShellPtyPool.shellJsPath = path.join(context.extensionUri.fsPath, 'resources', 'scripts', 'shell.js');
-        ShellPtyPool.nodePtyPath = path.join(
+        ShellPty.shellJsPath = path.join(context.extensionUri.fsPath, 'resources', 'scripts', 'shell.js');
+        ShellPty.nodePtyPath = path.join(
             context.extensionUri.fsPath,
             'resources',
             'scripts',
@@ -53,9 +52,9 @@ export class ShellKernel {
             task.end(undefined);
             return CellExecutionState.success;
         }
-        task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
+        task.executionOrder = getNextExecutionOrder(task.cell.notebook);
         const cwd = getNotebookCwd(task.cell.notebook);
-        if (isSimpleSingleLineShellCommand(command) || !ShellPtyPool.available()) {
+        if (isSimpleSingleLineShellCommand(command) || !ShellPty.available()) {
             return ShellProcess.execute(task, token, cwd);
         } else {
             return ShellPty.execute(task, token, cwd);
@@ -63,6 +62,10 @@ export class ShellKernel {
     }
 }
 
+/**
+ * List of simple Shell commands that can be run in a node process instead of spinning a node-pty process, which is much slower.
+ * The benefit is spinning node process is significantly faster & we're not expecting these to be slow with streaming output like `npm i` with progress bars.
+ */
 const simpleSigleLineShellCommands = new Set<string>(
     'git,echo,rm,cp,cd,ls,cat,pwd,ln,mkdir,nv,sed,set,cat,touch,grep,more,wc,df,tar,chown,chgrp,chmod,sort,tail,find,man,nano,rmdir,less,ssh,hostname,top,history,yppasswd,display,page,just,head,lpq,awk,split,gzip,kill,uptime,last,users,lun,vmstat,netstat,w,ps,date,reset,script,time,homequota,iostat,printenv,mail,ftp,tftp,sftp,rcp,scp,wget,curl,telnet,ssh,rlogin,rsh,make,size,nm,strip,who,pushd,popd,dirs'.split(
         ','
@@ -169,27 +172,27 @@ class ShellProcess {
     }
 }
 
-class ShellPtyPool {
+class ShellPty {
     public static shellJsPath: string;
     public static nodePtyPath: string;
-    public static instance = new ShellPtyPool();
+    public static instance = new ShellPty();
     private static pty: typeof import('node-pty');
     public static available() {
-        if (ShellPtyPool.pty) {
+        if (ShellPty.pty) {
             return true;
         }
         try {
             // eslint-disable-next-line @typescript-eslint/no-var-requires
-            ShellPtyPool.pty = require(ShellPtyPool.nodePtyPath) as typeof import('node-pty');
+            ShellPty.pty = require(ShellPty.nodePtyPath) as typeof import('node-pty');
             return true;
         } catch (ex) {
-            console.log(ex);
+            console.log('Unable to load nodepty', ex);
             return false;
         }
     }
     public static get(cwd?: string) {
-        const proc = ShellPtyPool.pty.spawn(shell, [], {
-            name: 'tsNotebook',
+        const proc = ShellPty.pty.spawn(shell, [], {
+            name: 'node-kernel',
             cols: 80,
             rows: 30,
             cwd,
@@ -207,9 +210,6 @@ class ShellPtyPool {
         });
         return proc;
     }
-}
-
-class ShellPty {
     public static async execute(task: NotebookCellExecution, token: CancellationToken, cwd?: string) {
         const command = task.cell.document.getText();
         // eslint-disable-next-line @typescript-eslint/ban-types
@@ -237,7 +237,7 @@ class ShellPty {
             };
             try {
                 // eslint-disable-next-line @typescript-eslint/no-var-requires
-                proc = ShellPtyPool.get(cwd);
+                proc = ShellPty.get(cwd);
                 token.onCancellationRequested(() => {
                     if (taskExited) {
                         return;
@@ -257,6 +257,9 @@ class ShellPty {
                     if (token.isCancellationRequested) {
                         return;
                     }
+                    // We get weird output from node-pty, not bothered identifying that,
+                    // easy solution is to add markers, and look for after we've received a certain string (GUID)
+                    // Similarly, stop processing the output after we've received a certain string that marks the end.
                     if ((!startProcessing && !data.includes(startSeparator)) || stopProcessing) {
                         return;
                     }
@@ -293,7 +296,7 @@ class ShellPty {
                             }
                         });
                 });
-                const shellCommand = `node ${quote([ShellPtyPool.shellJsPath, tmpFile.path])}`;
+                const shellCommand = `node ${quote([ShellPty.shellJsPath, tmpFile.path])}`;
                 proc.write(`${shellCommand}\r`);
             } catch (ex) {
                 promise = promise.finally(() => {

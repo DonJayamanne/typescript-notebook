@@ -21,6 +21,7 @@ import type {
 
 export type Configuration = {
     registerTsNode: boolean;
+    inlineTensorflowVisualizations: boolean;
     injectTsVis: boolean;
     injectPlotly: boolean;
     terminalRows: number;
@@ -72,6 +73,7 @@ export type ResponseType =
     | Initialized
     | OutputResponse
     | PlotGenerated
+    | BaseMessage<'tensorflowProgress', { value: string }>
     | TensorFlowVis;
 export type LogMessage = BaseMessage<
     'logMessage',
@@ -108,21 +110,25 @@ export type Initialized = BaseMessage<'initialized'>;
 
 // Data types
 export type DisplayData =
-    | string
-    | ImageFile
+    | TextOutput
     | Base64OrSVGImage
     | TensorData
     | ArrayData
     | JsonData
     | HtmlData
     | GeneratePlot
-    | { type: 'multi-mime'; data: DisplayData[] };
+    | TensorFlowVis
+    | MarkdownData
+    | BaseMessage<'tensorflowProgress', { value: string }>
+    | MultiMimeOutput;
+type MultiMimeOutput = BaseMessage<'multi-mime', { value: DisplayData[] }>;
 type Base64OrSVGImage = BaseMessage<'image', { value: string; mime: string }>;
-type ImageFile = BaseMessage<'imageFile', { value: string; mime: string }>;
 type TensorData = BaseMessage<'tensor', { value: any }>;
 type ArrayData = BaseMessage<'array', { value: any }>;
+type TextOutput = BaseMessage<'text', { value: string }>;
 type JsonData = BaseMessage<'json', { value: any }>;
 type HtmlData = BaseMessage<'html', { value: string }>;
+type MarkdownData = BaseMessage<'markdown', { value: string }>;
 export type GeneratePlot = BaseMessage<
     'generatePlog',
     {
@@ -140,100 +146,131 @@ type PlotGenerated = BaseMessage<
 >;
 
 // TensorFlow
+export type TensorFlowHistory = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'history';
+        container: SurfaceInfo | string;
+        history: {};
+        metrics: string[];
+        opts?: {};
+    }
+>;
+export type TensorFlowTable = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'table';
+        container: SurfaceInfo | string;
+        data: TableData;
+        opts?: {
+            fontSize?: number;
+        };
+    }
+>;
+export type TensorFlowHistogram = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'histogram';
+        container: SurfaceInfo | string;
+        data:
+            | Array<{
+                  value: number;
+              }>
+            | number[]
+            | TypedArray;
+        opts?: HistogramOpts;
+    }
+>;
+export type TensorFlowLineChart = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'linechart';
+        container: SurfaceInfo | string;
+        data: XYPlotData;
+        opts?: XYPlotOptions;
+    }
+>;
+export type TensorFlowScatterPlot = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'scatterplot';
+        container: SurfaceInfo | string;
+        data: XYPlotData;
+        opts?: XYPlotOptions;
+    }
+>;
+export type TensorFlowConfusionMatrix = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'confusionMatrix';
+        container: SurfaceInfo | string;
+        data: ConfusionMatrixData;
+        opts?: ConfusionMatrixOptions;
+    }
+>;
+export type TensorFlowHeatMap = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'heatmap';
+        container: SurfaceInfo | string;
+        data: HeatmapData;
+        opts?: HeatmapOptions;
+        isTensor: boolean;
+    }
+>;
+export type TensorFlowBarChart = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'barchart';
+        container: SurfaceInfo | string;
+        data: Array<{
+            index: number;
+            value: number;
+        }>;
+        opts?: BarChartOpts;
+    }
+>;
+export type TensorFlowModelSummary = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'modelSummary';
+        container: SurfaceInfo | string;
+        model: LayersModel;
+    }
+>;
+export type TensorFlowRegisterFitCallback = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'registerFitCallback';
+        container: SurfaceInfo | string;
+        metrics: string[];
+        opts?: {};
+    }
+>;
+export type TensorFlowFitCallback = BaseMessage<
+    'tensorFlowVis',
+    {
+        request: 'fitCallback';
+        container: SurfaceInfo | string;
+        handler: string;
+        iteration: number;
+        log: Logs;
+    }
+>;
 export type TensorFlowVis =
     | BaseMessage<'tensorFlowVis', { request: 'setActiveTab'; tabName: string }>
     | BaseMessage<'tensorFlowVis', { request: 'show' }>
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'registerFitCallback';
-              container: SurfaceInfo | string;
-              metrics: string[];
-              opts?: {};
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'fitCallback';
-              container: SurfaceInfo | string;
-              handler: string;
-              iteration: number;
-              log: Logs;
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'history';
-              container: SurfaceInfo | string;
-              history: {};
-              metrics: string[];
-              opts?: {};
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'table';
-              container: SurfaceInfo | string;
-              data: TableData;
-              opts?: {
-                  fontSize?: number;
-              };
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'histogram';
-              container: SurfaceInfo | string;
-              data:
-                  | Array<{
-                        value: number;
-                    }>
-                  | number[]
-                  | TypedArray;
-              opts?: HistogramOpts;
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'linechart';
-              container: SurfaceInfo | string;
-              data: XYPlotData;
-              opts?: XYPlotOptions;
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'scatterplot';
-              container: SurfaceInfo | string;
-              data: XYPlotData;
-              opts?: XYPlotOptions;
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'confusionMatrix';
-              container: SurfaceInfo | string;
-              data: ConfusionMatrixData;
-              opts?: ConfusionMatrixOptions;
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'heatmap';
-              container: SurfaceInfo | string;
-              data: HeatmapData;
-              opts?: HeatmapOptions;
-              isTensor: boolean;
-          }
-      >
+    | TensorFlowRegisterFitCallback
+    | TensorFlowFitCallback
+    | TensorFlowHistory
+    | TensorFlowTable
+    | TensorFlowHistogram
+    | TensorFlowLineChart
+    | TensorFlowScatterPlot
+    | TensorFlowConfusionMatrix
+    | TensorFlowHeatMap
+    | TensorFlowBarChart
+    | TensorFlowModelSummary
     | BaseMessage<
           'tensorFlowVis',
           {
@@ -260,25 +297,5 @@ export type TensorFlowVis =
               request: 'layer';
               container: SurfaceInfo | string;
               layer: Layer;
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'barchart';
-              container: SurfaceInfo | string;
-              data: Array<{
-                  index: number;
-                  value: number;
-              }>;
-              opts?: BarChartOpts;
-          }
-      >
-    | BaseMessage<
-          'tensorFlowVis',
-          {
-              request: 'modelSummary';
-              container: SurfaceInfo | string;
-              model: LayersModel;
           }
       >;

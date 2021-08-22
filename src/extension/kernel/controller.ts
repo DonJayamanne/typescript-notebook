@@ -12,7 +12,7 @@ import { notebookType } from '../const';
 import { IDisposable } from '../types';
 import { disposeAllDisposables, registerDisposable } from '../utils';
 import { CellExecutionQueue } from './cellExecutionQueue';
-import { ExecutionOrder } from './executionOrder';
+import { resetExecutionOrder } from './executionOrder';
 
 export function isBrowserController(controller: NotebookController) {
     return controller.id.includes('-browser-');
@@ -33,8 +33,6 @@ export class Controller implements IDisposable {
     constructor() {
         Controller._tsNbController = this.createController(notebookType, 'node');
         Controller._jupyterController = this.createController('jupyter-notebook', 'node');
-        // this.tsNbController = this.createController(notebookType, 'browser');
-        // this.jupyterController = this.createController('jupyter-notebook', 'browser');
         workspace.onDidOpenNotebookDocument(
             (e) => {
                 if (e.notebookType === notebookType) {
@@ -72,9 +70,6 @@ export class Controller implements IDisposable {
         }
         controller.executeHandler = this.executeHandler;
         controller.interruptHandler = this.interrupt;
-        controller.onDidChangeSelectedNotebooks((e) => {
-            console.log(e);
-        });
         controller.supportsExecutionOrder = true;
         return controller;
     }
@@ -90,7 +85,7 @@ export class Controller implements IDisposable {
         if (!notebook) {
             return;
         }
-        ExecutionOrder.reset(notebook);
+        resetExecutionOrder(notebook);
         CellExecutionQueue.get(notebook)?.dispose();
     }
 }

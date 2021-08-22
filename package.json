@@ -1,7 +1,7 @@
 {
     "name": "typescript-notebook",
-    "displayName": "JavaScript/TypeScript Notebooks",
-    "description": "JavaScript & TypeScript Notebooks for Node.js",
+    "displayName": "Node.js Notebooks",
+    "description": "Iterative & iteractive programing for Node.js in JavaScript/TypeScript, with great support for Tensorflow.js, debugging, & more..",
     "version": "2.0.0",
     "engines": {
         "vscode": "^1.58.0"
@@ -20,9 +20,9 @@
         "url": "https://github.com/DonJayamanne/typescript-notebook"
     },
     "preview": true,
-    "icon": "resources/icons/ts-logo-256.png",
+    "icon": "resources/icons/logo.png",
     "galleryBanner": {
-        "color": "#3178C6",
+        "color": "white",
         "theme": "light"
     },
     "keywords": [
@@ -106,10 +106,7 @@
                 "displayName": "JavaScript & TypeScript Notebook",
                 "selector": [
                     {
-                        "filenamePattern": "*.tsnb"
-                    },
-                    {
-                        "filenamePattern": "*.jsnb"
+                        "filenamePattern": "*.nnb"
                     }
                 ]
             }
@@ -117,9 +114,9 @@
         "viewsContainers": {
             "activitybar": [
                 {
-                    "icon": "resources/icons/ts-logo-256.png",
+                    "icon": "resources/icons/tf.svg",
                     "id": "typescript-notebook",
-                    "title": "TypeScript Notebook"
+                    "title": "Tensorflow Visualzation"
                 }
             ]
         },
@@ -141,16 +138,31 @@
                     "application/vnd.ts.notebook.plotly+json"
                 ],
                 "requiresMessaging": "always"
+            },
+            {
+                "id": "tensorflow-vis-renderer",
+                "entrypoint": "./out/views/tfjsvisRenderer.js",
+                "displayName": "Tensorflow Visualzation",
+                "mimeTypes": [
+                    "application/vnd.tfjsvis"
+                ],
+                "requiresMessaging": "always"
             }
         ],
         "configuration": {
             "type": "object",
             "title": "Typescript Notebook",
             "properties": {
-                "typescript.notebook.registerTsNode": {
+                "node_notebook.registerTsNode": {
                     "type": "boolean",
                     "default": true,
                     "description": "Register ts-node that allows importing TypeScript modules without the user having to transpile TypeScript into JavaScript.",
+                    "scope": "machine"
+                },
+                "node_notebook.inlineTensorflowVisualizations": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Display tensorflow visualization within the notebook.",
                     "scope": "machine"
                 }
             }

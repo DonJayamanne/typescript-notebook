@@ -17,14 +17,14 @@ import * as path from 'path';
 import { ChildProcess, spawn } from 'child_process';
 import { createDeferred, Deferred, generateId } from '../coreUtils';
 import { ServerLogger } from '../serverLogger';
-import { CellStdOutput as CellOutput } from './cellStdOutput';
+import { CellOutput as CellOutput } from './cellOutput';
 import { getNotebookCwd } from '../utils';
 import { TensorflowVisClient } from '../tfjsvis';
-import { ExecutionOrder } from './executionOrder';
 import { Compiler } from './compiler';
 import { CodeObject, RequestType, ResponseType } from '../server/types';
-import { writeConfigurationToTempFile } from '../configuration';
+import { getConfiguration, writeConfigurationToTempFile } from '../configuration';
 import { quote } from 'shell-quote';
+import { getNextExecutionOrder } from './executionOrder';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
@@ -34,7 +34,6 @@ export class JavaScriptKernel implements IDisposable {
     private static extensionDir: Uri;
     private starting?: Promise<void>;
     private server?: WebSocket.Server;
-    private lastSeenTime?: number;
     private webSocket = createDeferred<WebSocket>();
     private serverProcess?: ChildProcess;
     private startHandlingStreamOutput?: boolean;
@@ -60,13 +59,8 @@ export class JavaScriptKernel implements IDisposable {
         stdOutput: CellOutput;
     };
     private lastStdOutput?: CellOutput;
-    private get lastSeen() {
-        return this.lastSeenTime ? Date.now() - this.lastSeenTime : undefined;
-    }
     private readonly cwd?: string;
     constructor(private readonly notebook: NotebookDocument, private readonly controller: NotebookController) {
-        // TODO: Do we need this? What was the plan for this?
-        console.log(this.lastSeen);
         this.cwd = getNotebookCwd(notebook);
     }
     public static get(notebook: NotebookDocument) {
@@ -131,10 +125,10 @@ export class JavaScriptKernel implements IDisposable {
         task.start(Date.now());
         // TODO: fix waiting on https://github.com/microsoft/vscode/issues/131123
         await task.clearOutput();
-        task.executionOrder = ExecutionOrder.getExecutionOrder(task.cell.notebook);
+        task.executionOrder = getNextExecutionOrder(task.cell.notebook);
         let code: CodeObject;
         try {
-            code = Compiler.getCodeObject(task.cell);
+            code = Compiler.getOrCreateCodeObject(task.cell);
         } catch (ex: unknown) {
             console.error(`Failed to generate code object`, ex);
             const error = new Error(`Failed to generate code object, ${(ex as Partial<Error> | undefined)?.message}`);
@@ -247,7 +241,6 @@ export class JavaScriptKernel implements IDisposable {
         console.info(`Ext got message ${message.type} with ${message}`);
         switch (message.type) {
             case 'pong':
-                this.lastSeenTime = Date.now();
                 break;
             case 'logMessage': {
                 ServerLogger.appendLine(message.message);
@@ -262,7 +255,26 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'tensorFlowVis': {
+                if (
+                    getConfiguration().inlineTensorflowVisualizations &&
+                    (message.request === 'history' ||
+                        message.request === 'scatterplot' ||
+                        message.request === 'barchart' ||
+                        message.request === 'modelSummary')
+                ) {
+                    const item = this.tasks.get(message.requestId || '')?.stdOutput || this.getCellOutput();
+                    if (item) {
+                        item.appendOutput(message);
+                    }
+                }
                 TensorflowVisClient.sendMessage(message);
+                break;
+            }
+            case 'tensorflowProgress': {
+                const item = this.tasks.get(message.requestId || '')?.stdOutput || this.getCellOutput();
+                if (item) {
+                    item.appendOutput(message);
+                }
                 break;
             }
             case 'cellExec': {

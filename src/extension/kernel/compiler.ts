@@ -36,11 +36,14 @@ export namespace Compiler {
         );
         ts = require(typescriptPath);
     }
+    /**
+     * Returns the Cell associated with the temporary file we create (used to enable debugging with source maps), this will
+     */
     export function getCellFromTemporaryPath(sourceFilename: string): NotebookCell | undefined {
         if (mapOfSourceFilesToNotebookUri.has(sourceFilename)) {
             return getNotebookCellfromUri(mapOfSourceFilesToNotebookUri.get(sourceFilename));
         }
-        if (sourceFilename.endsWith('.jsnb') || sourceFilename.endsWith('.tsjn') || sourceFilename.endsWith('.ipynb')) {
+        if (sourceFilename.toLowerCase().endsWith('.nnb') || sourceFilename.toLowerCase().endsWith('.ipynb')) {
             const key = Array.from(mapOfSourceFilesToNotebookUri.keys()).find((item) => sourceFilename.includes(item));
             return getNotebookCellfromUri(key ? mapOfSourceFilesToNotebookUri.get(key) : undefined);
         }
@@ -67,7 +70,11 @@ export namespace Compiler {
     * We need to repace the temporary paths `/var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/vscode-nodebook-sPmlC6/nodebook_cell_ch0000013.js` with the cell index.
     * & also remove all of the messages that are not relevant (VM stack trace).
     */
-    export function updateCellPathsInStackTraceOrOutput(document: NotebookDocument, error?: Error | string): string {
+    export function fixCellPathsInStackTrace(
+        document: NotebookDocument,
+        error?: Error | string,
+        replaceWithRealCellUri = false
+    ): string {
         if (typeof error === 'object' && error.name === 'InvalidCode_CodeExecution') {
             error.name = 'SyntaxError';
             error.stack = '';
@@ -75,6 +82,9 @@ export namespace Compiler {
         }
         let stackTrace = (typeof error === 'string' ? error : error?.stack) || '';
         let lineFound = false;
+        if (stackTrace.includes('at Script.runInContext (vm.js')) {
+            stackTrace = stackTrace.substring(0, stackTrace.indexOf('at Script.runInContext (vm.js')).trimEnd();
+        }
         if (
             stackTrace.includes('extension/server/codeExecution.ts') ||
             stackTrace.includes('extension/server/codeExecution.js')
@@ -120,14 +130,15 @@ export namespace Compiler {
                         if (!isNaN(line) && !isNaN(column)) {
                             const mappedLocation = Compiler.getMappedLocation(
                                 codeObject,
-                                { line: line - 1, column: column - 1 },
+                                { line, column },
                                 'DAPToVSCode'
                             );
                             if (typeof mappedLocation.line === 'number' && typeof mappedLocation.column === 'number') {
                                 const textToReplace = `${tempPath.sourceFilename}:${line}:${column}`;
-                                const textToReplaceWith = `<Cell ${cell.index + 1}> [${mappedLocation.line}, ${
-                                    mappedLocation.column
-                                }]`;
+
+                                const textToReplaceWith = replaceWithRealCellUri
+                                    ? `${cell.document.uri.toString()}:${mappedLocation.line}:${mappedLocation.column}`
+                                    : `<Cell ${cell.index + 1}> [${mappedLocation.line}, ${mappedLocation.column}]`;
                                 stackTrace = stackTrace.replace(textToReplace, textToReplaceWith);
                             }
                         }
@@ -167,7 +178,7 @@ export namespace Compiler {
         const mappedLocation = { ...location };
         if (direction === 'DAPToVSCode') {
             // There's no such mapping of this line number.
-            const map = sourceMap.generatedToOriginal.get(location.line + 1);
+            const map = sourceMap.generatedToOriginal.get(location.line);
             if (!map) {
                 return location;
             }
@@ -191,7 +202,11 @@ export namespace Compiler {
             if (!map) {
                 return location;
             }
-            const matchingItem = typeof location.column === 'number' ? map.get(location.column) : map.get(0)!;
+            const matchingItem =
+                typeof location.column === 'number'
+                    ? // Find the next closes column we have, we if cannot find an exact match.
+                      map.get(location.column) || map.get(location.column - 1) || map.get(location.column + 1)
+                    : map.get(0)!;
             if (matchingItem) {
                 mappedLocation.line = matchingItem.generatedLine;
                 mappedLocation.column = matchingItem.generatedColumn;
@@ -211,10 +226,13 @@ export namespace Compiler {
         cache.set(cacheKey, mappedLocation);
         return mappedLocation;
     }
-    export function getCodeObject(
+    export function getCodeObject(cell: NotebookCell) {
+        return mapFromCellToPath.get(cell)!;
+    }
+    export function getOrCreateCodeObject(
         cell: NotebookCell,
         code = cell.document.getText(),
-        supportBreakingOnExceptionsInDebugger?: boolean
+        supportBreakingOnExceptionsInDebugger: boolean = true
     ): CodeObject {
         try {
             // Parser fails when we have comments in the last line, hence just add empty line.
@@ -459,7 +477,13 @@ function updateCodeAndAdjustSourceMaps(
                 const incrementBy = adjustments.adjustedColumns.get(lastColumn)! - lastColumn;
                 newMapping.generatedColumn += incrementBy;
             }
+        } else if (
+            typeof adjustments?.firstOriginallyAdjustedColumn === 'number' &&
+            mapping.originalColumn >= adjustments?.firstOriginallyAdjustedColumn
+        ) {
+            newMapping.generatedColumn += adjustments.totalAdjustment;
         }
+
         updated.addMapping({
             generated: {
                 column: newMapping.generatedColumn,
@@ -605,11 +629,9 @@ export type BaseNode<T> = {
 };
 type TokenLocation = { line: number; column: number };
 type BodyLocation = { start: TokenLocation; end: TokenLocation };
-// type LocationToFix = FunctionDeclaration | ClassDeclaration | VariableDeclaration;
 type FunctionDeclaration = BaseNode<'FunctionDeclaration'> & {
     body: BlockStatement;
     id: { name: string; loc: BodyLocation };
-    // loc: BodyLocation;
 };
 export type VariableDeclaration = BaseNode<'VariableDeclaration'> & {
     kind: 'const' | 'var' | 'let';

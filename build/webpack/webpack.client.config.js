@@ -2,7 +2,7 @@ const common = require('./common');
 const FixDefaultImportPlugin = require('webpack-fix-default-import-plugin');
 const path = require('path');
 const constants = require('../constants');
-const configFileName = 'src/client/tsconfig.json';
+const configFileName = 'tsconfig.client.json';
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 // Any build on the CI is considered production mode.
 const isProdBuild = constants.isCI || process.argv.some((argv) => argv.includes('mode') && argv.includes('production'));
@@ -11,6 +11,7 @@ module.exports = {
     context: constants.ExtensionRootDir,
     entry: {
         tfjsvis: './src/client/index.ts',
+        tfjsvisRenderer: './src/client/tfvis.ts',
         plotGenerator: './src/client/plotGenerator.ts'
     },
     output: {

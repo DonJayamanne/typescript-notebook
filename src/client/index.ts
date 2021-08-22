@@ -4,8 +4,8 @@ import * as tfvis from '@tensorflow/tfjs-vis';
 import * as tf from '@tensorflow/tfjs-core';
 import type { fitCallbacks } from '@tensorflow/tfjs-vis/dist/show/history';
 import './index.css';
-import { deserialize } from './serializer';
-import { TensorFlowVis, TensorFlowVisRequest } from './types';
+import { deserialize } from '../extension/serializer';
+import { TensorFlowVis, TensorFlowVisRequest } from '../extension/server/types';
 
 console.log('Inside VIS');
 const api = acquireVsCodeApi();
@@ -19,7 +19,6 @@ function onMessage(data?: { _type?: 'helloWorld' } | TensorFlowVis | any) {
     }
     switch (data.type) {
         case 'helloWorld':
-            // console.log('got Message');
             api.postMessage({ type: 'helloBack', data: 'Something' });
             break;
         case 'tensorFlowVis': {

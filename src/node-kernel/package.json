@@ -1,10 +1,11 @@
 {
-    "name": "tsnotebook",
+    "name": "node-kernel",
     "version": "1.0.0",
     "description": "Contains an npm package that provides helper functions for [Type Script notebooks in VS Code](https://marketplace.visualstudio.com/items?itemName=donjayamanne.typescript-notebook)",
     "main": "index.js",
-    "keywords": [],
-    "publisher": "donjayamanne",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
     "author": {
         "name": "Don Jayamanne"
     },

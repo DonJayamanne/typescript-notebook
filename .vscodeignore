@@ -6,6 +6,7 @@ out/test/**
 out/**/*.stats.json
 out/**/*..analyzer.html
 src/**
+resources/scripts/tfjs/**
 temp/**
 .gitignore
 !resources/scripts/node_modules/**

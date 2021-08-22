@@ -174,7 +174,7 @@
 //         }
 //     }
 //     async function createNotebook(source: string) {
-//         const result = tmp.fileSync({ postfix: '.jsnb' });
+//         const result = tmp.fileSync({ postfix: '.nnb' });
 //         disposables.push({
 //             dispose: () => result.removeCallback()
 //         });

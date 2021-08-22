@@ -2,31 +2,32 @@ import type * as dfd from 'danfojs-node';
 import { sendMessage } from '../comms';
 import { v4 as uuid } from 'uuid';
 
-function generatePlot(data, config) {
-    const id = uuid().replace(/-/g, '');
+function generatePlot(data, config, eleId: string) {
+    const parentId = uuid().replace(/-/g, '');
     const html = `
     <script src="https://cdn.plot.ly/plotly-2.3.0.min.js"></script>
-    <div id="${id}"></div>
+    <div id="${parentId}"></div>
     <script type="text/javascript">
-        function plotIt${id}(){
+        function plotIt${parentId}(){
             if (!window.Plotly){
-                plotIt${id}._tryCount += 1;
-                if (plotIt${id}._tryCount === 120){
+                plotIt${parentId}._tryCount += 1;
+                if (plotIt${parentId}._tryCount === 120){
                     return console.error('Failed to load plotly in 120s');
                 }
                 console.info('Plotly not yet ready, retrying');
-                return setTimeout(plotIt${id}, 500);
+                return setTimeout(plotIt${parentId}, 500);
             }
+            const ele = document.getElementById("${eleId || parentId}") || document.getElementById("${parentId}");
             console.info('Plotly is ready, plotting');
             window.Plotly.newPlot(
-                document.getElementById("${id}"),
+                ele,
                 ${JSON.stringify(data)},
                 ${JSON.stringify(config['layout'])},
                 ${JSON.stringify(config)}
             );
         }
-        plotIt${id}._tryCount = 0;
-        plotIt${id}();
+        plotIt${parentId}._tryCount = 0;
+        plotIt${parentId}();
     </script>
     `;
     sendMessage({
@@ -39,7 +40,7 @@ function generatePlot(data, config) {
     });
 }
 export class DanfoNodePlotter {
-    constructor(private readonly ndframe, private readonly danfojs: typeof dfd) {}
+    constructor(private readonly ndframe, private readonly danfojs: typeof dfd, private readonly div: string = '') {}
 
     line(config = {}) {
         const ret_params = this.__get_plot_params(config);
@@ -59,7 +60,7 @@ export class DanfoNodePlotter {
             });
             trace['y'] = y;
             trace['type'] = 'line';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else {
             if ('x' in this_config && 'y' in this_config) {
                 if (!this.ndframe.column_names.includes(this_config['x'])) {
@@ -81,7 +82,7 @@ export class DanfoNodePlotter {
                 yaxis['title'] = this_config['y'];
                 this_config['layout']['xaxis'] = xaxis;
                 this_config['layout']['yaxis'] = yaxis;
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else if ('x' in this_config || 'y' in this_config) {
                 const data: any[] = [];
                 let cols_to_plot;
@@ -110,7 +111,7 @@ export class DanfoNodePlotter {
 
                     data.push(trace);
                 });
-                generatePlot(data, this_config);
+                generatePlot(data, this_config, this.div);
             } else {
                 const data: any[] = [];
                 let cols_to_plot;
@@ -131,7 +132,7 @@ export class DanfoNodePlotter {
                     trace['name'] = c_name;
                     data.push(trace);
                 });
-                generatePlot(data, this_config);
+                generatePlot(data, this_config, this.div);
             }
         }
     }
@@ -152,7 +153,7 @@ export class DanfoNodePlotter {
             });
             trace['y'] = y;
             trace['type'] = 'bar';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else {
             if ('x' in this_config && 'y' in this_config) {
                 if (!this.ndframe.column_names.includes(this_config['x'])) {
@@ -175,7 +176,7 @@ export class DanfoNodePlotter {
                 yaxis['title'] = this_config['y'];
                 this_config['layout']['xaxis'] = xaxis;
                 this_config['layout']['yaxis'] = yaxis;
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else if ('x' in this_config || 'y' in this_config) {
                 const trace = {};
                 params.forEach((param) => {
@@ -191,7 +192,7 @@ export class DanfoNodePlotter {
                 }
 
                 trace['type'] = 'bar';
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else {
                 const data: any[] = [];
                 let cols_to_plot;
@@ -210,7 +211,7 @@ export class DanfoNodePlotter {
                     trace['type'] = 'bar';
                     data.push(trace);
                 });
-                generatePlot(data, this_config);
+                generatePlot(data, this_config, this.div);
             }
         }
     }
@@ -234,7 +235,7 @@ export class DanfoNodePlotter {
             trace['y'] = this.ndframe.index;
             trace['type'] = 'scatter';
             trace['mode'] = 'markers';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else {
             if ('x' in this_config && 'y' in this_config) {
                 if (!this.ndframe.column_names.includes(this_config['x'])) {
@@ -258,7 +259,7 @@ export class DanfoNodePlotter {
                 yaxis['title'] = this_config['y'];
                 this_config['layout']['xaxis'] = xaxis;
                 this_config['layout']['yaxis'] = yaxis;
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else if ('x' in this_config || 'y' in this_config) {
                 const trace = {};
                 params.forEach((param) => {
@@ -277,7 +278,7 @@ export class DanfoNodePlotter {
 
                 trace['type'] = 'scatter';
                 trace['mode'] = 'markers';
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const data: any[] = [];
@@ -298,7 +299,7 @@ export class DanfoNodePlotter {
                     trace['mode'] = 'markers';
                     data.push(trace);
                 });
-                generatePlot(data, this_config);
+                generatePlot(data, this_config, this.div);
             }
         }
     }
@@ -318,7 +319,7 @@ export class DanfoNodePlotter {
             });
             trace['x'] = this.ndframe.values;
             trace['type'] = 'histogram';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else if ('x' in this_config) {
             const trace = {};
             params.forEach((param) => {
@@ -328,7 +329,7 @@ export class DanfoNodePlotter {
             });
             trace['x'] = this.ndframe[this_config['y']].values;
             trace['type'] = 'histogram';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else if ('y' in this_config) {
             const trace = {};
             params.forEach((param) => {
@@ -338,7 +339,7 @@ export class DanfoNodePlotter {
             });
             trace['y'] = this.ndframe[this_config['y']].values;
             trace['type'] = 'histogram';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else {
             const data: any[] = [];
             let cols_to_plot;
@@ -356,7 +357,7 @@ export class DanfoNodePlotter {
                 trace['type'] = 'histogram';
                 data.push(trace);
             });
-            generatePlot(data, this_config);
+            generatePlot(data, this_config, this.div);
         }
     }
 
@@ -376,7 +377,7 @@ export class DanfoNodePlotter {
                     automargin: true
                 }
             ];
-            generatePlot(data, this_config);
+            generatePlot(data, this_config, this.div);
         } else if ('values' in this_config && 'labels' in this_config) {
             if (!this.ndframe.column_names.includes(this_config['labels'])) {
                 throw Error(
@@ -400,7 +401,7 @@ export class DanfoNodePlotter {
                     automargin: true
                 }
             ];
-            generatePlot(data, this_config);
+            generatePlot(data, this_config, this.div);
         } else {
             let cols_to_plot;
 
@@ -472,7 +473,7 @@ export class DanfoNodePlotter {
             }
 
             this_config['layout']['grid'] = this_config['grid'];
-            generatePlot(data, this_config);
+            generatePlot(data, this_config, this.div);
         }
     }
 
@@ -493,7 +494,7 @@ export class DanfoNodePlotter {
             });
             trace['y'] = y;
             trace['type'] = 'box';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else {
             if ('x' in this_config && 'y' in this_config) {
                 if (!this.ndframe.column_names.includes(this_config['x'])) {
@@ -516,7 +517,7 @@ export class DanfoNodePlotter {
                 yaxis['title'] = this_config['y'];
                 this_config['layout']['xaxis'] = xaxis;
                 this_config['layout']['yaxis'] = yaxis;
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else if ('x' in this_config || 'y' in this_config) {
                 const trace = {};
                 params.forEach((param) => {
@@ -535,7 +536,7 @@ export class DanfoNodePlotter {
                     trace['type'] = 'box';
                 }
 
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else {
                 const data: any[] = [];
                 let cols_to_plot;
@@ -556,7 +557,7 @@ export class DanfoNodePlotter {
                     trace['type'] = 'box';
                     data.push(trace);
                 });
-                generatePlot(data, this_config);
+                generatePlot(data, this_config, this.div);
             }
         }
     }
@@ -578,7 +579,7 @@ export class DanfoNodePlotter {
             });
             trace['y'] = y;
             trace['type'] = 'violin';
-            generatePlot([trace], this_config);
+            generatePlot([trace], this_config, this.div);
         } else {
             if ('x' in this_config && 'y' in this_config) {
                 if (!this.ndframe.column_names.includes(this_config['x'])) {
@@ -601,7 +602,7 @@ export class DanfoNodePlotter {
                 yaxis['title'] = this_config['y'];
                 this_config['layout']['xaxis'] = xaxis;
                 this_config['layout']['yaxis'] = yaxis;
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else if ('x' in this_config || 'y' in this_config) {
                 const trace = {};
                 params.forEach((param) => {
@@ -620,7 +621,7 @@ export class DanfoNodePlotter {
                     trace['type'] = 'violin';
                 }
 
-                generatePlot([trace], this_config);
+                generatePlot([trace], this_config, this.div);
             } else {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const data: any[] = [];
@@ -642,7 +643,7 @@ export class DanfoNodePlotter {
                     trace['type'] = 'violin';
                     data.push(trace);
                 });
-                generatePlot(data, this_config);
+                generatePlot(data, this_config, this.div);
             }
         }
     }
@@ -696,7 +697,7 @@ export class DanfoNodePlotter {
                 cells: cells
             }
         ];
-        generatePlot(data, this_config);
+        generatePlot(data, this_config, this.div);
     }
 
     __get_plot_params(config) {

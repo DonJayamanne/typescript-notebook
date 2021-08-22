@@ -35,21 +35,23 @@ export class DanfoJsFormatter {
     public formatDanfoObject(value: unknown): DisplayData {
         if (this.canFormatAsDanfo(value) && this.danfoJs) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const rawText = (value as any).toString();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const html = value instanceof this.danfoJs?.Series ? seriesToHtml(value) : frameToHtml(value as any);
+            const { html } =
+                value instanceof this.danfoJs?.Series ? seriesToHtmlJson(value) : frameToHtmlJson(value as any);
             return {
                 type: 'multi-mime',
-                data: [
+                value: [
                     {
                         type: 'html',
                         value: html
                     },
+                    // {
+                    //     type: 'json',
+                    //     value: json
+                    // },
                     {
-                        type: 'json',
-                        value
-                    },
-                    rawText
+                        type: 'text',
+                        value: (value as any).toString()
+                    }
                 ]
             };
         } else {
@@ -94,55 +96,69 @@ export class DanfoJsFormatter {
 function hijackSeriesPrint(danfoJs: typeof dfd) {
     danfoJs.Series.prototype.print = function (this: dfd.Series) {
         // Always print the old format (this way user has text output & html).
-        const rawText = this.toString();
-        const html = seriesToHtml(this);
+        const rawText: string = this.toString();
+        const { html } = seriesToHtmlJson(this);
         sendMessage({
             type: 'output',
             requestId: '',
             data: {
                 type: 'multi-mime',
-                data: [
+                value: [
                     {
                         type: 'html',
                         value: html
                     },
-                    rawText
+                    // {
+                    //     type: 'json',
+                    //     value: json
+                    // },
+                    {
+                        type: 'text',
+                        value: rawText
+                    }
                 ]
             }
         });
     };
-    danfoJs.Series.prototype.plot = function (this: dfd.Series) {
-        const plotter = new DanfoNodePlotter(this, danfoJs);
+    danfoJs.Series.prototype.plot = function (this: dfd.Series, div: string) {
+        const plotter = new DanfoNodePlotter(this, danfoJs, div);
         return plotter;
     };
 }
 function hijackNDFramePrint(danfoJs: typeof dfd) {
     danfoJs.DataFrame.prototype.print = function (this: dfd.DataFrame) {
         // Always print the old format (this way user has text output & html).
-        const rawText = this.toString();
-        const html = frameToHtml(this);
+        const rawText: string = this.toString();
+        const { html } = frameToHtmlJson(this);
         sendMessage({
             type: 'output',
             requestId: '',
             data: {
                 type: 'multi-mime',
-                data: [
+                value: [
                     {
                         type: 'html',
                         value: html
                     },
-                    rawText
+                    // {
+                    //     type: 'json',
+                    //     value: json
+                    // },
+                    {
+                        type: 'text',
+                        value: rawText
+                    }
                 ]
             }
         });
     };
 
-    danfoJs.DataFrame.prototype.plot = function (this: dfd.Series) {
-        const plotter = new DanfoNodePlotter(this, danfoJs);
+    danfoJs.DataFrame.prototype.plot = function (this: dfd.Series, div: string) {
+        const plotter = new DanfoNodePlotter(this, danfoJs, div);
         return plotter;
     };
 }
-function seriesToHtml(series: dfd.Series) {
+function seriesToHtmlJson(series: dfd.Series): { html: string; json: any[] } {
     const table_width = 20;
     const table_truncate = 20;
     const max_row = 100; //config.get_max_row;
@@ -162,10 +178,22 @@ function seriesToHtml(series: dfd.Series) {
     }
 
     const rowsHtml: string[] = [];
+    const rowsJson: any[] = [];
     idx.forEach((val, i) => {
+        const rowJson = {};
         const row = [val].concat(data[i]);
         data_arr.push(row);
-        const rowHtml = row.map((item) => `<td>${item}</td>`).join('');
+        const rowHtml = row
+            .map((item, i) => {
+                try {
+                    rowJson[header[i]] = item;
+                } catch {
+                    //
+                }
+                return `<td>${item}</td>`;
+            })
+            .join('');
+        rowsJson.push(rowJson);
         rowsHtml.push(`<tr>${rowHtml}</tr>`);
     });
 
@@ -174,9 +202,11 @@ function seriesToHtml(series: dfd.Series) {
     table_config[1] = { width: table_width, truncate: table_truncate };
 
     const headers = header.map((item) => `<th>${item}</th>`);
-    return `<table><thead><tr>${headers.join('')}</tr><tbody>${rowsHtml.join('')}</tbody>`;
+    const html = `<table><thead><tr>${headers.join('')}</tr><tbody>${rowsHtml.join('')}</tbody>`;
+    return { html, json: rowsJson };
 }
-function frameToHtml(df: dfd.DataFrame) {
+
+function frameToHtmlJson(df: dfd.DataFrame): { html: string; json: any[] } {
     const max_col_in_console = 1000;
     const max_row = 1000;
     // let data;
@@ -247,9 +277,23 @@ function frameToHtml(df: dfd.DataFrame) {
     }
 
     const rowsHtml: string[] = [];
+    const rowsJson: any[] = [];
     data_arr.forEach((row) => {
-        rowsHtml.push(`<tr>${row.map((item) => `<td>${item}</td>`).join('')}</tr>`);
+        const rowJson = {};
+        const rowCellsHtml = row
+            .map((item, i) => {
+                try {
+                    rowJson[header[i]] = item;
+                } catch {
+                    //
+                }
+                return `<td>${item}</td>`;
+            })
+            .join('');
+        rowsJson.push(rowJson);
+        rowsHtml.push(`<tr>${rowCellsHtml}</tr>`);
     });
     const headers = header.map((item) => `<th>${item}</th>`);
-    return `<table><thead><tr>${headers.join('')}</tr><tbody>${rowsHtml.join('')}</tbody>`;
+    const html = `<table><thead><tr>${headers.join('')}</tr><tbody>${rowsHtml.join('')}</tbody>`;
+    return { html, json: rowsJson };
 }

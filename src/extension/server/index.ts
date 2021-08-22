@@ -12,7 +12,6 @@ const ws = createDeferred<WebSocket>();
 
 const argv = yargs(process.argv).argv;
 logMessage(`Started ${argv}`);
-console.log(argv);
 const port = 'port' in argv ? (argv.port as number) : 0;
 const config = 'config' in argv ? (argv.config as string) : undefined;
 let configuration: Configuration | undefined;

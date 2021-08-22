@@ -81,13 +81,16 @@ class VisorProxy {
     }
 }
 class ShowProxy {
+    public requestId: string = generateId();
     // history: typeof history;
     public fitCallbacks(container: SurfaceInfo, metrics: string[], opts?: {}): ReturnType<typeof fitCallbacks> {
+        const requestId = this.requestId;
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         sendMessage({
             type: 'tensorFlowVis',
             request: 'registerFitCallback',
             container,
+            requestId,
             metrics,
             opts
         });
@@ -100,6 +103,7 @@ class ShowProxy {
                             type: 'tensorFlowVis',
                             request: 'fitCallback',
                             container,
+                            requestId,
                             handler: prop,
                             iteration,
                             log
@@ -114,6 +118,7 @@ class ShowProxy {
                             type: 'tensorFlowVis',
                             request: 'fitCallback',
                             container,
+                            requestId,
                             handler: prop,
                             iteration,
                             log
@@ -134,17 +139,16 @@ class ShowProxy {
         return new Proxy({}, handler);
     }
     public async history(container: SurfaceInfo | string, history: {}, metrics: string[], opts?: {}): Promise<void> {
-        const id = generateId();
         sendMessage({
             type: 'tensorFlowVis',
             request: 'history',
-            requestId: id,
+            requestId: this.requestId,
             container,
             history,
             metrics,
             opts
         });
-        await waitForMessage('history', id);
+        await waitForMessage('history', this.requestId);
     }
     public async showPerClassAccuracy(
         container: SurfaceInfo | string,
@@ -172,7 +176,7 @@ class ShowProxy {
             request: 'valuesDistribution',
             container,
             requestId: id,
-            tensor: TensorflowJsVisualizer.instance.serializeTensor(tensor) as any
+            tensor: TensorflowJsVisualizer.serializeTensor(tensor) as any
         });
         await waitForMessage('valuesDistribution', id);
     }
@@ -335,7 +339,7 @@ class RendererProxy {
         let dataToSend: any = data;
         if (!Array.isArray(data)) {
             isTensor = true;
-            dataToSend = await TensorflowJsVisualizer.instance.serializeTensor(data as any);
+            dataToSend = await TensorflowJsVisualizer.serializeTensor(data as any);
             // Serialize as a tensor2D.
         }
         sendMessage({
@@ -350,21 +354,17 @@ class RendererProxy {
         await waitForMessage('heatmap', id);
     }
 }
+
+const _visor: Visor = new VisorProxy(undefined as any, undefined as any, undefined as any, undefined as any) as any;
+
 export class TensorflowJsVisualizer {
-    // private tf!: typeof tfjs;
-    // public static setTfJs(tf: typeof tfjs) {
-    //     TensorflowJsVisualizer.instance.tf = tf;
-    // }
-    public async serializeTensor(tensor: Tensor) {
+    public static async serializeTensor(tensor: Tensor) {
         return tensor.array();
     }
-    public static instance = new TensorflowJsVisualizer();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private _visor = new VisorProxy(undefined as any, undefined as any, undefined as any, undefined as any);
-    public show = new ShowProxy();
-    public render = new RendererProxy();
-    public visor(): Visor {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return this._visor as any;
-    }
+    public static instance = {
+        show: new ShowProxy(),
+        render: new RendererProxy(),
+        visor: () => _visor,
+        version_vis: '1.5.1'
+    };
 }

@@ -1,7 +1,7 @@
 import type * as plotly from 'plotly.js';
 import { ActivationFunction, OutputItem } from 'vscode-notebook-renderer';
-import { errorToJson, noop } from './coreUtils';
-import { GeneratePlot, ResponseType } from './types';
+import { errorToJson, noop } from '../extension/coreUtils';
+import { GeneratePlot, ResponseType } from '../extension/server/types';
 declare const Plotly: typeof plotly;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -9,48 +9,54 @@ declare const Plotly: typeof plotly;
 export const activate: ActivationFunction = (context) => {
     return {
         renderOutputItem(outputItem: OutputItem, element: HTMLElement) {
-            registerPlotlyScript().then(() => {
-                const json: GeneratePlot = outputItem.json();
-                const ele = (json.ele ? document.getElementById(json.ele) : undefined) || document.createElement('div');
-                if (json.hidden) {
-                    ele.style.display = 'none';
-                }
-                element.appendChild(ele);
-                Plotly.newPlot(ele, json.data, json.layout)
-                    .then((gd) => {
-                        if (!json.download || !json.requestId) {
-                            return;
-                        }
-                        Plotly.toImage(gd, {
-                            format: json.format || 'png',
-                            height: json.layout?.height || 400,
-                            width: json.layout?.width || 500
-                        })
-                            .then((url) => {
-                                if (!context.postMessage) {
-                                    return;
-                                }
-                                context.postMessage(<ResponseType>{
-                                    type: 'plotGenerated',
-                                    success: true,
-                                    base64: url,
-                                    requestId: json.requestId
-                                });
+            registerPlotlyScript()
+                .then(() => {
+                    const json: GeneratePlot = outputItem.json();
+                    const existingEle =
+                        json.ele && typeof json.ele === 'string' ? document.getElementById(json.ele) : undefined;
+                    const ele = existingEle || document.createElement('div');
+                    if (json.hidden) {
+                        ele.style.display = 'none';
+                    }
+                    if (!existingEle) {
+                        element.appendChild(ele);
+                    }
+                    Plotly.newPlot(ele, json.data, json.layout)
+                        .then((gd) => {
+                            if (!json.download || !json.requestId) {
+                                return;
+                            }
+                            Plotly.toImage(gd, {
+                                format: json.format || 'png',
+                                height: json.layout?.height || 400,
+                                width: json.layout?.width || 500
                             })
-                            .catch((ex) => {
-                                if (!context.postMessage) {
-                                    return;
-                                }
-                                context.postMessage(<ResponseType>{
-                                    type: 'plotGenerated',
-                                    success: false,
-                                    error: errorToJson(ex),
-                                    requestId: json.requestId
+                                .then((url) => {
+                                    if (!context.postMessage) {
+                                        return;
+                                    }
+                                    context.postMessage(<ResponseType>{
+                                        type: 'plotGenerated',
+                                        success: true,
+                                        base64: url,
+                                        requestId: json.requestId
+                                    });
+                                })
+                                .catch((ex) => {
+                                    if (!context.postMessage) {
+                                        return;
+                                    }
+                                    context.postMessage(<ResponseType>{
+                                        type: 'plotGenerated',
+                                        success: false,
+                                        error: errorToJson(ex),
+                                        requestId: json.requestId
+                                    });
                                 });
-                            });
-                    })
-                    .catch(noop);
-            }).catch(noop);
+                        })
+                        .catch(noop);
+                })
+                .catch(noop);
         }
     };
 };

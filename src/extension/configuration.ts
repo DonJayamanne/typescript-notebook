@@ -5,9 +5,10 @@ import * as fs from 'fs/promises';
 import { registerDisposable } from './utils';
 
 export function getConfiguration(): Configuration {
-    const config = workspace.getConfiguration('typescript.notebook', undefined);
+    const config = workspace.getConfiguration('node_notebook', undefined);
     return {
         registerTsNode: config.get<boolean>('registerTsNode', true),
+        inlineTensorflowVisualizations: config.get<boolean>('node_notebook.inlineTensorflowVisualizations', true),
         injectTsVis: false,
         injectPlotly: false,
         terminalColumns: 80,

@@ -6,7 +6,7 @@
 * Quickly prototype and view HTML/JavaScript/CSS output
 
 ## Getting started
-* Create a file in VS Code with the extension `*.jsnb` or `*.tsnb`, e.g. `sample.jsnb`
+* Create a file in VS Code with the extension `*.nnb`, e.g. `sample.nnb`
 * Add a cell and run it
 
 ![Demo](https://user-images.githubusercontent.com/1948812/129159454-0fb4f7be-98be-4f69-a4f1-a0a7a9db634f.gif)

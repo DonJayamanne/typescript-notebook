@@ -35,25 +35,31 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
     } else if (typeof value === 'string' && value.startsWith('data:image/')) {
         return {
             type: 'multi-mime',
-            data: [
+            value: [
                 {
                     type: 'image',
                     value: value.substring(value.indexOf(',') + 1),
                     mime: value.substring(value.indexOf(':') + 1, value.indexOf(';'))
                 },
-                value
+                {
+                    type: 'text',
+                    value
+                }
             ]
         };
     } else if (typeof value === 'string' && value.endsWith('</svg>') && value.includes('<svg')) {
         return {
             type: 'multi-mime',
-            data: [
+            value: [
                 {
                     type: 'image',
                     value: value,
                     mime: 'svg+xml'
                 },
-                value
+                {
+                    type: 'text',
+                    value
+                }
             ]
         };
     } else if (kindOf(value) === 'buffer' || util.types.isTypedArray(value)) {
@@ -72,7 +78,7 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
             logMessage('Unable to get type', ex);
         }
         // Return as plain text.
-        return buffer.toString();
+        return { type: 'text', value: buffer.toString() };
     } else if (isTensor(value)) {
         return formatTensor(value);
     } else if (value && Array.isArray(value)) {
