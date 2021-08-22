@@ -18,10 +18,10 @@ samples.push({
     path: path.join('resources', 'docs', 'plotly', 'saveToFile.nnb')
 });
 samples.push({
-    command: 'node.notebook.sample.plot.embededInDiv',
+    command: 'node.notebook.sample.plot.embedInDiv',
     label: 'Render plots in custom HTML elements',
     description: 'plotly',
-    path: path.join('resources', 'docs', 'plotly', 'embededInDiv.nnb')
+    path: path.join('resources', 'docs', 'plotly', 'embedInDiv.nnb')
 });
 export class Samples {
     public static regsiter(context: ExtensionContext) {

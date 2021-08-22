@@ -56,7 +56,7 @@
         "onCommand:node.notebook.sample",
         "onCommand:node.notebook.sample.plot.generate",
         "onCommand:node.notebook.sample.plot.saveToFile",
-        "onCommand:node.notebook.sample.plot.embededInDiv",
+        "onCommand:node.notebook.sample.plot.embedInDiv",
         "onCommand:node.notebook.new"
     ],
     "main": "./out/extension/index.js",
@@ -86,7 +86,7 @@
             },
             {
                 "category": "Notebook",
-                "command": "node.notebook.sample.plot.embededInDiv",
+                "command": "node.notebook.sample.plot.embedInDiv",
                 "title": "Sample",
                 "enablement": "false"
             },
@@ -127,7 +127,7 @@
                     "when": "false"
                 },
                 {
-                    "command": "node.notebook.sample.plot.embededInDiv",
+                    "command": "node.notebook.sample.plot.embedInDiv",
                     "title": "Sample",
                     "group": "Notebook",
                     "when": "false"
@@ -251,7 +251,7 @@
                     {
                         "id": "plotlySaveToFile",
                         "title": "Programatically save plots to file",
-                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.plot.embededInDiv)",
+                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.plot.embedInDiv)",
                         "media": {
                             "markdown": "resources/docs/plotly/generate.md"
                         }
