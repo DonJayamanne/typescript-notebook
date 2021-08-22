@@ -130,7 +130,7 @@ type JsonData = BaseMessage<'json', { value: any }>;
 type HtmlData = BaseMessage<'html', { value: string }>;
 type MarkdownData = BaseMessage<'markdown', { value: string }>;
 export type GeneratePlot = BaseMessage<
-    'generatePlog',
+    'generatePlot',
     {
         ele?: string;
         data: plotly.Data[];

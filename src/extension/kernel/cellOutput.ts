@@ -207,7 +207,7 @@ export class CellOutput {
                             );
                         case 'html':
                             return NotebookCellOutputItem.text(value.value, 'text/html');
-                        case 'generatePlog': {
+                        case 'generatePlot': {
                             const data = { ...value };
                             return NotebookCellOutputItem.json(data, 'application/vnd.ts.notebook.plotly+json');
                         }

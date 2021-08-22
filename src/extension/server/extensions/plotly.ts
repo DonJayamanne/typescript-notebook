@@ -7,21 +7,25 @@ import { ResponseType } from '../types';
 import { errorFromJson } from '../../coreUtils';
 
 export const Plotly = {
-    async toBase64(data: plotly.Data[], layout: plotly.Layout, format?: 'png' | 'svg' | 'jpeg'): Promise<string> {
+    async toBase64(
+        data: plotly.Data[],
+        layout: plotly.Layout,
+        format: 'png' | 'svg' | 'jpeg' = 'png'
+    ): Promise<string> {
         const id = uuid().replace(/-/g, '');
-        sendMessage({
-            type: 'output',
-            data: {
-                type: 'generatePlog',
-                data,
-                layout,
-                requestId: id,
-                download: true,
-                format,
-                hidden: true
-            }
-        });
         return new Promise<string>((resolve, reject) => {
+            sendMessage({
+                type: 'output',
+                data: {
+                    type: 'generatePlot',
+                    data,
+                    layout,
+                    requestId: id,
+                    download: true,
+                    format,
+                    hidden: true
+                }
+            });
             const messageHandler = (data: ResponseType) => {
                 if (data.type === 'plotGenerated' && data.requestId === id) {
                     removeMessageHandler('plotGenerated', messageHandler);
@@ -38,7 +42,7 @@ export const Plotly = {
     async toFile(
         data: plotly.Data[],
         layout: plotly.Layout,
-        format?: 'png' | 'svg' | 'jpeg',
+        format: 'png' | 'svg' | 'jpeg' = 'png',
         file?: string
     ): Promise<string> {
         const base64 = await Plotly.toBase64(data, layout, format);
@@ -59,7 +63,7 @@ export const Plotly = {
         sendMessage({
             type: 'output',
             data: {
-                type: 'generatePlog',
+                type: 'generatePlot',
                 ele,
                 data,
                 layout

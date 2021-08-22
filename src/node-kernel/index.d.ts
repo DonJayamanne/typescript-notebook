@@ -84,6 +84,7 @@ export namespace display {
 export namespace Plotly {
     /**
      * Renders a plotly plot.
+     * See detailed documentation here https://plotly.com/javascript/plotlyjs-function-reference/#plotlynewplot
      */
     export function newPlot(
         root: plotly.Root,
@@ -93,6 +94,9 @@ export namespace Plotly {
     ): Promise<void>;
     /**
      * Returns a base64 encoded string representation of the generated plot.
+     * @param {plotly.Data[]} data See detailed documentation here https://plotly.com/javascript/plotlyjs-function-reference/#plotlynewplot
+     * @param {plotly.Layout} layout See detailed documentation here https://plotly.com/javascript/plotlyjs-function-reference/#plotlynewplot
+     * @param {('png' | 'svg' | 'jpeg')} [format] Defaults to 'png' if not specified.
      */
     export function toBase64(
         data: plotly.Data[],
@@ -102,6 +106,12 @@ export namespace Plotly {
     /**
      * Saves the generated plot into a file.
      * Return the path to the file name (if a file path is not provided a temporary image file is created and returned).
+     * @param {plotly.Data[]} data See detailed documentation here https://plotly.com/javascript/plotlyjs-function-reference/#plotlynewplot
+     * @param {plotly.Layout} layout See detailed documentation here https://plotly.com/javascript/plotlyjs-function-reference/#plotlynewplot
+     * @param {('png' | 'svg' | 'jpeg')} [format] Defaults to 'png' if not specified.
+     * @param {string} [file] Destination file path for the image to be downloaded.
+     * If not specified, the image is downloaded into a temporary file and that path is returned.
+     * @return {*}  {Promise<string>}
      */
     export function toFile(
         data: plotly.Data[],
