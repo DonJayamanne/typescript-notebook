@@ -1,0 +1,8 @@
+{
+    "cells": [
+        {
+            "language": "javascript",
+            "source": "const { Plotly } = require('node-kernel');\nvar data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nvar layout = {\n    height: 400,\n    width: 500\n};\n\n// You could provide he path where the image needs to be written into.\n// await Plotly.toFile(data, layout, 'png', '<pass fully qualified path>');\n\n// Or don't provide anything, and it will be written into a temporar file.\nconst tempImageFileName = await Plotly.toFile(data, layout, 'png');\nconsole.log(tempImageFileName);"
+        }
+    ]
+}

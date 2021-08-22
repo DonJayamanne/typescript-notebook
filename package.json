@@ -50,16 +50,50 @@
         "virtualWorkspaces": true
     },
     "activationEvents": [
+        "onWalkthrough:plotlyWalkthrought",
         "onNotebook:node-notebook",
-        "onNotebook:jupyter-notebook"
+        "onNotebook:jupyter-notebook",
+        "onCommand:node.notebook.sample",
+        "onCommand:node.notebook.sample.plot.generate",
+        "onCommand:node.notebook.sample.plot.saveToFile",
+        "onCommand:node.notebook.sample.plot.embededInDiv",
+        "onCommand:node.notebook.new"
     ],
     "main": "./out/extension/index.js",
     "contributes": {
         "commands": [
             {
                 "category": "Notebook",
+                "command": "node.notebook.new",
+                "title": "New Node Notebook"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.sample",
+                "title": "Open a sample notebook"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.sample.plot.generate",
+                "title": "Sample",
+                "enablement": "false"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.sample.plot.saveToFile",
+                "title": "Sample",
+                "enablement": "false"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.sample.plot.embededInDiv",
+                "title": "Sample",
+                "enablement": "false"
+            },
+            {
+                "category": "Notebook",
                 "icon": "$(bug)",
-                "command": "jsNotebook.debugNotebook",
+                "command": "node.notebook.debug",
                 "shortTitle": "Debugx",
                 "title": "Debug Notebook",
                 "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
@@ -67,7 +101,7 @@
             {
                 "category": "Notebook",
                 "icon": "$(debug-restart)",
-                "command": "jsNotebook.kernel.restart",
+                "command": "node.kernel.restart",
                 "shortTitle": "Restart",
                 "title": "Restart Kernel",
                 "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
@@ -76,13 +110,36 @@
         "menus": {
             "commandPalette": [
                 {
-                    "command": "jsNotebook.debugNotebook",
+                    "command": "node.notebook.new",
+                    "title": "New Node Notebook",
+                    "group": "Notebook"
+                },
+                {
+                    "command": "node.notebook.sample.plot.generate",
+                    "title": "Sample",
+                    "group": "Notebook",
+                    "when": "false"
+                },
+                {
+                    "command": "node.notebook.sample.plot.saveToFile",
+                    "title": "Sample",
+                    "group": "Notebook",
+                    "when": "false"
+                },
+                {
+                    "command": "node.notebook.sample.plot.embededInDiv",
+                    "title": "Sample",
+                    "group": "Notebook",
+                    "when": "false"
+                },
+                {
+                    "command": "node.notebook.debug",
                     "title": "Debug",
                     "group": "Notebook",
                     "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 },
                 {
-                    "command": "jsNotebook.kernel.restart",
+                    "command": "node.kernel.restart",
                     "title": "Restart Kernel",
                     "group": "Notebook",
                     "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
@@ -90,12 +147,12 @@
             ],
             "editor/title": [
                 {
-                    "command": "jsNotebook.kernel.restart",
+                    "command": "node.kernel.restart",
                     "group": "navigation@1",
                     "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 },
                 {
-                    "command": "jsNotebook.debugNotebook",
+                    "command": "node.notebook.debug",
                     "group": "navigation@3",
                     "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 }
@@ -104,7 +161,7 @@
         "notebooks": [
             {
                 "type": "node-notebook",
-                "displayName": "JavaScript & TypeScript Notebook",
+                "displayName": "Node.js Notebook",
                 "selector": [
                     {
                         "filenamePattern": "*.nnb"
@@ -166,7 +223,42 @@
                     "scope": "machine"
                 }
             }
-        }
+        },
+        "walkthroughs": [
+            {
+                "id": "plotlyWalkthrought",
+                "title": "Plotly",
+                "description": "Getting started with Plotly in Node Notebooks",
+                "featuredFor": ["plotly", "visualizations"],
+                "steps": [
+                    {
+                        "id": "plotlyGenerate",
+                        "title": "Generate plots in node.js",
+                        "description": "This extension leverages the power of Notebooks to generate and view plotly plots from a node.js environment, instead of a browser. Or [try it your self](command:node.notebook.sample.plot.generate)",
+                        "media": {
+                            "markdown": "resources/docs/plotly/generate.md"
+                        },
+                        "command":"workbench.action.terminal.new"
+                    },
+                    {
+                        "id": "plotlySaveToFile",
+                        "title": "Programatically save plots to file",
+                        "description": "Clicking on a `Save As` or `Download` icon is a thing of the past.  Or [try it your self](command:node.notebook.sample.plot.saveToFile)",
+                        "media": {
+                            "markdown": "resources/docs/plotly/generate.md"
+                        }
+                    },
+                    {
+                        "id": "plotlySaveToFile",
+                        "title": "Programatically save plots to file",
+                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.plot.embededInDiv)",
+                        "media": {
+                            "markdown": "resources/docs/plotly/generate.md"
+                        }
+                    }
+                ]
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "npm run build",

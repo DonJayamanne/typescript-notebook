@@ -45,8 +45,8 @@ export class Controller implements IDisposable {
             this,
             this.disposables
         );
-        this.disposables.push(commands.registerCommand('jsNotebook.kernel.restart', this.restart, this));
-        // this.disposables.push(commands.registerCommand('jsNotebook.debugNotebook', this.debug, this));
+        this.disposables.push(commands.registerCommand('node.kernel.restart', this.restart, this));
+        // this.disposables.push(commands.registerCommand('node.notebook.debug', this.debug, this));
     }
     public dispose() {
         disposeAllDisposables(this.disposables);
@@ -57,11 +57,11 @@ export class Controller implements IDisposable {
         const controller = notebooks.createNotebookController(
             `controller-${type}-${nbType}`,
             nbType,
-            type === 'node' ? 'TypeScript/JavaScript in Node.js' : 'JavaScript/TypeScript in Browser'
+            type === 'node' ? 'Node.js' : 'JavaScript/TypeScript in Browser'
         );
         if (type === 'node') {
             controller.description = '';
-            controller.detail = 'Execute & debug in node';
+            controller.detail = 'Execute & debug JavaScript/TypeScript in node.js';
             controller.supportedLanguages = ['javascript', 'typescript', 'html', 'shellscript', 'powershell'];
         } else {
             controller.description = 'JavaScript/TypeScript Kernel running in Browser';

@@ -11,11 +11,13 @@ import { ShellKernel } from './kernel/shellKernel';
 import { CellExecutionQueue } from './kernel/cellExecutionQueue';
 import { JavaScriptKernel } from './kernel/jsKernel';
 import { Compiler } from './kernel/compiler';
+import { Samples } from './content/walkThrough';
 
 export async function activate(context: ExtensionContext) {
     registerDisposableRegistry(context);
+    Samples.regsiter(context);
     Compiler.register(context);
-    ContentProvider.register();
+    ContentProvider.register(context);
     Controller.regsiter();
     ServerLogger.register();
     TensorflowVisClient.register(context);

@@ -6,7 +6,7 @@ import { DebuggerFactory } from './debugFactory';
 export class DebuggerCommands {
     public static register(context: ExtensionContext) {
         context.subscriptions.push(
-            commands.registerCommand('jsNotebook.debugNotebook', async (uri: Uri) => {
+            commands.registerCommand('node.notebook.debug', async (uri: Uri) => {
                 const notebook = workspace.notebookDocuments.find((item) => item.uri.toString() === uri.toString());
                 if (!notebook) {
                     return;

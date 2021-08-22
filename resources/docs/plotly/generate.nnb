@@ -1,0 +1,8 @@
+{
+    "cells": [
+        {
+            "language": "javascript",
+            "source": "const { Plotly } = require('node-kernel');\nvar data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nvar layout = {\n    height: 400,\n    width: 500\n};\n// There is no HTML element named `myDiv`, hence the plot is displayed below.\nPlotly.newPlot('myDiv', data, layout);"
+        }
+    ]
+}

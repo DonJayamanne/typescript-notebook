@@ -1,6 +1,14 @@
-import * as vscode from 'vscode';
-import { NotebookCellData, NotebookCellKind, NotebookData, workspace } from 'vscode';
-import { registerDisposable } from '../utils';
+import {
+    CancellationToken,
+    commands,
+    ExtensionContext,
+    NotebookCellData,
+    NotebookCellKind,
+    NotebookData,
+    NotebookSerializer,
+    workspace
+} from 'vscode';
+import { notebookType } from '../const';
 
 type CellMetadata = {
     inputCollapsed?: boolean;
@@ -17,11 +25,8 @@ export type TsNotebook = {
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
-export class ContentProvider implements vscode.NotebookSerializer {
-    deserializeNotebook(
-        content: Uint8Array,
-        _token: vscode.CancellationToken
-    ): vscode.NotebookData | Thenable<vscode.NotebookData> {
+export class ContentProvider implements NotebookSerializer {
+    deserializeNotebook(content: Uint8Array, _token: CancellationToken): NotebookData | Thenable<NotebookData> {
         const js = decoder.decode(content);
         try {
             const notebook: TsNotebook = js.length ? JSON.parse(js) : { cells: [] };
@@ -42,10 +47,7 @@ export class ContentProvider implements vscode.NotebookSerializer {
             return new NotebookData([]);
         }
     }
-    serializeNotebook(
-        document: vscode.NotebookData,
-        _token: vscode.CancellationToken
-    ): Uint8Array | Thenable<Uint8Array> {
+    serializeNotebook(document: NotebookData, _token: CancellationToken): Uint8Array | Thenable<Uint8Array> {
         const notebook: TsNotebook = {
             cells: document.cells.map((nbCell) => {
                 const cell: Cell = {
@@ -69,11 +71,21 @@ export class ContentProvider implements vscode.NotebookSerializer {
         return encoder.encode(JSON.stringify(notebook, undefined, 4));
     }
 
-    public static register() {
-        const disposable = workspace.registerNotebookSerializer('node-notebook', new ContentProvider(), {
-            transientOutputs: true,
-            transientDocumentMetadata: {}
-        });
-        registerDisposable(disposable);
+    public static register(context: ExtensionContext) {
+        context.subscriptions.push(
+            workspace.registerNotebookSerializer('node-notebook', new ContentProvider(), {
+                transientOutputs: true,
+                transientDocumentMetadata: {}
+            })
+        );
+        context.subscriptions.push(
+            commands.registerCommand('node.notebook.new', async () => {
+                const data = new NotebookData([new NotebookCellData(NotebookCellKind.Code, '', 'javascript')]);
+                await workspace.openNotebookDocument(notebookType, data);
+                // const doc = await workspace.openNotebookDocument(notebookType, data);
+                // await notebooks.showNotebookDocument(doc);
+                // return this.open(doc.uri);
+            })
+        );
     }
 }
