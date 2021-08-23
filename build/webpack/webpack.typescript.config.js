@@ -26,7 +26,7 @@ module.exports = {
     },
     mode: 'production',
     devtool: 'source-map',
-    plugins: [...common.getDefaultPlugins('extension')],
+    plugins: [...common.getDefaultPlugins('typescript')],
     resolve: {
         extensions: ['.ts', '.js']
     },

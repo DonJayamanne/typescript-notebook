@@ -8,7 +8,8 @@ import * as os from 'os';
 import { CodeObject } from '../server/types';
 import { LineNumber, NewColumn, OldColumn, processTopLevelAwait } from './asyncWrapper';
 import { getNotebookCwd } from '../utils';
-
+declare const __webpack_require__: any;
+declare const __non_webpack_require__: any;
 let ts: typeof import('typescript');
 
 let tmpDirectory: string | undefined;
@@ -32,9 +33,11 @@ export namespace Compiler {
             'resources',
             'scripts',
             'node_modules',
-            'typescript'
+            'typescript',
+            'index.js'
         );
-        ts = require(typescriptPath);
+        const requireFunc = typeof __webpack_require__ === 'function' ? __non_webpack_require__ : require;
+        ts = requireFunc(typescriptPath);
     }
     /**
      * Returns the Cell associated with the temporary file we create (used to enable debugging with source maps), this will
