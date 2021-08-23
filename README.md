@@ -20,6 +20,10 @@ However, this extension leverages the power of Notebooks to provide the same ric
 
 ![Demo](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/demo.gif)
 
+## Examples
+* Use the command `Open a sample node.js notebook` (from the command palette) to open a sample notebook
+* Use the command `Welcome: Open Walkthrought...` (from the command palette) to checkout the samples
+
 ## Requirements
 * node.js >= 12
 * node.js needs to be in the current path

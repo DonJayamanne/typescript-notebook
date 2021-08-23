@@ -112,6 +112,9 @@ export class JavaScriptKernel implements IDisposable {
         // We cannot stop execution of JS, hence ignore the cancellation token.
         _token: CancellationToken
     ): Promise<CellExecutionState> {
+        task.start(Date.now());
+        // TODO: fix waiting on https://github.com/microsoft/vscode/issues/131123
+        await task.clearOutput();
         if (JavaScriptKernel.isEmptyCell(task.cell)) {
             task.end(undefined);
             return CellExecutionState.notExecutedEmptyCell;
@@ -122,9 +125,6 @@ export class JavaScriptKernel implements IDisposable {
         this.currentTask = { task, requestId, result, stdOutput };
         this.lastStdOutput = stdOutput;
         this.tasks.set(requestId, { task, requestId, result, stdOutput });
-        task.start(Date.now());
-        // TODO: fix waiting on https://github.com/microsoft/vscode/issues/131123
-        await task.clearOutput();
         task.executionOrder = getNextExecutionOrder(task.cell.notebook);
         let code: CodeObject;
         try {

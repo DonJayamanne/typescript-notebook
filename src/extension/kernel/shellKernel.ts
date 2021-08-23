@@ -42,12 +42,13 @@ export class ShellKernel {
         );
     }
     public static async execute(task: NotebookCellExecution, token: CancellationToken): Promise<CellExecutionState> {
+        task.start(Date.now());
         const command = task.cell.document.getText();
+        await task.clearOutput();
         if (isEmptyShellCommand(command)) {
+            task.end(undefined);
             return CellExecutionState.notExecutedEmptyCell;
         }
-        task.start(Date.now());
-        await task.clearOutput();
         if (token.isCancellationRequested) {
             task.end(undefined);
             return CellExecutionState.success;
