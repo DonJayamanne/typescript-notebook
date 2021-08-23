@@ -96,9 +96,7 @@ function startRepl() {
         registerTsNode(replServer.context);
     }
     // This way we have `__dirname`.
-    vm.runInNewContext(`this.__dirname = "${process.cwd().replace(/\\/g, '/')}";`, replServer.context, {
-        displayErrors: false
-    });
+    replServer.context.__dirname = process.cwd();
     return replServer;
 }
 

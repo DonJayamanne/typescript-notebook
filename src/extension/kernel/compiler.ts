@@ -37,7 +37,7 @@ export namespace Compiler {
             'index.js'
         );
         const requireFunc = typeof __webpack_require__ === 'function' ? __non_webpack_require__ : require;
-        ts = requireFunc(typescriptPath);
+        ts = fs.existsSync(typescriptPath) ? requireFunc(typescriptPath) : requireFunc('typescript');
     }
     /**
      * Returns the Cell associated with the temporary file we create (used to enable debugging with source maps), this will
