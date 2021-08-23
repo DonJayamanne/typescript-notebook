@@ -12,6 +12,7 @@ temp/**
 !resources/scripts/node_modules/**
 node_modules/**
 vsc-extension-quickstart.md
+**/*.js.map
 **/tsconfig.json
 **/tsconfig-base.json
 **/.gitignore
