@@ -52,8 +52,11 @@
     "activationEvents": [
         "onNotebook:node-notebook",
         "onNotebook:jupyter-notebook",
+        "onWalkthrough:plotlyWalkthrough",
+        "onWalkthrough:danfojsWalkthrough",
+        "onWalkthrough:tensorflowWalkthrough",
+        "onWalkthrough:nodeNotebookWalkthrough",
         "onCommand:node.notebook.sample",
-        "onCommand:node.notebook.sample.plotly.generate",
         "onCommand:node.notebook.sample.plotly.saveToFile",
         "onCommand:node.notebook.sample.plotly.embedInDiv",
         "onCommand:node.notebook.sample.danfojs.htmlOutput",
@@ -77,43 +80,7 @@
             {
                 "category": "Notebook",
                 "command": "node.notebook.sample",
-                "title": "Open a sample notebook"
-            },
-            {
-                "category": "Notebook",
-                "command": "node.notebook.sample.plotly.generate",
-                "title": "Sample",
-                "enablement": "false"
-            },
-            {
-                "category": "Notebook",
-                "command": "node.notebook.sample.plotly.saveToFile",
-                "title": "Sample",
-                "enablement": "false"
-            },
-            {
-                "category": "Notebook",
-                "command": "node.notebook.sample.plotly.embedInDiv",
-                "title": "Sample",
-                "enablement": "false"
-            },
-            {
-                "category": "Notebook",
-                "command": "node.notebook.sample.danfojs.htmlOutput",
-                "title": "Sample",
-                "enablement": "false"
-            },
-            {
-                "category": "Notebook",
-                "command": "node.notebook.sample.danfojs.plots",
-                "title": "Sample",
-                "enablement": "false"
-            },
-            {
-                "category": "Notebook",
-                "command": "node.notebook.sample.danfojs.embedInDiv",
-                "title": "Sample",
-                "enablement": "false"
+                "title": "Open a sample node.js notebook"
             },
             {
                 "category": "Notebook",
@@ -138,42 +105,6 @@
                     "command": "node.notebook.new",
                     "title": "New Node Notebook",
                     "group": "Notebook"
-                },
-                {
-                    "command": "node.notebook.sample.plotly.generate",
-                    "title": "Sample",
-                    "group": "Notebook",
-                    "when": "false"
-                },
-                {
-                    "command": "node.notebook.sample.plotly.saveToFile",
-                    "title": "Sample",
-                    "group": "Notebook",
-                    "when": "false"
-                },
-                {
-                    "command": "node.notebook.sample.plotly.embedInDiv",
-                    "title": "Sample",
-                    "group": "Notebook",
-                    "when": "false"
-                },
-                {
-                    "command": "node.notebook.sample.danfojs.htmlOutput",
-                    "title": "Sample",
-                    "group": "Notebook",
-                    "when": "false"
-                },
-                {
-                    "command": "node.notebook.sample.danfojs.plots",
-                    "title": "Sample",
-                    "group": "Notebook",
-                    "when": "false"
-                },
-                {
-                    "command": "node.notebook.sample.danfojs.embedInDiv",
-                    "title": "Sample",
-                    "group": "Notebook",
-                    "when": "false"
                 },
                 {
                     "command": "node.notebook.debug",
@@ -269,7 +200,7 @@
         },
         "walkthroughs": [
             {
-                "id": "plotlyWalkthrought",
+                "id": "plotlyWalkthrough",
                 "title": "Use Plotly in Notebooks",
                 "description": "Getting started with Plotly in node.js within a VS Code Notebook",
                 "featuredFor": ["plotly", "visualizations"],
@@ -287,7 +218,7 @@
                         "title": "Programatically save plots to file",
                         "description": "Clicking on a `Save As` or `Download` icon is a thing of the past.  Or [try it your self](command:node.notebook.sample.plotly.saveToFile)",
                         "media": {
-                            "markdown": "resources/docs/plotly/generate.md"
+                            "markdown": "resources/docs/plotly/saveToFile.md"
                         }
                     },
                     {
@@ -301,7 +232,7 @@
                 ]
             },
             {
-                "id": "danfojsWalkthrought",
+                "id": "danfojsWalkthrough",
                 "title": "Use Danfo.js in Notebooks",
                 "description": "Getting started with danfo.js in node.js within a VS Code Notebooks",
                 "featuredFor": ["danfojs", "visualizations", "dataframes"],
@@ -333,7 +264,7 @@
                 ]
             },
             {
-                "id": "tensorflowWalkthrought",
+                "id": "tensorflowWalkthrough",
                 "title": "Use Tensorflow.js in notebooks",
                 "description": "Use Tensorflow.js in node.js within VS Code Notebooks",
                 "featuredFor": ["tensorflow.js", "visualizations"],
@@ -357,7 +288,7 @@
                 ]
             },
             {
-                "id": "nodeNotebookWalkthrought",
+                "id": "nodeNotebookWalkthrough",
                 "title": "Getting started with notebooks for node.js",
                 "description": "Use VS Code Notebooks to run/debug code in node.js with rich visualizations",
                 "featuredFor": ["node.js", "visualizations", "debug"],
@@ -365,7 +296,7 @@
                     {
                         "id": "nodeNotebookGettingStarted",
                         "title": "Run javascript or typescript in node.js",
-                        "description": "Run javascript in node.js or even typescript without having to install a typescript compiler. Or [try it your self](command:node.notebook.sample.basics.sample)",
+                        "description": "Run javascript in node.js or even typescript without having to install a typescript compiler.",
                         "media": {
                             "markdown": "resources/docs/basics/sample.md"
                         }
