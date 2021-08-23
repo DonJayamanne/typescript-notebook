@@ -1,0 +1,16 @@
+{
+    "cells": [
+        {
+            "language": "markdown",
+            "source": "* Install [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)\n    * More info [here](https://code.visualstudio.com/docs/datascience/pytorch-support#_tensorboard-integration]\n* Install `tensorboard` into your Python environment\n* Run the following cells (sample borrowed from here [https://js.tensorflow.org/api_node/1.0.2/#node.tensorBoard]()https://js.tensorflow.org/api_node/1.0.2/#node.tensorBoard)\n* After running the cells, confirm the directory `/tmp/fit_logs_` exists in your workspace folder\n* Use the command `Python: Launch TensorBoard` to launch the tensorboard\n* When prompted select the `tmp` directory (or leave the defaults)."
+        },
+        {
+            "language": "javascript",
+            "source": "import * as tf from '@tensorflow/tfjs-node'\nimport * as path from 'path';"
+        },
+        {
+            "language": "javascript",
+            "source": "// Constructor a toy multilayer-perceptron regressor for demo purpose.\nconst model = tf.sequential();\nmodel.add(\n    tf.layers.dense({ units: 100, activation: 'relu', inputShape: [200] }));\nmodel.add(tf.layers.dense({ units: 1 }));\nmodel.compile({\n    loss: 'meanSquaredError',\n    optimizer: 'sgd',\n    metrics: ['MAE']\n});\n\n// Generate some random fake data for demo purpose.\nconst xs = tf.randomUniform([10000, 200]);\nconst ys = tf.randomUniform([10000, 1]);\nconst valXs = tf.randomUniform([1000, 200]);\nconst valYs = tf.randomUniform([1000, 1]);\n\n// Start model training process.\nawait model.fit(xs, ys, {\n    epochs: 10,\n    validationData: [valXs, valYs],\n    // Add the tensorBoard callback here.\n    callbacks: tf.node.tensorBoard(path.join(__dirname, 'tmp/fit_logs_1'))\n});"
+        }
+    ]
+}

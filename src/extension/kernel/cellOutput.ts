@@ -196,8 +196,13 @@ export class CellOutput {
                 }
                 const items = individualOutputItems.map((value) => {
                     switch (value.type) {
-                        case 'image':
-                            return new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
+                        case 'image': {
+                            if (value.mime === 'svg+xml') {
+                                return new NotebookCellOutputItem(Buffer.from(value.value), 'text/html');
+                            } else {
+                                return new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
+                            }
+                        }
                         case 'json':
                         case 'array':
                         case 'tensor':

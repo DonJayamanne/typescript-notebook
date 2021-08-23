@@ -50,13 +50,20 @@
         "virtualWorkspaces": true
     },
     "activationEvents": [
-        "onWalkthrough:plotlyWalkthrought",
         "onNotebook:node-notebook",
         "onNotebook:jupyter-notebook",
         "onCommand:node.notebook.sample",
-        "onCommand:node.notebook.sample.plot.generate",
-        "onCommand:node.notebook.sample.plot.saveToFile",
-        "onCommand:node.notebook.sample.plot.embedInDiv",
+        "onCommand:node.notebook.sample.plotly.generate",
+        "onCommand:node.notebook.sample.plotly.saveToFile",
+        "onCommand:node.notebook.sample.plotly.embedInDiv",
+        "onCommand:node.notebook.sample.danfojs.htmlOutput",
+        "onCommand:node.notebook.sample.danfojs.plots",
+        "onCommand:node.notebook.sample.danfojs.embedInDiv",
+        "onCommand:node.notebook.sample.tensorflow.sample",
+        "onCommand:node.notebook.sample.tensorflow.tensorboard",
+        "onCommand:node.notebook.sample.basics.sample",
+        "onCommand:node.notebook.sample.basics.richOutput",
+        "onCommand:node.notebook.sample.basics.debug",
         "onCommand:node.notebook.new"
     ],
     "main": "./out/extension/index.js",
@@ -74,19 +81,37 @@
             },
             {
                 "category": "Notebook",
-                "command": "node.notebook.sample.plot.generate",
+                "command": "node.notebook.sample.plotly.generate",
                 "title": "Sample",
                 "enablement": "false"
             },
             {
                 "category": "Notebook",
-                "command": "node.notebook.sample.plot.saveToFile",
+                "command": "node.notebook.sample.plotly.saveToFile",
                 "title": "Sample",
                 "enablement": "false"
             },
             {
                 "category": "Notebook",
-                "command": "node.notebook.sample.plot.embedInDiv",
+                "command": "node.notebook.sample.plotly.embedInDiv",
+                "title": "Sample",
+                "enablement": "false"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.sample.danfojs.htmlOutput",
+                "title": "Sample",
+                "enablement": "false"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.sample.danfojs.plots",
+                "title": "Sample",
+                "enablement": "false"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.sample.danfojs.embedInDiv",
                 "title": "Sample",
                 "enablement": "false"
             },
@@ -115,19 +140,37 @@
                     "group": "Notebook"
                 },
                 {
-                    "command": "node.notebook.sample.plot.generate",
+                    "command": "node.notebook.sample.plotly.generate",
                     "title": "Sample",
                     "group": "Notebook",
                     "when": "false"
                 },
                 {
-                    "command": "node.notebook.sample.plot.saveToFile",
+                    "command": "node.notebook.sample.plotly.saveToFile",
                     "title": "Sample",
                     "group": "Notebook",
                     "when": "false"
                 },
                 {
-                    "command": "node.notebook.sample.plot.embedInDiv",
+                    "command": "node.notebook.sample.plotly.embedInDiv",
+                    "title": "Sample",
+                    "group": "Notebook",
+                    "when": "false"
+                },
+                {
+                    "command": "node.notebook.sample.danfojs.htmlOutput",
+                    "title": "Sample",
+                    "group": "Notebook",
+                    "when": "false"
+                },
+                {
+                    "command": "node.notebook.sample.danfojs.plots",
+                    "title": "Sample",
+                    "group": "Notebook",
+                    "when": "false"
+                },
+                {
+                    "command": "node.notebook.sample.danfojs.embedInDiv",
                     "title": "Sample",
                     "group": "Notebook",
                     "when": "false"
@@ -142,7 +185,7 @@
                     "command": "node.kernel.restart",
                     "title": "Restart Kernel",
                     "group": "Notebook",
-                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
+                    "when": "false && notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
                 }
             ],
             "editor/title": [
@@ -227,23 +270,14 @@
         "walkthroughs": [
             {
                 "id": "plotlyWalkthrought",
-                "title": "Plotly",
-                "description": "Getting started with Plotly in Node Notebooks",
+                "title": "Use Plotly in Notebooks",
+                "description": "Getting started with Plotly in node.js within a VS Code Notebook",
                 "featuredFor": ["plotly", "visualizations"],
                 "steps": [
                     {
                         "id": "plotlyGenerate",
                         "title": "Generate plots in node.js",
-                        "description": "This extension leverages the power of Notebooks to generate and view plotly plots from a node.js environment, instead of a browser. Or [try it your self](command:node.notebook.sample.plot.generate)",
-                        "media": {
-                            "markdown": "resources/docs/plotly/generate.md"
-                        },
-                        "command":"workbench.action.terminal.new"
-                    },
-                    {
-                        "id": "plotlySaveToFile",
-                        "title": "Programatically save plots to file",
-                        "description": "Clicking on a `Save As` or `Download` icon is a thing of the past.  Or [try it your self](command:node.notebook.sample.plot.saveToFile)",
+                        "description": "This extension leverages the power of Notebooks to generate and view plotly plots from a node.js environment, instead of a browser. Or [try it your self](command:node.notebook.sample.plotly.generate)",
                         "media": {
                             "markdown": "resources/docs/plotly/generate.md"
                         }
@@ -251,9 +285,105 @@
                     {
                         "id": "plotlySaveToFile",
                         "title": "Programatically save plots to file",
-                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.plot.embedInDiv)",
+                        "description": "Clicking on a `Save As` or `Download` icon is a thing of the past.  Or [try it your self](command:node.notebook.sample.plotly.saveToFile)",
                         "media": {
                             "markdown": "resources/docs/plotly/generate.md"
+                        }
+                    },
+                    {
+                        "id": "plotlyEmbedInDiv",
+                        "title": "Generate plots and embed in custom HTML output of other cells",
+                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.plotly.embedInDiv)",
+                        "media": {
+                            "markdown": "resources/docs/plotly/embedInDiv.md"
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "danfojsWalkthrought",
+                "title": "Use Danfo.js in Notebooks",
+                "description": "Getting started with danfo.js in node.js within a VS Code Notebooks",
+                "featuredFor": ["danfojs", "visualizations", "dataframes"],
+                "steps": [
+                    {
+                        "id": "danfojsHtmlOutput",
+                        "title": "View dataframe and series in HTML tables",
+                        "description": "This extension leverages the power of Notebooks to generate HTML outputs for dataframes and series when using danfo.js. Or [try it your self](command:node.notebook.sample.danfojs.htmlOutput)",
+                        "media": {
+                            "markdown": "resources/docs/danfojs/htmlOutput.md"
+                        }
+                    },
+                    {
+                        "id": "danfojsPlots",
+                        "title": "Generate and view danfo.js plots in node.js environments",
+                        "description": "This extension leverages the power of Notebooks to generate plots using danof.js in node.js, lifting the restriction to use the browser. Or [try it your self](command:node.notebook.sample.danfojs.plots)",
+                        "media": {
+                            "markdown": "resources/docs/danfojs/plots.md"
+                        }
+                    },
+                    {
+                        "id": "danfojsEmbedInDiv",
+                        "title": "Generate plots and embed in custom HTML output of other cells",
+                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.danfojs.embedInDiv)",
+                        "media": {
+                            "markdown": "resources/docs/danfojs/embedInDiv.md"
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "tensorflowWalkthrought",
+                "title": "Use Tensorflow.js in notebooks",
+                "description": "Use Tensorflow.js in node.js within VS Code Notebooks",
+                "featuredFor": ["tensorflow.js", "visualizations"],
+                "steps": [
+                    {
+                        "id": "tensorflowVis",
+                        "title": "View tensorflow visualizations in node.js",
+                        "description": "This extension leverages the power of Notebooks to bring tensorflow visulizations to node.js, which is currently limited to a browser. Or [try it your self](command:node.notebook.sample.tensorflow.sample)",
+                        "media": {
+                            "markdown": "resources/docs/tensorflow/sample.md"
+                        }
+                    },
+                    {
+                        "id": "tensorflowBoards",
+                        "title": "View Tensorboards for models trained in Tensorflow.js",
+                        "description": "View tensorboards in VS Code. Or [try it your self](command:node.notebook.sample.tensorflow.tensorboard)",
+                        "media": {
+                            "markdown": "resources/docs/tensorflow/tensorboard.md"
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "nodeNotebookWalkthrought",
+                "title": "Getting started with notebooks for node.js",
+                "description": "Use VS Code Notebooks to run/debug code in node.js with rich visualizations",
+                "featuredFor": ["node.js", "visualizations", "debug"],
+                "steps": [
+                    {
+                        "id": "nodeNotebookGettingStarted",
+                        "title": "Run javascript or typescript in node.js",
+                        "description": "Run javascript in node.js or even typescript without having to install a typescript compiler. Or [try it your self](command:node.notebook.sample.basics.sample)",
+                        "media": {
+                            "markdown": "resources/docs/basics/sample.md"
+                        }
+                    },
+                    {
+                        "id": "nodeNotebookRichOutput",
+                        "title": "Generate rich outputs in node.js",
+                        "description": "Unlock notebooks to generate rich outputs when running in node.js (images, html, markdown, etc). Or [try it your self](command:node.notebook.sample.basics.richOutput)",
+                        "media": {
+                            "markdown": "resources/docs/basics/richOutput.md"
+                        }
+                    },
+                    {
+                        "id": "nodeNotebookDebug",
+                        "title": "Debug typescript & javascript code node.js",
+                        "description": "You debug a mix of javascript/typescript in a notebook, along ith stepping into external javascript/typescript modules. Or [try it your self](command:node.notebook.sample.basics.debug)",
+                        "media": {
+                            "markdown": "resources/docs/basics/debug.md"
                         }
                     }
                 ]

@@ -1,0 +1,12 @@
+{
+    "cells": [
+        {
+            "language": "javascript",
+            "source": "function add(a, b) {\n    return a + b;\n}"
+        },
+        {
+            "language": "typescript",
+            "source": "const result = add(1, 2);\nconsole.log(result)"
+        }
+    ]
+}

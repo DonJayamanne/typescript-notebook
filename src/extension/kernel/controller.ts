@@ -80,8 +80,11 @@ export class Controller implements IDisposable {
     private interrupt(notebook: NotebookDocument) {
         CellExecutionQueue.get(notebook)?.dispose();
     }
-    private restart(uri: Uri) {
-        const notebook = workspace.notebookDocuments.find((item) => item.uri.toString() === uri.toString());
+    private restart(uri?: Uri) {
+        if (!uri) {
+            return;
+        }
+        const notebook = workspace.notebookDocuments.find((item) => item.uri.toString() === uri?.toString());
         if (!notebook) {
             return;
         }

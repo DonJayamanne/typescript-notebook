@@ -1,0 +1,16 @@
+{
+    "cells": [
+        {
+            "language": "shellscript",
+            "source": "## Uncomment this to install missing dependencies\n# npm install danfojs-node"
+        },
+        {
+            "language": "javascript",
+            "source": "import * as dfd from 'danfojs-node';\nconst df = await dfd.read_csv(\"https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv\");\ndf.head().print();"
+        },
+        {
+            "language": "javascript",
+            "source": "s = new dfd.Series([1, 3, 5, undefined, 6, 8])\ns.print()"
+        }
+    ]
+}
