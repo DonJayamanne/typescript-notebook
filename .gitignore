@@ -4,3 +4,5 @@ temp
 node_modules
 .vscode-test/
 *.vsix
+**/*.analyzer.html
+**/*.stats.json
