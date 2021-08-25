@@ -99,6 +99,10 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
             value: stringify(value) // We use this in case we have circular references in the Objects.
         };
     }
+    // If there's no output, then nothing to return.
+    if (typeof value === 'undefined') {
+        return;
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return ((value as any) || '').toString();
+    return { type: 'text', value: ((value as any) || '').toString() };
 }

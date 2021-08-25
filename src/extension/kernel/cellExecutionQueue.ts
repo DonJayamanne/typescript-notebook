@@ -103,10 +103,12 @@ export class CellExecutionQueue implements IDisposable {
                 }
                 try {
                     const result = await this.runCell(task, token);
+                    // We should only remove this item after running the cell.
+                    // Else if we hit the stop/interrupt button, then the existing cells will not be aborted.
+                    this.pendingCells.shift();
                     if (result == CellExecutionState.error) {
                         this.stop();
                     }
-                    this.pendingCells.shift();
                 } catch (ex) {
                     console.error('Error in running cells', ex);
                     this.stop();

@@ -30,6 +30,7 @@ export class CellOutput {
     private isTrainingHenceIgnoreEmptyLines?: boolean;
     private isJustAfterTraining?: boolean;
     private tempTask?: NotebookCellExecution;
+    private pendingPromises: (Promise<void> | Thenable<void>)[] = [];
     private readonly rendererComms = notebooks.createRendererMessaging('tensorflow-vis-renderer');
     private get task() {
         if (this.tempTask) {
@@ -68,11 +69,36 @@ export class CellOutput {
         this.ended = false;
         this.originalTask = task;
     }
+    private async waitForAllPendingPromisesToFinish() {
+        const pendingPromises = this.pendingPromises.slice();
+        if (pendingPromises.length === 0) {
+            return;
+        }
+        this.pendingPromises = [];
+        await Promise.all(
+            pendingPromises.map(async (item) => {
+                try {
+                    await item;
+                } catch {
+                    noop();
+                }
+            })
+        );
+        return this.waitForAllPendingPromisesToFinish();
+    }
     public end(success?: boolean, endTime?: number) {
         if (this.ended) {
             return;
         }
-        this.promise = this.promise.finally(() => {
+        this.promise = this.promise.finally(async () => {
+            // Even with the chaining the order isn't the way we want it.
+            // Its possible we call some API:
+            // Thats waiting on promise
+            // Next we end the task, that will then wait on this promise.
+            // After the first promise is resolved, it will immediatel come here.
+            // But even though the promise has been updated, its too late as we were merely waiting on the promise.
+            // What we need is a stack (or just wait on all pending promises).
+            await this.waitForAllPendingPromisesToFinish();
             this.ended = true;
             try {
                 this.originalTask.end(success, endTime);
@@ -119,38 +145,42 @@ export class CellOutput {
         }
         this.promise = this.promise
             .finally(() => {
-                // this.hasOutputOtherThanTfjsProgress = true;
-                value = Compiler.fixCellPathsInStackTrace(this.task.cell.notebook, value);
-                const cell = this.task.cell;
-                let output: NotebookCellOutput | undefined;
-                if (cell.outputs.length) {
-                    const lastOutput = cell.outputs[cell.outputs.length - 1];
-                    const expectedMime =
-                        stream === 'stdout'
-                            ? 'application/vnd.code.notebook.stdout'
-                            : 'application/vnd.code.notebook.stderr';
-                    if (lastOutput.items.length === 1 && lastOutput.items[0].mime === expectedMime) {
-                        output = lastOutput;
+                const promise = (() => {
+                    // this.hasOutputOtherThanTfjsProgress = true;
+                    value = Compiler.fixCellPathsInStackTrace(this.task.cell.notebook, value);
+                    const cell = this.task.cell;
+                    let output: NotebookCellOutput | undefined;
+                    if (cell.outputs.length) {
+                        const lastOutput = cell.outputs[cell.outputs.length - 1];
+                        const expectedMime =
+                            stream === 'stdout'
+                                ? 'application/vnd.code.notebook.stdout'
+                                : 'application/vnd.code.notebook.stderr';
+                        if (lastOutput.items.length === 1 && lastOutput.items[0].mime === expectedMime) {
+                            output = lastOutput;
+                        }
                     }
-                }
-                if (output) {
-                    const newText = `${output.items[0].data.toString()}${value}`;
-                    const item =
-                        stream === 'stderr'
-                            ? NotebookCellOutputItem.stderr(newText)
-                            : NotebookCellOutputItem.stdout(newText);
-                    return this.task
-                        .replaceOutputItems(item, output)
-                        .then(noop, (ex) => console.error('Failed to replace output items in CellOutput', ex));
-                } else {
-                    const item =
-                        stream === 'stderr'
-                            ? NotebookCellOutputItem.stderr(value)
-                            : NotebookCellOutputItem.stdout(value);
-                    return this.task
-                        .appendOutput(new NotebookCellOutput([item]))
-                        .then(noop, (ex) => console.error('Failed to append output items in CellOutput', ex));
-                }
+                    if (output) {
+                        const newText = `${output.items[0].data.toString()}${value}`;
+                        const item =
+                            stream === 'stderr'
+                                ? NotebookCellOutputItem.stderr(newText)
+                                : NotebookCellOutputItem.stdout(newText);
+                        return this.task
+                            .replaceOutputItems(item, output)
+                            .then(noop, (ex) => console.error('Failed to replace output items in CellOutput', ex));
+                    } else {
+                        const item =
+                            stream === 'stderr'
+                                ? NotebookCellOutputItem.stderr(value)
+                                : NotebookCellOutputItem.stdout(value);
+                        return this.task
+                            .appendOutput(new NotebookCellOutput([item]))
+                            .then(noop, (ex) => console.error('Failed to append output items in CellOutput', ex));
+                    }
+                })();
+                this.pendingPromises.push(promise);
+                return promise;
             })
             .finally(() => this.endTempTask());
     }
@@ -188,53 +218,62 @@ export class CellOutput {
                 //         }
                 //     }
                 // } else {
-                const individualOutputItems: DisplayData[] = [];
-                if (output.type === 'multi-mime') {
-                    individualOutputItems.push(...output.value);
-                } else {
-                    individualOutputItems.push(output);
-                }
-                const items = individualOutputItems.map((value) => {
-                    switch (value.type) {
-                        case 'image': {
-                            if (value.mime === 'svg+xml') {
-                                return new NotebookCellOutputItem(Buffer.from(value.value), 'text/html');
-                            } else {
-                                return new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
-                            }
-                        }
-                        case 'json':
-                        case 'array':
-                        case 'tensor':
-                            // We might end up sending strings, to avoid unnecessary issues with circular references in objects.
-                            return NotebookCellOutputItem.json(
-                                typeof value.value === 'string' ? JSON.parse(value.value) : value.value
-                            );
-                        case 'html':
-                            return NotebookCellOutputItem.text(value.value, 'text/html');
-                        case 'generatePlot': {
-                            const data = { ...value };
-                            return NotebookCellOutputItem.json(data, 'application/vnd.ts.notebook.plotly+json');
-                        }
-                        case 'tensorFlowVis': {
-                            if (value.request === 'registerFitCallback') {
-                                this.fitRegisteredPromises.set(value.requestId || '', createDeferred());
-                            }
-                            return NotebookCellOutputItem.json(value, 'application/vnd.tfjsvis');
-                        }
-                        case 'markdown': {
-                            return NotebookCellOutputItem.text(value.value, 'text/markdown');
-                        }
-                        default:
-                            return NotebookCellOutputItem.text(value.value.toString());
+                const promise = (() => {
+                    const individualOutputItems: DisplayData[] = [];
+                    if (output.type === 'multi-mime') {
+                        individualOutputItems.push(...output.value);
+                    } else {
+                        individualOutputItems.push(output);
                     }
-                });
-                if (items.length === 0) {
-                    return;
+                    const items = individualOutputItems.map((value) => {
+                        switch (value.type) {
+                            case 'image': {
+                                if (value.mime === 'svg+xml') {
+                                    return NotebookCellOutputItem.text(value.value, 'text/html');
+                                } else {
+                                    return new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
+                                }
+                            }
+                            case 'json':
+                            case 'array':
+                            case 'tensor':
+                                // We might end up sending strings, to avoid unnecessary issues with circular references in objects.
+                                return NotebookCellOutputItem.json(
+                                    typeof value.value === 'string' ? JSON.parse(value.value) : value.value
+                                );
+                            case 'html':
+                                // Left align all html.
+                                const style = '<style> table, th, tr { text-align: left; }</style>';
+                                return new NotebookCellOutputItem(Buffer.from(`${style}${value.value}`), 'text/html');
+                            case 'generatePlot': {
+                                const data = { ...value };
+                                return NotebookCellOutputItem.json(data, 'application/vnd.ts.notebook.plotly+json');
+                            }
+                            case 'tensorFlowVis': {
+                                if (value.request === 'registerFitCallback') {
+                                    this.fitRegisteredPromises.set(value.requestId || '', createDeferred());
+                                }
+                                return NotebookCellOutputItem.json(value, 'application/vnd.tfjsvis');
+                            }
+                            case 'markdown': {
+                                return NotebookCellOutputItem.text(value.value, 'text/markdown');
+                            }
+                            default:
+                                return NotebookCellOutputItem.text(value.value.toString());
+                        }
+                    });
+                    if (items.length === 0) {
+                        return;
+                    }
+                    // this.hasOutputOtherThanTfjsProgress = true;
+                    return this.task.appendOutput(new NotebookCellOutput(items)).then(noop, noop);
+                    // }
+                })();
+
+                if (promise) {
+                    this.pendingPromises.push(promise);
                 }
-                // this.hasOutputOtherThanTfjsProgress = true;
-                return this.task.appendOutput(new NotebookCellOutput(items)).then(noop, noop);
-                // }
+                return promise;
             })
             .finally(() => this.endTempTask());
     }
@@ -251,7 +290,9 @@ export class CellOutput {
                 newEx.stack = Compiler.fixCellPathsInStackTrace(this.task.cell.notebook, newEx);
                 const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
                 // this.hasOutputOtherThanTfjsProgress = true;
-                return this.task.appendOutput(output);
+                const promise = this.task.appendOutput(output);
+                this.pendingPromises.push(promise);
+                return promise;
             })
             .then(noop, (ex) => console.error('Failed to append the Error output in cellOutput', ex))
             .finally(() => this.endTempTask());

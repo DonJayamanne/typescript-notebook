@@ -2,6 +2,8 @@ import { RequestType, ResponseType } from './types';
 import * as WebSocket from 'ws';
 import { EventEmitter } from 'events';
 import { createDeferred } from '../coreUtils';
+import { format } from 'util';
+const stringify = require('json-stringify-safe');
 
 const ws = createDeferred<WebSocket>();
 const messagesToSend: ResponseType[] = [];
@@ -16,7 +18,15 @@ export function sendMessage(message: ResponseType) {
             if (!message) {
                 continue;
             }
-            websocket.send(JSON.stringify(message));
+            try {
+                websocket.send(stringify(message));
+            } catch (ex) {
+                sendMessage({
+                    type: 'logMessage',
+                    category: 'error',
+                    message: format(`Failed to send a message ${message.type}`, ex)
+                });
+            }
         }
     });
 }

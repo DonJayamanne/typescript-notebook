@@ -38,6 +38,7 @@ export class JavaScriptKernel implements IDisposable {
     private serverProcess?: ChildProcess;
     private startHandlingStreamOutput?: boolean;
     private disposed?: boolean;
+    private initialized = createDeferred<void>();
     private readonly _debugPort = createDeferred<number>();
     public get debugPort(): Promise<number> {
         return this._debugPort.promise;
@@ -112,6 +113,7 @@ export class JavaScriptKernel implements IDisposable {
         // We cannot stop execution of JS, hence ignore the cancellation token.
         _token: CancellationToken
     ): Promise<CellExecutionState> {
+        await this.initialized.promise;
         task.start(Date.now());
         // TODO: fix waiting on https://github.com/microsoft/vscode/issues/131123
         await task.clearOutput();
@@ -169,6 +171,7 @@ export class JavaScriptKernel implements IDisposable {
                         if (msg.type === 'initialized') {
                             this.startHandlingStreamOutput = true;
                             this._debugPort.resolve(debugPort);
+                            this.initialized.resolve();
                         }
                     } catch (ex) {
                         ServerLogger.appendLine(`Failed to handle message ${message}`);
@@ -219,13 +222,14 @@ export class JavaScriptKernel implements IDisposable {
                 }
             });
             this.serverProcess.stdout?.on('data', (data: Buffer | string) => {
+                data = data.toString();
                 if (this.startHandlingStreamOutput) {
                     const output = this.getCellOutput();
                     if (output) {
-                        output.appendStreamOutput(data.toString(), 'stdout');
+                        output.appendStreamOutput(data, 'stdout');
                     }
                 } else {
-                    ServerLogger.append(data.toString());
+                    ServerLogger.append(data);
                 }
             });
         });
@@ -259,7 +263,15 @@ export class JavaScriptKernel implements IDisposable {
                     getConfiguration().inlineTensorflowVisualizations &&
                     (message.request === 'history' ||
                         message.request === 'scatterplot' ||
+                        message.request === 'linechart' ||
+                        message.request === 'heatmap' ||
+                        message.request === 'layer' ||
+                        message.request === 'valuesDistribution' ||
+                        message.request === 'table' ||
+                        message.request === 'showPerClassAccuracy' ||
+                        message.request === 'histogram' ||
                         message.request === 'barchart' ||
+                        message.request === 'confusionMatrix' ||
                         message.request === 'modelSummary')
                 ) {
                     const item = this.tasks.get(message.requestId || '')?.stdOutput || this.getCellOutput();

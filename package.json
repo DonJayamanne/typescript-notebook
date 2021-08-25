@@ -190,6 +190,12 @@
                     "description": "Register ts-node that allows importing TypeScript modules without the user having to transpile TypeScript into JavaScript.",
                     "scope": "machine"
                 },
+                "node_notebook.shell.disablePseudoTerminal": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Disables the psuedo terminal (backed by node-pty). If disabled, will always use process based shells which won't provide the best experience.",
+                    "scope": "machine"
+                },
                 "node_notebook.inlineTensorflowVisualizations": {
                     "type": "boolean",
                     "default": true,
@@ -203,7 +209,10 @@
                 "id": "plotlyWalkthrough",
                 "title": "Use Plotly in Notebooks",
                 "description": "Getting started with Plotly in node.js within a VS Code Notebook",
-                "featuredFor": ["plotly", "visualizations"],
+                "featuredFor": [
+                    "plotly",
+                    "visualizations"
+                ],
                 "steps": [
                     {
                         "id": "plotlyGenerate",
@@ -235,7 +244,11 @@
                 "id": "danfojsWalkthrough",
                 "title": "Use Danfo.js in Notebooks",
                 "description": "Getting started with danfo.js in node.js within a VS Code Notebooks",
-                "featuredFor": ["danfojs", "visualizations", "dataframes"],
+                "featuredFor": [
+                    "danfojs",
+                    "visualizations",
+                    "dataframes"
+                ],
                 "steps": [
                     {
                         "id": "danfojsHtmlOutput",
@@ -267,7 +280,10 @@
                 "id": "tensorflowWalkthrough",
                 "title": "Use Tensorflow.js in notebooks",
                 "description": "Use Tensorflow.js in node.js within VS Code Notebooks",
-                "featuredFor": ["tensorflow.js", "visualizations"],
+                "featuredFor": [
+                    "tensorflow.js",
+                    "visualizations"
+                ],
                 "steps": [
                     {
                         "id": "tensorflowVis",
@@ -291,7 +307,11 @@
                 "id": "nodeNotebookWalkthrough",
                 "title": "Getting started with notebooks for node.js",
                 "description": "Use VS Code Notebooks to run/debug code in node.js with rich visualizations",
-                "featuredFor": ["node.js", "visualizations", "debug"],
+                "featuredFor": [
+                    "node.js",
+                    "visualizations",
+                    "debug"
+                ],
                 "steps": [
                     {
                         "id": "nodeNotebookGettingStarted",

@@ -8,6 +8,9 @@ export function getConfiguration(): Configuration {
     const config = workspace.getConfiguration('node_notebook', undefined);
     return {
         registerTsNode: config.get<boolean>('registerTsNode', true),
+        shell: {
+            disablePseudoTerminal: config.get<boolean>('shell.disablePseudoTerminal', false)
+        },
         inlineTensorflowVisualizations: config.get<boolean>('node_notebook.inlineTensorflowVisualizations', true),
         injectTsVis: false,
         injectPlotly: false,

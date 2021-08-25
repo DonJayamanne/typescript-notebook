@@ -3,5 +3,17 @@
     /* height: 100% !important; */
 }
 #tfjs-visor-container .visor .visor-controls {
-    display:none !important;
+    display: none !important;
+}
+/* Fix for https://github.com/microsoft/vscode/issues/131339 */
+table,
+th,
+tr {
+    text-align: left;
+}
+
+/* Tensor flow table headings should not have a white background */
+/* Problem is, in dark theme, the font color is white and this backtround makes the text difficult to read */
+table.tf-table thead tr th {
+    background-color: inherit;
 }

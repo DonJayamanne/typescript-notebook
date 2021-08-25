@@ -1,6 +1,8 @@
 import * as path from 'path';
 import { logErrorMessage } from '../logger';
 import type * as dfd from 'danfojs-node';
+import type { Configs } from 'danfojs-node/types/config/config';
+
 import { sendMessage } from '../comms';
 import { DanfoNodePlotter } from './danforPlotter';
 import { DisplayData } from '../types';
@@ -65,8 +67,14 @@ export class DanfoJsFormatter {
         if (this.isLoaded || this.failedToInject) {
             return;
         }
+        let config: Configs | undefined;
         if (danfoModule) {
             this.danfoJs = danfoModule;
+            try {
+                config = new (danfoModule as any).Configs();
+            } catch {
+                //
+            }
         }
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const loadedModules = Object.keys(require('module')._cache);
@@ -78,8 +86,8 @@ export class DanfoJsFormatter {
         try {
             // Get an instance of the danfo module (load it within the context of the VM, not in our code).
             if (this.danfoJs) {
-                hijackSeriesPrint(this.danfoJs);
-                hijackNDFramePrint(this.danfoJs);
+                hijackSeriesPrint(this.danfoJs, config);
+                hijackNDFramePrint(this.danfoJs, config);
             }
             // codeRunner("require('danfojs-node')").then((result) => {
             //     this.danfoJs = result as typeof dfd;
@@ -93,11 +101,11 @@ export class DanfoJsFormatter {
     }
 }
 
-function hijackSeriesPrint(danfoJs: typeof dfd) {
+function hijackSeriesPrint(danfoJs: typeof dfd, config?: Configs) {
     danfoJs.Series.prototype.print = function (this: dfd.Series) {
         // Always print the old format (this way user has text output & html).
         const rawText: string = this.toString();
-        const { html } = seriesToHtmlJson(this);
+        const { html } = seriesToHtmlJson(this, config);
         sendMessage({
             type: 'output',
             requestId: '',
@@ -125,11 +133,11 @@ function hijackSeriesPrint(danfoJs: typeof dfd) {
         return plotter;
     };
 }
-function hijackNDFramePrint(danfoJs: typeof dfd) {
+function hijackNDFramePrint(danfoJs: typeof dfd, config?: Configs) {
     danfoJs.DataFrame.prototype.print = function (this: dfd.DataFrame) {
         // Always print the old format (this way user has text output & html).
         const rawText: string = this.toString();
-        const { html } = frameToHtmlJson(this);
+        const { html } = frameToHtmlJson(this, config);
         sendMessage({
             type: 'output',
             requestId: '',
@@ -158,13 +166,10 @@ function hijackNDFramePrint(danfoJs: typeof dfd) {
         return plotter;
     };
 }
-function seriesToHtmlJson(series: dfd.Series): { html: string; json: any[] } {
-    const table_width = 20;
-    const table_truncate = 20;
-    const max_row = 100; //config.get_max_row;
+function seriesToHtmlJson(series: dfd.Series, config?: Configs): { html: string; json: any[] } {
+    const max_row = config?.table_max_row || 100; //config.get_max_row;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data_arr: any[] = [];
-    const table_config = {};
     const header = [''].concat(series.columns);
     let idx, data;
 
@@ -197,18 +202,14 @@ function seriesToHtmlJson(series: dfd.Series): { html: string; json: any[] } {
         rowsHtml.push(`<tr>${rowHtml}</tr>`);
     });
 
-    //set column width of all columns
-    table_config[0] = 10;
-    table_config[1] = { width: table_width, truncate: table_truncate };
-
     const headers = header.map((item) => `<th>${item}</th>`);
     const html = `<table><thead><tr>${headers.join('')}</tr><tbody>${rowsHtml.join('')}</tbody>`;
     return { html, json: rowsJson };
 }
 
-function frameToHtmlJson(df: dfd.DataFrame): { html: string; json: any[] } {
-    const max_col_in_console = 1000;
-    const max_row = 1000;
+function frameToHtmlJson(df: dfd.DataFrame, config?: Configs): { html: string; json: any[] } {
+    const max_col_in_console = config?.get_max_col_in_console || 100;
+    const max_row = config?.get_max_row || 100;
     // let data;
     type Row = string[];
     const data_arr: Row[] = [];

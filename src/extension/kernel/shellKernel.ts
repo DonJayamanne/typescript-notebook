@@ -20,6 +20,7 @@ import { quote } from 'shell-quote';
 import { IPty } from 'node-pty';
 import { noop } from '../coreUtils';
 import { getNextExecutionOrder } from './executionOrder';
+import { getConfiguration } from '../configuration';
 
 const shell = os.platform() === 'win32' ? 'powershell.exe' : process.env['SHELL'] || 'bash';
 const startSeparator = '51e9f0e8-77a0-4bf0-9733-335153be2ec0:Start';
@@ -179,6 +180,9 @@ class ShellPty {
     public static instance = new ShellPty();
     private static pty: typeof import('node-pty');
     public static available() {
+        if (getConfiguration().shell.disablePseudoTerminal) {
+            return false;
+        }
         if (ShellPty.pty) {
             return true;
         }
