@@ -225,41 +225,51 @@ export class CellOutput {
                     } else {
                         individualOutputItems.push(output);
                     }
-                    const items = individualOutputItems.map((value) => {
+                    const items: NotebookCellOutputItem[] = [];
+                    individualOutputItems.forEach((value) => {
                         switch (value.type) {
                             case 'image': {
                                 if (value.mime === 'svg+xml') {
-                                    return NotebookCellOutputItem.text(value.value, 'text/html');
+                                    return items.push(NotebookCellOutputItem.text(value.value, 'text/html'));
                                 } else {
-                                    return new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime);
+                                    return items.push(
+                                        new NotebookCellOutputItem(Buffer.from(value.value, 'base64'), value.mime)
+                                    );
                                 }
                             }
                             case 'json':
                             case 'array':
-                            case 'tensor':
+                            case 'tensor': {
                                 // We might end up sending strings, to avoid unnecessary issues with circular references in objects.
-                                return NotebookCellOutputItem.json(
-                                    typeof value.value === 'string' ? JSON.parse(value.value) : value.value
+                                return items.push(
+                                    NotebookCellOutputItem.json(
+                                        typeof value.value === 'string' ? JSON.parse(value.value) : value.value
+                                    )
                                 );
+                            }
                             case 'html':
                                 // Left align all html.
                                 const style = '<style> table, th, tr { text-align: left; }</style>';
-                                return new NotebookCellOutputItem(Buffer.from(`${style}${value.value}`), 'text/html');
+                                return items.push(
+                                    new NotebookCellOutputItem(Buffer.from(`${style}${value.value}`), 'text/html')
+                                );
                             case 'generatePlot': {
                                 const data = { ...value };
-                                return NotebookCellOutputItem.json(data, 'application/vnd.ts.notebook.plotly+json');
+                                return items.push(
+                                    NotebookCellOutputItem.json(data, 'application/vnd.ts.notebook.plotly+json')
+                                );
                             }
                             case 'tensorFlowVis': {
                                 if (value.request === 'registerFitCallback') {
                                     this.fitRegisteredPromises.set(value.requestId || '', createDeferred());
                                 }
-                                return NotebookCellOutputItem.json(value, 'application/vnd.tfjsvis');
+                                return items.push(NotebookCellOutputItem.json(value, 'application/vnd.tfjsvis'));
                             }
                             case 'markdown': {
-                                return NotebookCellOutputItem.text(value.value, 'text/markdown');
+                                return items.push(NotebookCellOutputItem.text(value.value, 'text/markdown'));
                             }
                             default:
-                                return NotebookCellOutputItem.text(value.value.toString());
+                                return items.push(NotebookCellOutputItem.text(value.value.toString()));
                         }
                     });
                     if (items.length === 0) {

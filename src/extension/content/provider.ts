@@ -1,9 +1,12 @@
+import { EOL } from 'os';
 import {
     CancellationToken,
     commands,
     ExtensionContext,
     NotebookCellData,
     NotebookCellKind,
+    NotebookCellOutput,
+    NotebookCellOutputItem,
     NotebookData,
     NotebookSerializer,
     workspace
@@ -15,9 +18,17 @@ type CellMetadata = {
     outputCollapsed?: boolean;
 };
 type Cell = {
-    source: string;
+    source: string[];
     language: string;
     metadata?: CellMetadata;
+    outputs: CellOutput[];
+};
+type CellOutput = {
+    items: CellOutputItem[];
+};
+type CellOutputItem = {
+    mime: string;
+    value: any;
 };
 export type TsNotebook = {
     cells: Cell[];
@@ -36,12 +47,13 @@ export class ContentProvider implements NotebookSerializer {
                     outputCollapsed: item.metadata?.outputCollapsed
                 };
                 const kind = item.language === 'markdown' ? NotebookCellKind.Markup : NotebookCellKind.Code;
-                const cell = new NotebookCellData(kind, item.source, item.language || 'javascript');
+                const source = typeof item.source === 'string' ? item.source : item.source.join(EOL);
+                const cell = new NotebookCellData(kind, source, item.language || 'javascript');
                 cell.metadata = metadata;
+                cell.outputs = (item.outputs || []).map(storageFormatToOutput);
                 return cell;
             });
-            const notebookData = new NotebookData(cells);
-            return notebookData;
+            return new NotebookData(cells);
         } catch (ex) {
             console.error('Failed to parse notebook contents', ex);
             return new NotebookData([]);
@@ -52,7 +64,8 @@ export class ContentProvider implements NotebookSerializer {
             cells: document.cells.map((nbCell) => {
                 const cell: Cell = {
                     language: nbCell.languageId,
-                    source: nbCell.value
+                    source: nbCell.value.split('/\r?\n/'),
+                    outputs: (nbCell.outputs || []).map(outputToStorageFormat)
                 };
                 const cellMetadata: CellMetadata = {};
                 if (nbCell.metadata?.inputCollapsed === true) {
@@ -74,7 +87,7 @@ export class ContentProvider implements NotebookSerializer {
     public static register(context: ExtensionContext) {
         context.subscriptions.push(
             workspace.registerNotebookSerializer('node-notebook', new ContentProvider(), {
-                transientOutputs: true,
+                transientOutputs: false,
                 transientDocumentMetadata: {}
             })
         );
@@ -88,4 +101,69 @@ export class ContentProvider implements NotebookSerializer {
             })
         );
     }
+}
+
+function outputItemToStorageFormat(outputItem: NotebookCellOutputItem): CellOutputItem {
+    if (
+        outputItem.mime === 'application/json' ||
+        outputItem.mime === 'application/vnd.ts.notebook.plotly+json' ||
+        outputItem.mime === 'application/vnd.code.notebook.error' ||
+        outputItem.mime === 'application/vnd.tfjsvis'
+    ) {
+        return {
+            mime: outputItem.mime,
+            value: JSON.parse(Buffer.from(outputItem.data).toString())
+        };
+    } else if (
+        outputItem.mime === 'image/png' ||
+        outputItem.mime === 'image/gif' ||
+        outputItem.mime === 'image/jpg' ||
+        outputItem.mime === 'image/jpeg'
+    ) {
+        return {
+            mime: outputItem.mime,
+            value: `data:${outputItem.mime};base64,${Buffer.from(outputItem.data).toString('base64')}`
+        };
+    } else {
+        const value = outputItem.data.toString();
+        return {
+            mime: outputItem.mime,
+            value: value.split('\n')
+        };
+    }
+}
+function storageFormatToOutputItem(outputItem: CellOutputItem): NotebookCellOutputItem {
+    if (
+        outputItem.mime === 'application/json' ||
+        outputItem.mime === 'application/vnd.ts.notebook.plotly+json' ||
+        outputItem.mime === 'application/vnd.tfjsvis'
+    ) {
+        return NotebookCellOutputItem.json(outputItem.value, outputItem.mime);
+    } else if (outputItem.mime === 'application/vnd.code.notebook.error') {
+        return NotebookCellOutputItem.error(outputItem.value);
+    } else if (
+        outputItem.mime === 'image/png' ||
+        outputItem.mime === 'image/gif' ||
+        outputItem.mime === 'image/jpg' ||
+        outputItem.mime === 'image/jpeg'
+    ) {
+        let base64 = outputItem.value as string;
+        base64 = base64.substring(base64.indexOf(',') + 1);
+        return new NotebookCellOutputItem(Buffer.from(base64, 'base64'), outputItem.mime);
+    } else {
+        const data = Array.isArray(outputItem.value) ? outputItem.value.join('\n') : outputItem.value;
+        return NotebookCellOutputItem.text(data, outputItem.mime);
+    }
+}
+function outputToStorageFormat(output: NotebookCellOutput): CellOutput {
+    const items = output.items.map(outputItemToStorageFormat);
+    return {
+        items
+    };
+}
+function storageFormatToOutput(output: CellOutput): NotebookCellOutput {
+    const items = output.items.map(storageFormatToOutputItem);
+    return {
+        items
+    };
 }

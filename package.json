@@ -67,7 +67,9 @@
         "onCommand:node.notebook.sample.basics.sample",
         "onCommand:node.notebook.sample.basics.richOutput",
         "onCommand:node.notebook.sample.basics.debug",
-        "onCommand:node.notebook.new"
+        "onCommand:node.notebook.new",
+        "onRenderer:node-notebook-plot-renderer",
+        "onRenderer:tensorflow-vis-renderer"
     ],
     "main": "./out/extension/index.js",
     "contributes": {

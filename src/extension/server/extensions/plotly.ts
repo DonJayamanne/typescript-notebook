@@ -12,6 +12,12 @@ export const Plotly = {
         layout: plotly.Layout,
         format: 'png' | 'svg' | 'jpeg' = 'png'
     ): Promise<string> {
+        // In case users forget and use the same args as newPlot
+        if (typeof data === 'string') {
+            data = layout as any;
+            layout = format as any;
+            format = 'png';
+        }
         const id = uuid().replace(/-/g, '');
         return new Promise<string>((resolve, reject) => {
             sendMessage({

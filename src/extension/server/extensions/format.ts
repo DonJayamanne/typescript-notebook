@@ -6,10 +6,12 @@ import { logMessage } from '../logger';
 import { DisplayData } from '../types';
 import { DanfoJsFormatter } from './danfoFormatter';
 import { formatTensor, isTensor } from './tensorFormatter';
-const stringify = require('json-stringify-safe');
 
 export function isBase64OrSvg(value: string) {
     return value.startsWith('data:image/') || (value.endsWith('</svg>') && value.includes('<svg'));
+}
+function utilInspect(value) {
+    return util.inspect(value, { colors: true, compact: false });
 }
 export async function formatImage(image: string | Buffer | Uint8Array): Promise<DisplayData | undefined> {
     if (typeof image !== 'string') {
@@ -83,20 +85,20 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
         return formatTensor(value);
     } else if (value && Array.isArray(value)) {
         return {
-            type: 'array',
-            value: stringify(value) // We use this in case we have circular references in the Objects.
+            type: 'text',
+            value: utilInspect(value) // stringify(value) // We use this in case we have circular references in the Objects.
         };
     } else if (value && DanfoJsFormatter.instance.canFormatAsDanfo(value)) {
         return DanfoJsFormatter.instance.formatDanfoObject(value);
     } else if (value && typeof value === 'object' && value.constructor?.name === 'Tensor') {
         return {
-            type: 'tensor',
-            value: stringify(value) // We use this in case we have circular references in the Objects.
+            type: 'text',
+            value: utilInspect(value) // We use this in case we have circular references in the Objects.
         };
     } else if (value && typeof value === 'object') {
         return {
-            type: 'json',
-            value: stringify(value) // We use this in case we have circular references in the Objects.
+            type: 'text',
+            value: utilInspect(value) // We use this in case we have circular references in the Objects.
         };
     }
     // If there's no output, then nothing to return.
@@ -104,5 +106,5 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
         return;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return { type: 'text', value: ((value as any) || '').toString() };
+    return { type: 'text', value: utilInspect(value) };
 }

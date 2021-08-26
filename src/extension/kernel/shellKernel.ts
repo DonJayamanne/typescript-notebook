@@ -69,7 +69,7 @@ export class ShellKernel {
  * The benefit is spinning node process is significantly faster & we're not expecting these to be slow with streaming output like `npm i` with progress bars.
  */
 const simpleSigleLineShellCommands = new Set<string>(
-    'git,echo,rm,cp,cd,ls,cat,pwd,ln,mkdir,nv,sed,set,cat,touch,grep,more,wc,df,tar,chown,chgrp,chmod,sort,tail,find,man,nano,rmdir,less,ssh,hostname,top,history,yppasswd,display,page,just,head,lpq,awk,split,gzip,kill,uptime,last,users,lun,vmstat,netstat,w,ps,date,reset,script,time,homequota,iostat,printenv,mail,ftp,tftp,sftp,rcp,scp,wget,curl,telnet,ssh,rlogin,rsh,make,size,nm,strip,who,pushd,popd,dirs'.split(
+    'git,echo,rm,cp,cd,ls,cat,pwd,ln,mkdir,nv,sed,set,cat,touch,grep,more,wc,df,tar,chown,chgrp,chmod,sort,tail,find,man,nano,rmdir,less,ssh,hostname,top,history,yppasswd,display,page,just,head,lpq,awk,split,gzip,kill,uptime,last,users,lun,vmstat,netstat,w,ps,date,reset,script,time,homequota,iostat,printenv,mail,ftp,tftp,sftp,rcp,scp,wget,curl,telnet,ssh,rlogin,rsh,make,size,nm,strip,who,pushd,popd,dirs,which'.split(
         ','
     )
 );
