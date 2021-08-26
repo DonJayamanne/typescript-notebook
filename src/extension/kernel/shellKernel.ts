@@ -180,7 +180,7 @@ class ShellPty {
     public static instance = new ShellPty();
     private static pty: typeof import('node-pty');
     public static available() {
-        if (getConfiguration().shell.disablePseudoTerminal) {
+        if (getConfiguration().disablePseudoTerminal) {
             return false;
         }
         if (ShellPty.pty) {

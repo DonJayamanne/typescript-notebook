@@ -21,9 +21,7 @@ import type {
 
 export type Configuration = {
     registerTsNode: boolean;
-    shell: {
-        disablePseudoTerminal: boolean;
-    };
+    disablePseudoTerminal: boolean;
     inlineTensorflowVisualizations: boolean;
     injectTsVis: boolean;
     injectPlotly: boolean;

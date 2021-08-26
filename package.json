@@ -192,7 +192,7 @@
                     "description": "Register ts-node that allows importing TypeScript modules without the user having to transpile TypeScript into JavaScript.",
                     "scope": "machine"
                 },
-                "node_notebook.shell.disablePseudoTerminal": {
+                "node_notebook.disablePseudoTerminal": {
                     "type": "boolean",
                     "default": false,
                     "description": "Disables the psuedo terminal (backed by node-pty). If disabled, will always use process based shells which won't provide the best experience.",
