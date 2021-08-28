@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { debug, NotebookDocument, Uri, ExtensionContext, workspace, DebugSession } from 'vscode';
 import { createDeferred, Deferred } from '../../coreUtils';
-import { JavaScriptKernel } from '../jsKernel';
+import type { JavaScriptKernel } from '../jsKernel';
 import { Debugger } from './debugger';
 
 const debuggersByNotebookId = new Map<
@@ -9,8 +9,7 @@ const debuggersByNotebookId = new Map<
     {
         notebook: NotebookDocument;
         kernel: JavaScriptKernel;
-        debugger?: Debugger;
-        debuggerPromise: Deferred<Debugger>;
+        debuggerAttached: Deferred<void>;
     }
 >();
 const debuggersByNotebook = new WeakMap<NotebookDocument, string>();
@@ -35,24 +34,27 @@ export class DebuggerFactory {
             }
         });
     }
-    public static get(notebook: NotebookDocument) {
-        const id = debuggersByNotebook.get(notebook);
-        return id ? debuggersByNotebookId.get(id)?.debugger : undefined;
+    public static isAttached(notebook: NotebookDocument) {
+        return !!debuggersByNotebookId.get(notebook.uri.toString());
     }
     public static async start(notebook: NotebookDocument, kernel: JavaScriptKernel) {
         let info = debuggersByNotebookId.get(notebook.uri.toString());
         if (info) {
-            return info.debuggerPromise.promise;
+            return info.debuggerAttached.promise;
         }
-        info = { notebook, debuggerPromise: createDeferred<Debugger>(), kernel };
+        info = {
+            notebook,
+            kernel,
+            debuggerAttached: createDeferred<void>()
+        };
         debuggersByNotebookId.set(notebook.uri.toString(), info);
-        info.debuggerPromise.promise.catch(() => {
+        info.debuggerAttached.promise.catch(() => {
             if (debuggersByNotebookId.get(notebook.uri.toString()) === info) {
                 debuggersByNotebookId.delete(notebook.uri.toString());
             }
         });
         DebuggerFactory.startInternal(notebook, kernel);
-        return info.debuggerPromise.promise;
+        return info.debuggerAttached.promise;
     }
     private static async startInternal(notebook: NotebookDocument, kernel: JavaScriptKernel) {
         const port = await kernel.debugPort;
@@ -90,9 +92,11 @@ export class DebuggerFactory {
                     if (!info || !__document) {
                         return undefined;
                     }
+                    // There are two debug sessions when debugging node.js
+                    // A wrapper and the real debug session.
+                    // Hence, remember the fact that we could have two debug trackers.
                     const jsDebugger = new Debugger(info.notebook, session, info.kernel);
-                    info.debugger = jsDebugger;
-                    info.debuggerPromise.resolve(jsDebugger);
+                    jsDebugger.ready.then(() => info.debuggerAttached.resolve());
                     debuggersBySession.set(session, __document);
                     debuggersByNotebook.set(info.notebook, __document);
                     return jsDebugger;

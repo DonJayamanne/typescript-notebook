@@ -1,14 +1,19 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { debug, NotebookDocument, NotebookCell, DebugSession, DebugAdapterTracker, Uri } from 'vscode';
+import { NotebookDocument, NotebookCell, DebugSession, DebugAdapterTracker, Uri } from 'vscode';
 import * as path from 'path';
 import { JavaScriptKernel } from '../jsKernel';
 import { Compiler } from '../compiler';
-import { noop } from '../../coreUtils';
+import { createDeferred, noop } from '../../coreUtils';
 
 const activeDebuggers = new WeakMap<NotebookDocument, Debugger>();
 
 export class Debugger implements DebugAdapterTracker {
+    public readonly _attached = createDeferred<void>();
+    private configurationDoneSequence = 0;
+    public get ready() {
+        return this._attached.promise;
+    }
     constructor(
         public readonly document: NotebookDocument,
         public readonly debugSession: DebugSession,
@@ -17,11 +22,8 @@ export class Debugger implements DebugAdapterTracker {
     ) {
         activeDebuggers.set(document, this);
     }
-    public stop() {
-        void debug.stopDebugging(this.debugSession);
-    }
     public onError?(error: Error): void {
-        console.error(error);
+        console.error('Error in debug adapter tracker', error);
     }
     public onWillReceiveMessage(message: DebugProtocol.ProtocolMessage) {
         // VS Code -> Debug Adapter
@@ -111,6 +113,24 @@ export class Debugger implements DebugAdapterTracker {
             },
             'DAPToVSCode'
         );
+        if (message.type === 'response') {
+            // There are two debug sessions when debugging node.js
+            // A wrapper and the real debug session.
+            // Hence, remember the fact that we could have two debug trackers.
+            // We are only interested in `attach` having been completed after we have received configuration done.
+            const response = message as DebugProtocol.Response;
+            if (
+                response.command === 'attach' &&
+                response.success &&
+                response.seq > this.configurationDoneSequence &&
+                this.configurationDoneSequence > 0
+            ) {
+                this._attached.resolve();
+            }
+            if (response.command === 'configurationDone' && response.success) {
+                this.configurationDoneSequence = response.seq;
+            }
+        }
     }
     /**
      * Store cell in temporary file and return its path or undefined if uri does not denote a cell.

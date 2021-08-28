@@ -80,7 +80,7 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
             logMessage('Unable to get type', ex);
         }
         // Return as plain text.
-        return { type: 'text', value: buffer.toString() };
+        return { type: 'text', value: utilInspect(value) };
     } else if (isTensor(value)) {
         return formatTensor(value);
     } else if (value && Array.isArray(value)) {

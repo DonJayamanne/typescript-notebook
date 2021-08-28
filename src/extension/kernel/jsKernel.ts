@@ -25,6 +25,8 @@ import { CodeObject, RequestType, ResponseType } from '../server/types';
 import { getConfiguration, writeConfigurationToTempFile } from '../configuration';
 import { quote } from 'shell-quote';
 import { getNextExecutionOrder } from './executionOrder';
+import { DebuggerFactory } from './debugger/debugFactory';
+import { EOL } from 'os';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
@@ -60,6 +62,7 @@ export class JavaScriptKernel implements IDisposable {
         stdOutput: CellOutput;
     };
     private lastStdOutput?: CellOutput;
+    private waitingForLastOutputMessage?: { expectedString: string; deferred: Deferred<void> };
     private readonly cwd?: string;
     constructor(private readonly notebook: NotebookDocument, private readonly controller: NotebookController) {
         this.cwd = getNotebookCwd(notebook);
@@ -122,6 +125,10 @@ export class JavaScriptKernel implements IDisposable {
             return CellExecutionState.notExecutedEmptyCell;
         }
         const requestId = generateId();
+        this.waitingForLastOutputMessage = {
+            expectedString: `d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${requestId}`,
+            deferred: createDeferred<void>()
+        };
         const result = createDeferred<CellExecutionState>();
         const stdOutput = CellOutput.getOrCreate(task, this.controller);
         this.currentTask = { task, requestId, result, stdOutput };
@@ -215,7 +222,38 @@ export class JavaScriptKernel implements IDisposable {
                 if (this.startHandlingStreamOutput) {
                     const output = this.getCellOutput();
                     if (output) {
-                        output.appendStreamOutput(data.toString(), 'stderr');
+                        data = data.toString();
+                        if (DebuggerFactory.isAttached(this.notebook)) {
+                            // When debugging we get messages of the form
+                            // Debugger listening on ws://127.0.0.1:60620/e2558def-1a2a-498a-861c-46a1f9eabd67
+                            // For help, see: https://nodejs.org/en/docs/inspector
+                            // Remove this.
+                            if (data.includes('Debugger listening on ws')) {
+                                const lines = data.split('\n');
+                                const indexOfLineWithDebuggerMessage = lines.findIndex((line) =>
+                                    line.startsWith('Debugger listening on ws:')
+                                );
+                                if (indexOfLineWithDebuggerMessage >= 0) {
+                                    lines.splice(indexOfLineWithDebuggerMessage, 2);
+                                }
+                                data = lines.join('\n');
+                            }
+                            // In case this message came separately.
+                            // For help, see: https://nodejs.org/en/docs/inspector
+                            if (data.includes('For help, see: https://nodejs.org/en/docs/inspector')) {
+                                const lines = data.split('\n');
+                                const indexOfLineWithDebuggerMessage = lines.findIndex((line) =>
+                                    line.startsWith('For help, see: https://nodejs.org/en/docs/inspector')
+                                );
+                                if (indexOfLineWithDebuggerMessage >= 0) {
+                                    lines.splice(indexOfLineWithDebuggerMessage, 1);
+                                }
+                                data = lines.join('\n');
+                            }
+                        }
+                        if (data.length > 0) {
+                            output.appendStreamOutput(data, 'stderr');
+                        }
                     }
                 } else {
                     ServerLogger.append(data.toString());
@@ -226,6 +264,14 @@ export class JavaScriptKernel implements IDisposable {
                 if (this.startHandlingStreamOutput) {
                     const output = this.getCellOutput();
                     if (output) {
+                        if (
+                            this.waitingForLastOutputMessage?.expectedString &&
+                            data.includes(this.waitingForLastOutputMessage.expectedString)
+                        ) {
+                            data = data.replace(`${this.waitingForLastOutputMessage.expectedString}${EOL}`, '');
+                            data = data.replace(`${this.waitingForLastOutputMessage.expectedString}`, '');
+                            this.waitingForLastOutputMessage.deferred.resolve();
+                        }
                         output.appendStreamOutput(data, 'stdout');
                     }
                 } else {
@@ -293,14 +339,29 @@ export class JavaScriptKernel implements IDisposable {
                 const item = this.tasks.get(message.requestId || '');
                 if (item) {
                     if (message.success == true && message.result) {
-                        item.stdOutput.appendOutput(message.result);
+                        const result = message.result;
+                        // Append output (like value of last expression in cell) after we've received all of the console outputs.
+                        if (this.waitingForLastOutputMessage) {
+                            this.waitingForLastOutputMessage?.deferred.promise.then(() =>
+                                item.stdOutput.appendOutput(result)
+                            );
+                        } else {
+                            item.stdOutput.appendOutput(result);
+                        }
                     }
                     if (message.success === false && message.ex) {
                         const responseEx = message.ex as unknown as Partial<Error>;
                         const error = new Error(responseEx.message || 'unknown');
                         error.name = responseEx.name || error.name;
                         error.stack = responseEx.stack || error.stack;
-                        item.stdOutput.appendError(error);
+                        // Append error after we've received all of the console outputs.
+                        if (this.waitingForLastOutputMessage) {
+                            this.waitingForLastOutputMessage?.deferred.promise.then(() =>
+                                item.stdOutput.appendError(error)
+                            );
+                        } else {
+                            item.stdOutput.appendError(error);
+                        }
                     }
                     const state = message.success ? CellExecutionState.success : CellExecutionState.error;
                     if (this.currentTask?.task === item.task) {

@@ -82,10 +82,13 @@ class VisorProxy {
 }
 class ShowProxy {
     public requestId: string = generateId();
-    // history: typeof history;
-    public fitCallbacks(container: SurfaceInfo, metrics: string[], opts?: {}): ReturnType<typeof fitCallbacks> {
+    public fitCallbacks(
+        container: SurfaceInfo,
+        metrics: string[],
+        opts?: { callbacks?: string[] }
+    ): ReturnType<typeof fitCallbacks> {
+        const callbackNames = opts?.callbacks || ['onEpochEnd', 'onBatchEnd'];
         const requestId = this.requestId;
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         sendMessage({
             type: 'tensorFlowVis',
             request: 'registerFitCallback',
@@ -94,49 +97,24 @@ class ShowProxy {
             metrics,
             opts
         });
-        const timeouts = new Map<string, any>();
-        const handler = {
-            get: function (_target, prop) {
-                return (iteration: number, log: Logs) => {
-                    if (!timeouts.has(prop)) {
-                        sendMessage({
-                            type: 'tensorFlowVis',
-                            request: 'fitCallback',
-                            container,
-                            requestId,
-                            handler: prop,
-                            iteration,
-                            log
-                        });
-                        return;
-                    }
-                    if (timeouts.has(prop)) {
-                        clearTimeout(timeouts.get(prop)!);
-                    }
-                    const timeout = setTimeout(() => {
-                        sendMessage({
-                            type: 'tensorFlowVis',
-                            request: 'fitCallback',
-                            container,
-                            requestId,
-                            handler: prop,
-                            iteration,
-                            log
-                        });
-                    }, 2000);
-                    timeouts.set(prop, timeout);
-                    // sendMessage({
-                    //     type: 'tensorFlowVis',
-                    //     request: 'fitCallback',
-                    //     container,
-                    //     handler: prop,
-                    //     iteration,
-                    //     log
-                    // });
-                };
-            }
-        };
-        return new Proxy({}, handler);
+        const handlers: ReturnType<typeof fitCallbacks> = {};
+        function createHandler(callbackName: string) {
+            return async (iteration: number, log: Logs) => {
+                sendMessage({
+                    type: 'tensorFlowVis',
+                    request: 'fitCallback',
+                    container,
+                    requestId,
+                    handler: callbackName,
+                    iteration,
+                    log
+                });
+            };
+        }
+        callbackNames.forEach((callbackName) => {
+            handlers[callbackName] = createHandler(callbackName);
+        });
+        return handlers;
     }
     public async history(container: SurfaceInfo | string, history: {}, metrics: string[], opts?: {}): Promise<void> {
         sendMessage({

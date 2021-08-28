@@ -13,13 +13,14 @@ import { IDisposable } from '../types';
 import { disposeAllDisposables, registerDisposable } from '../utils';
 import { CellExecutionQueue } from './cellExecutionQueue';
 import { resetExecutionOrder } from './executionOrder';
+import { JavaScriptKernel } from './jsKernel';
 
 export function isBrowserController(controller: NotebookController) {
     return controller.id.includes('-browser-');
 }
 export class Controller implements IDisposable {
     private static _tsNbController: NotebookController;
-    public static get typeScriptNotebookController(): NotebookController {
+    public static get nodeNotebookController(): NotebookController {
         return Controller._tsNbController;
     }
     private static _jupyterController: NotebookController;
@@ -90,5 +91,6 @@ export class Controller implements IDisposable {
         }
         resetExecutionOrder(notebook);
         CellExecutionQueue.get(notebook)?.dispose();
+        JavaScriptKernel.get(notebook)?.dispose();
     }
 }

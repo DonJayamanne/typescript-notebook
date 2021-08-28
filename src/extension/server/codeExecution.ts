@@ -148,7 +148,12 @@ export async function execCode(request: RunCellRequest): Promise<void> {
         request.requestId ?? TensorflowJsVisualizer.instance.show.requestId;
     for (const magicHandler of magics) {
         if (magicHandler.isMagicCommand(request)) {
-            return magicHandler.handleCommand(request, replServer);
+            try {
+                await magicHandler.handleCommand(request, replServer);
+            } finally {
+                console.log(`d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${request.requestId || ''}`);
+            }
+            return;
         }
     }
 
@@ -157,6 +162,26 @@ export async function execCode(request: RunCellRequest): Promise<void> {
         const { start, end, result } = await runCode(request.code);
         // Wait till we send all UI updates to extension before returning from here..
         await Utils.instance.updatesSent;
+        // Now its possible as part of the execution, some data was written to the console.
+        // Sometimes those messages written to the console get dispayed in the output after
+        // the last result (the value `result` below).
+        // E.g. assuem we have a cell as follows:
+        //
+        // var a = 1234;
+        // console.log('Hello World')
+        // a
+        //
+        // Since the variable `a` is the last line, just like in a repl, the value will be printed out.
+        // However, when we monitor output of the process, its possible that comes a little later (depends on when the buffer is flushed).
+        // Hence its possible we'd see `1234\nHello World`, i.e. things in reverse order.
+        // As a solution, we'll send a console.log<Special GUID><ExecutionCount>, if we see that, then we know we're ready to display messages
+        // received from kernel (i.e. displaying the value of the last line).
+        console.log(`d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${request.requestId || ''}`);
+
+        // Or another solution is to send the value of the last line (last expression)
+        // as an output on console.log
+        // But the problem with that is, this console.log could end up in the output of the next cell.
+
         const execResult: RunCellResponse = {
             requestId: request.requestId,
             success: true,
@@ -167,6 +192,7 @@ export async function execCode(request: RunCellRequest): Promise<void> {
         };
         sendMessage(execResult);
     } catch (ex) {
+        console.log(`d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${request.requestId || ''}`);
         const err = ex as Partial<Error> | undefined;
         const execResult: RunCellResponse = {
             requestId: request.requestId,

@@ -13,6 +13,14 @@ export const activate: ActivationFunction = (context) => {
     return {
         renderOutputItem(outputItem: OutputItem, element: HTMLElement) {
             const data = outputItem.json() as TensorFlowVis;
+
+            // tfvis sets max width to 550px.
+            // https://github.com/tensorflow/tfjs/blob/master/tfjs-vis/src/components/surface.tsx#L36
+            // modelSummary is an html table, no need to limit the width.
+            if (data.request !== 'modelSummary') {
+                element.style.maxWidth = '550px';
+            }
+
             switch (data.request) {
                 case 'history':
                     tfvis.show.history(
