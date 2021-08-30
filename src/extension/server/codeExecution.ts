@@ -11,6 +11,8 @@ import { Plotly } from './extensions/plotly';
 import { init as injectTslib } from '../../../resources/scripts/tslib';
 import { register as registerTsNode } from './tsnode';
 import { noop } from '../coreUtils';
+import { createConsoleOutputCompletedMarker } from '../const';
+import { DanfoNodePlotter } from './extensions/danforPlotter';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Module = require('module');
 
@@ -25,21 +27,21 @@ class Utils {
         }
         return (Utils._instance = new Utils());
     }
-    public get currentRequestId() {
-        return this._currentRequestId;
+    public static get requestId() {
+        return Utils._requestId;
     }
-    public set currentRequestId(value: string) {
-        if (value !== this._currentRequestId) {
+    public static set requestId(value: string) {
+        if (value !== Utils._requestId) {
             // Start a new chain of promises.
-            this.pendingDisplayUpdates = Promise.resolve();
+            Utils.pendingDisplayUpdates = Promise.resolve();
         }
-        this._currentRequestId = value;
+        Utils._requestId = value;
     }
-    private _currentRequestId = '';
-    public get updatesSent() {
-        return this.pendingDisplayUpdates.catch(() => noop()).then(() => noop());
+    private static _requestId = '';
+    public static get updatesSent() {
+        return Utils.pendingDisplayUpdates.catch(() => noop()).then(() => noop());
     }
-    private pendingDisplayUpdates = Promise.resolve();
+    private static pendingDisplayUpdates = Promise.resolve();
     public readonly Plotly = Plotly;
     public readonly display = {
         html: this.displayHtml.bind(this),
@@ -51,27 +53,35 @@ class Utils {
         png: this.displayImage.bind(this),
         svg: this.displayImage.bind(this),
         javascript: (script: string) =>
-            this.notifyDisplay({ type: 'html', value: `<script type='text/javascript'>${script}</script>` }),
+            this.notifyDisplay({
+                type: 'html',
+                value: `<script type='text/javascript'>${script}</script>`,
+                requestId: Utils.requestId
+            }),
         latex: noop,
-        markdown: (value: string) => this.notifyDisplay({ type: 'markdown', value }),
-        text: (value: string | Uint8Array) => this.notifyDisplay({ type: 'text', value: value.toString() })
+        markdown: (value: string) => this.notifyDisplay({ type: 'markdown', value, requestId: Utils.requestId }),
+        text: (value: string | Uint8Array) =>
+            this.notifyDisplay({ type: 'text', value: value.toString(), requestId: Utils.requestId })
     };
     public displayHtml(html: string) {
-        this.notifyDisplay({ type: 'html', value: html });
+        this.notifyDisplay({ type: 'html', value: html, requestId: Utils.requestId });
     }
     public displayImage(image: string | Buffer | Uint8Array) {
-        const requestId = this.currentRequestId;
-        const promise = formatImage(image).then((data) => (data ? this.notifyDisplay(data, requestId) : noop()));
-        this.pendingDisplayUpdates = this.pendingDisplayUpdates.finally(() => promise);
+        const promise = formatImage(image, Utils.requestId).then((data) => (data ? this.notifyDisplay(data) : noop()));
+        Utils.pendingDisplayUpdates = Utils.pendingDisplayUpdates.finally(() => promise);
     }
     // eslint-disable-next-line @typescript-eslint/ban-types
     public displayJson(json: string | Object) {
-        this.notifyDisplay({ type: 'json', value: typeof json === 'string' ? JSON.parse(json) : json });
+        this.notifyDisplay({
+            type: 'json',
+            value: typeof json === 'string' ? JSON.parse(json) : json,
+            requestId: Utils.requestId
+        });
     }
-    private notifyDisplay(data: DisplayData, requestId: string = this.currentRequestId) {
+    private notifyDisplay(data: DisplayData) {
         sendMessage({
             type: 'output',
-            requestId,
+            requestId: data.requestId || Utils.requestId,
             data
         });
     }
@@ -143,15 +153,17 @@ async function replEvalCode(code, _context, _filename, _callback) {
 
 const magics = [new VariableListingMagicCommandHandler()];
 export async function execCode(request: RunCellRequest): Promise<void> {
-    Utils.instance.currentRequestId = request.requestId ?? Utils.instance.currentRequestId;
-    TensorflowJsVisualizer.instance.show.requestId =
-        request.requestId ?? TensorflowJsVisualizer.instance.show.requestId;
+    Utils.requestId = request.requestId;
+    Plotly.requestId = request.requestId;
+    DanfoJsFormatter.requestId = request.requestId;
+    TensorflowJsVisualizer.requestId = request.requestId;
+    DanfoNodePlotter.requestId = request.requestId;
     for (const magicHandler of magics) {
         if (magicHandler.isMagicCommand(request)) {
             try {
                 await magicHandler.handleCommand(request, replServer);
             } finally {
-                console.log(`d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${request.requestId || ''}`);
+                console.log(createConsoleOutputCompletedMarker(request.requestId));
             }
             return;
         }
@@ -161,7 +173,7 @@ export async function execCode(request: RunCellRequest): Promise<void> {
     try {
         const { start, end, result } = await runCode(request.code);
         // Wait till we send all UI updates to extension before returning from here..
-        await Utils.instance.updatesSent;
+        await Utils.updatesSent;
         // Now its possible as part of the execution, some data was written to the console.
         // Sometimes those messages written to the console get dispayed in the output after
         // the last result (the value `result` below).
@@ -176,7 +188,7 @@ export async function execCode(request: RunCellRequest): Promise<void> {
         // Hence its possible we'd see `1234\nHello World`, i.e. things in reverse order.
         // As a solution, we'll send a console.log<Special GUID><ExecutionCount>, if we see that, then we know we're ready to display messages
         // received from kernel (i.e. displaying the value of the last line).
-        console.log(`d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${request.requestId || ''}`);
+        console.log(createConsoleOutputCompletedMarker(request.requestId));
 
         // Or another solution is to send the value of the last line (last expression)
         // as an output on console.log
@@ -185,14 +197,14 @@ export async function execCode(request: RunCellRequest): Promise<void> {
         const execResult: RunCellResponse = {
             requestId: request.requestId,
             success: true,
-            result: await formatValue(result),
+            result: await formatValue(result, request.requestId),
             type: 'cellExec',
             start,
             end
         };
         sendMessage(execResult);
     } catch (ex) {
-        console.log(`d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${request.requestId || ''}`);
+        console.log(createConsoleOutputCompletedMarker(request.requestId));
         const err = ex as Partial<Error> | undefined;
         const execResult: RunCellResponse = {
             requestId: request.requestId,
@@ -261,14 +273,22 @@ export async function execCode(request: RunCellRequest): Promise<void> {
 const originalLoad = Module._load;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 Module._load = function (request: any, parent: any) {
-    if (parent && request === '@tensorflow/tfjs-core' && parent.filename.includes('@tensorflow/tfjs-vis')) {
+    if (
+        parent &&
+        request === '@tensorflow/tfjs-core' &&
+        parent.filename.includes('@tensorflow/tfjs-vis') &&
+        !parent.filename.includes('@tensorflow/tfjs-vis/dist/util/math')
+    ) {
         return {};
     }
     if (request === 'node-kernel') {
         return Utils.instance;
     }
     if (request === '@tensorflow/tfjs-vis') {
-        return TensorflowJsVisualizer.instance;
+        const result = vm.runInNewContext("require('@tensorflow/tfjs-vis/dist/util/math');", replServer.context, {
+            displayErrors: false
+        });
+        return TensorflowJsVisualizer.initialize(result);
     }
     if (request === '@tensorflow/tfjs-node') {
         // injectCustomProgress();

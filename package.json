@@ -195,9 +195,24 @@
             {
                 "id": "tensorflow-vis-renderer",
                 "entrypoint": "./out/views/tfjsvisRenderer.js",
+                "requiresMessaging": "always",
                 "displayName": "Tensorflow Visualzation",
                 "mimeTypes": [
-                    "application/vnd.tfjsvis"
+                    "application/vnd.tfjsvis",
+                    "application/vnd.tfjsvis.registerfitcallback",
+                    "application/vnd.tfjsvis.fitcallback",
+                    "application/vnd.tfjsvis.history",
+                    "application/vnd.tfjsvis.table",
+                    "application/vnd.tfjsvis.histogram",
+                    "application/vnd.tfjsvis.modelsummary",
+                    "application/vnd.tfjsvis.linechart",
+                    "application/vnd.tfjsvis.scatterplot",
+                    "application/vnd.tfjsvis.confusionmatrix",
+                    "application/vnd.tfjsvis.heatmap",
+                    "application/vnd.tfjsvis.barchart",
+                    "application/vnd.tfjsvis.perclassaccuracy",
+                    "application/vnd.tfjsvis.valuesdistribution",
+                    "application/vnd.tfjsvis.layer"
                 ]
             }
         ],
@@ -344,7 +359,8 @@
         "prettier-fix": "prettier 'src/**/*.ts*' --write && prettier 'build/**/*.js' --write",
         "download-api": "vscode-dts dev",
         "postdownload-api": "vscode-dts main",
-        "postinstall": "npm run download-api && npm run installtsnode"
+        "fixNodeModule": "node build/fixNodeModules.js",
+        "postinstall": "npm run download-api && npm run installtsnode && npm run fixNodeModule"
     },
     "dependencies": {
         "@tensorflow/tfjs-vis": "^1.5.1",

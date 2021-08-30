@@ -32,14 +32,16 @@ function generatePlot(data, config, eleId: string) {
     `;
     sendMessage({
         type: 'output',
-        requestId: '',
+        requestId: DanfoNodePlotter.requestId,
         data: {
             type: 'html',
-            value: html
+            value: html,
+            requestId: DanfoNodePlotter.requestId
         }
     });
 }
 export class DanfoNodePlotter {
+    public static requestId: string = '';
     constructor(private readonly ndframe, private readonly danfojs: typeof dfd, private readonly div: string = '') {}
 
     line(config = {}) {

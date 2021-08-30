@@ -31,7 +31,7 @@ export type Configuration = {
 
 type BaseMessage<T extends string, B = {}> = {
     type: T;
-    requestId?: string;
+    requestId: string;
 } & B;
 export type CodeObject = {
     code: string;
@@ -61,7 +61,7 @@ export type TensorFlowVisRequest = BaseMessage<
     | { request: 'modelSummary'; requestId: string; success: boolean; error?: Error }
     | { request: 'layer'; requestId: string; success: boolean; error?: Error }
     | { request: 'valuesDistribution'; requestId: string; success: boolean; error?: Error }
-    | { request: 'showPerClassAccuracy'; requestId: string; success: boolean; error?: Error }
+    | { request: 'perclassaccuracy'; requestId: string; success: boolean; error?: Error }
     | { request: 'heatmap'; requestId: string; success: boolean; error?: Error }
 >;
 
@@ -74,7 +74,6 @@ export type ResponseType =
     | Initialized
     | OutputResponse
     | PlotGenerated
-    | BaseMessage<'tensorflowProgress', { value: string }>
     | TensorFlowVis;
 export type LogMessage = BaseMessage<
     'logMessage',
@@ -120,7 +119,6 @@ export type DisplayData =
     | GeneratePlot
     | TensorFlowVis
     | MarkdownData
-    | BaseMessage<'tensorflowProgress', { value: string }>
     | MultiMimeOutput;
 type MultiMimeOutput = BaseMessage<'multi-mime', { value: DisplayData[] }>;
 type Base64OrSVGImage = BaseMessage<'image', { value: string; mime: string }>;
@@ -203,7 +201,7 @@ export type TensorFlowScatterPlot = BaseMessage<
 export type TensorFlowConfusionMatrix = BaseMessage<
     'tensorFlowVis',
     {
-        request: 'confusionMatrix';
+        request: 'confusionmatrix';
         container: SurfaceInfo | string;
         data: ConfusionMatrixData;
         opts?: ConfusionMatrixOptions;
@@ -234,7 +232,7 @@ export type TensorFlowBarChart = BaseMessage<
 export type TensorFlowModelSummary = BaseMessage<
     'tensorFlowVis',
     {
-        request: 'modelSummary';
+        request: 'modelsummary';
         container: SurfaceInfo | string;
         model: LayersModel;
     }
@@ -242,7 +240,7 @@ export type TensorFlowModelSummary = BaseMessage<
 export type TensorFlowRegisterFitCallback = BaseMessage<
     'tensorFlowVis',
     {
-        request: 'registerFitCallback';
+        request: 'registerfitcallback';
         container: SurfaceInfo | string;
         metrics: string[];
         opts?: {};
@@ -251,7 +249,7 @@ export type TensorFlowRegisterFitCallback = BaseMessage<
 export type TensorFlowFitCallback = BaseMessage<
     'tensorFlowVis',
     {
-        request: 'fitCallback';
+        request: 'fitcallback';
         container: SurfaceInfo | string;
         handler: string;
         iteration: number;
@@ -259,7 +257,7 @@ export type TensorFlowFitCallback = BaseMessage<
     }
 >;
 export type TensorFlowVis =
-    | BaseMessage<'tensorFlowVis', { request: 'setActiveTab'; tabName: string }>
+    | BaseMessage<'tensorFlowVis', { request: 'setactivetab'; tabName: string }>
     | BaseMessage<'tensorFlowVis', { request: 'show' }>
     | TensorFlowRegisterFitCallback
     | TensorFlowFitCallback
@@ -275,7 +273,7 @@ export type TensorFlowVis =
     | BaseMessage<
           'tensorFlowVis',
           {
-              request: 'showPerClassAccuracy';
+              request: 'perclassaccuracy';
               container: SurfaceInfo | string;
               classAccuracy: Array<{
                   accuracy: number;
@@ -287,7 +285,7 @@ export type TensorFlowVis =
     | BaseMessage<
           'tensorFlowVis',
           {
-              request: 'valuesDistribution';
+              request: 'valuesdistribution';
               container: SurfaceInfo | string;
               tensor: Tensor;
           }

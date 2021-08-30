@@ -108,7 +108,7 @@ function outputItemToStorageFormat(outputItem: NotebookCellOutputItem): CellOutp
         outputItem.mime === 'application/json' ||
         outputItem.mime === 'application/vnd.ts.notebook.plotly+json' ||
         outputItem.mime === 'application/vnd.code.notebook.error' ||
-        outputItem.mime === 'application/vnd.tfjsvis'
+        outputItem.mime.startsWith('application/vnd.tfjsvis')
     ) {
         return {
             mime: outputItem.mime,
@@ -136,7 +136,7 @@ function storageFormatToOutputItem(outputItem: CellOutputItem): NotebookCellOutp
     if (
         outputItem.mime === 'application/json' ||
         outputItem.mime === 'application/vnd.ts.notebook.plotly+json' ||
-        outputItem.mime === 'application/vnd.tfjsvis'
+        outputItem.mime.startsWith('application/vnd.tfjsvis')
     ) {
         return NotebookCellOutputItem.json(outputItem.value, outputItem.mime);
     } else if (outputItem.mime === 'application/vnd.code.notebook.error') {

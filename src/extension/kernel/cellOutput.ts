@@ -5,15 +5,20 @@ import {
     NotebookCellOutput,
     NotebookCellOutputItem,
     NotebookController,
+    NotebookDocument,
     notebooks
 } from 'vscode';
 import { CellDiagnosticsProvider } from './problems';
 import { Compiler } from './compiler';
-import { DisplayData } from '../server/types';
-import { createDeferred, Deferred, noop } from '../coreUtils';
-import { EOL } from 'os';
+import { DisplayData, TensorFlowVis } from '../server/types';
+import { createDeferred, Deferred, noop, sleep } from '../coreUtils';
 
 const taskMap = new WeakMap<NotebookCell, CellOutput>();
+const tfVisContainersInACell = new WeakMap<NotebookCell, Set<string>>();
+const NotebookTfVisOutputsByContainer = new WeakMap<
+    NotebookDocument,
+    Map<string, { cell: NotebookCell; output: NotebookCellOutput; deferred: Deferred<void> }>
+>();
 /**
  * Deals with adding outputs to the cells.
  * Slow & inefficient implementation of appending outputs.
@@ -21,16 +26,24 @@ const taskMap = new WeakMap<NotebookCell, CellOutput>();
 export class CellOutput {
     private ended?: boolean;
     private promise = Promise.resolve();
-    private fitRegisteredPromises = new Map<string, Deferred<void>>();
-    /**
-     * Hacky fix for known VS Code issues.
-     * Easier to use replace all output instead of replacing output items in a specific output.
-     */
-    // private hasOutputOtherThanTfjsProgress?: boolean;
-    private isTrainingHenceIgnoreEmptyLines?: boolean;
-    private isJustAfterTraining?: boolean;
+    private readonly cell: NotebookCell;
+    public static reset(notebook: NotebookDocument) {
+        NotebookTfVisOutputsByContainer.delete(notebook);
+        notebook.getCells().forEach((cell) => taskMap.delete(cell));
+    }
+    public static resetCell(cell: NotebookCell) {
+        tfVisContainersInACell.delete(cell);
+    }
+    private get outputsByTfVisContainer() {
+        if (!NotebookTfVisOutputsByContainer.has(this.cell.notebook)) {
+            NotebookTfVisOutputsByContainer.set(
+                this.cell.notebook,
+                new Map<string, { cell: NotebookCell; output: NotebookCellOutput; deferred: Deferred<void> }>()
+            );
+        }
+        return NotebookTfVisOutputsByContainer.get(this.cell.notebook)!;
+    }
     private tempTask?: NotebookCellExecution;
-    private pendingPromises: (Promise<void> | Thenable<void>)[] = [];
     private readonly rendererComms = notebooks.createRendererMessaging('tensorflow-vis-renderer');
     private get task() {
         if (this.tempTask) {
@@ -39,8 +52,8 @@ export class CellOutput {
         try {
             // Once the original task has been ended, we need to create a temporary task.
             if (this.ended) {
-                this.tempTask = this.controller.createNotebookCellExecution(this.originalTask.cell);
-                this.tempTask.start(this.originalTask.cell.executionSummary?.timing?.startTime);
+                this.tempTask = this.controller.createNotebookCellExecution(this.cell);
+                this.tempTask.start(this.cell.executionSummary?.timing?.startTime);
                 this.tempTask.executionOrder = this.originalTask.executionOrder;
                 return this.tempTask;
             }
@@ -50,18 +63,18 @@ export class CellOutput {
         return this.originalTask;
     }
     constructor(private originalTask: NotebookCellExecution, private readonly controller: NotebookController) {
+        this.cell = originalTask.cell;
         this.rendererComms.onDidReceiveMessage((e) => {
             if (typeof e.message !== 'object' || !e.message) {
                 return;
             }
             type Message = {
-                type: 'tensorFlowVis';
-                requestId: string;
-                message: 'registerFitCallback';
+                containerId: string;
+                type: 'tfvisCleared';
             };
             const message = e.message as Message;
-            if (message.message === 'registerFitCallback') {
-                this.fitRegisteredPromises.get(message.requestId)?.resolve();
+            if (message.type === 'tfvisCleared') {
+                this.outputsByTfVisContainer.delete(message.containerId);
             }
         });
     }
@@ -70,43 +83,27 @@ export class CellOutput {
         this.originalTask = task;
     }
     private async waitForAllPendingPromisesToFinish() {
-        const pendingPromises = this.pendingPromises.slice();
-        if (pendingPromises.length === 0) {
-            return;
-        }
-        this.pendingPromises = [];
-        await Promise.all(
-            pendingPromises.map(async (item) => {
-                try {
-                    await item;
-                } catch {
-                    noop();
-                }
-            })
-        );
-        return this.waitForAllPendingPromisesToFinish();
+        await this.promise.catch(noop);
     }
-    public end(success?: boolean, endTime?: number) {
+    public async end(success?: boolean, endTime?: number) {
         if (this.ended) {
             return;
         }
-        this.promise = this.promise.finally(async () => {
-            // Even with the chaining the order isn't the way we want it.
-            // Its possible we call some API:
-            // Thats waiting on promise
-            // Next we end the task, that will then wait on this promise.
-            // After the first promise is resolved, it will immediatel come here.
-            // But even though the promise has been updated, its too late as we were merely waiting on the promise.
-            // What we need is a stack (or just wait on all pending promises).
-            await this.waitForAllPendingPromisesToFinish();
-            this.ended = true;
-            try {
-                this.originalTask.end(success, endTime);
-            } catch (ex) {
-                console.error('Failed to end task', ex);
-            }
-        });
-        taskMap.delete(this.originalTask.cell);
+        // Even with the chaining the order isn't the way we want it.
+        // Its possible we call some API:
+        // Thats waiting on promise
+        // Next we end the task, that will then wait on this promise.
+        // After the first promise is resolved, it will immediatel come here.
+        // But even though the promise has been updated, its too late as we were merely waiting on the promise.
+        // What we need is a stack (or just wait on all pending promises).
+        await this.waitForAllPendingPromisesToFinish();
+        this.ended = true;
+        try {
+            this.originalTask.end(success, endTime);
+        } catch (ex) {
+            console.error('Failed to end task', ex);
+        }
+        taskMap.delete(this.cell);
     }
     public static getOrCreate(task: NotebookCellExecution, controller: NotebookController) {
         taskMap.set(task.cell, taskMap.get(task.cell) || new CellOutput(task, controller));
@@ -115,118 +112,173 @@ export class CellOutput {
         return output;
     }
     public appendStreamOutput(value: string, stream: 'stdout' | 'stderr') {
-        // For some reason, when training in tensforflow, we get empty lines from the process.
-        // Some code in tfjs is writing empty lines into console window. no idea where.
-        // Even if logging is disabled, we get them.
-        // This results in ugly long empty oututs.
-        // Solution, swallow this new lines.
-        if (value.includes('d1786f7c-d2ed-4a27-bd8a-ce19f704d4d0')) {
-            this.isTrainingHenceIgnoreEmptyLines = true;
-            this.isJustAfterTraining = false;
-            value = value.replace(`d1786f7c-d2ed-4a27-bd8a-ce19f704d4d0${EOL}`, '');
-            if (value.length === 0) {
-                return;
-            }
-        }
-        if (value.includes('1f3dd592-7812-4461-b82c-3573643840ed')) {
-            this.isTrainingHenceIgnoreEmptyLines = false;
-            this.isJustAfterTraining = true;
-            value = value.replace(`1f3dd592-7812-4461-b82c-3573643840ed${EOL}`, '');
-            if (value.length === 0) {
-                return;
-            }
-        }
-        if (this.isTrainingHenceIgnoreEmptyLines && value.trim().length === 0) {
-            return;
-        }
-        // Sometimes we get the empty lines just after training. Weird.
-        if (this.isJustAfterTraining && value.replace(/\r?\n/g, '').length === 0) {
+        if (value.length === 0) {
             return;
         }
         this.promise = this.promise
-            .finally(() => {
-                const promise = (() => {
-                    // this.hasOutputOtherThanTfjsProgress = true;
-                    value = Compiler.fixCellPathsInStackTrace(this.task.cell.notebook, value);
-                    const cell = this.task.cell;
-                    let output: NotebookCellOutput | undefined;
-                    if (cell.outputs.length) {
-                        const lastOutput = cell.outputs[cell.outputs.length - 1];
-                        const expectedMime =
-                            stream === 'stdout'
-                                ? 'application/vnd.code.notebook.stdout'
-                                : 'application/vnd.code.notebook.stderr';
-                        if (lastOutput.items.length === 1 && lastOutput.items[0].mime === expectedMime) {
-                            output = lastOutput;
-                        }
+            .finally(async () => {
+                value = Compiler.fixCellPathsInStackTrace(this.cell.notebook, value);
+                const cell = this.task.cell;
+                let output: NotebookCellOutput | undefined;
+                if (cell.outputs.length) {
+                    const lastOutput = cell.outputs[cell.outputs.length - 1];
+                    const expectedMime =
+                        stream === 'stdout'
+                            ? 'application/vnd.code.notebook.stdout'
+                            : 'application/vnd.code.notebook.stderr';
+                    if (lastOutput.items.length === 1 && lastOutput.items[0].mime === expectedMime) {
+                        output = lastOutput;
                     }
-                    if (output) {
-                        const newText = `${output.items[0].data.toString()}${value}`;
-                        const item =
-                            stream === 'stderr'
-                                ? NotebookCellOutputItem.stderr(newText)
-                                : NotebookCellOutputItem.stdout(newText);
-                        return this.task
-                            .replaceOutputItems(item, output)
-                            .then(noop, (ex) => console.error('Failed to replace output items in CellOutput', ex));
-                    } else {
-                        const item =
-                            stream === 'stderr'
-                                ? NotebookCellOutputItem.stderr(value)
-                                : NotebookCellOutputItem.stdout(value);
-                        return this.task
-                            .appendOutput(new NotebookCellOutput([item]))
-                            .then(noop, (ex) => console.error('Failed to append output items in CellOutput', ex));
-                    }
-                })();
-                this.pendingPromises.push(promise);
-                return promise;
+                }
+                if (output && this.cell.outputs) {
+                    const newText = `${output.items[0].data.toString()}${value}`;
+                    const item =
+                        stream === 'stderr'
+                            ? NotebookCellOutputItem.stderr(newText)
+                            : NotebookCellOutputItem.stdout(newText);
+                    await this.task
+                        .replaceOutputItems(item, output)
+                        .then(noop, (ex) => console.error('Failed to replace output items in CellOutput', ex));
+                } else {
+                    const item =
+                        stream === 'stderr'
+                            ? NotebookCellOutputItem.stderr(value)
+                            : NotebookCellOutputItem.stdout(value);
+                    await this.task
+                        .appendOutput(new NotebookCellOutput([item]))
+                        .then(noop, (ex) => console.error('Failed to append output items in CellOutput', ex));
+                }
             })
             .finally(() => this.endTempTask());
     }
-    // private lastProgressOutput?: { output: NotebookCellOutput; value: string };
-    public appendOutput(output: DisplayData) {
-        // if (output.type === 'tensorFlowVis' && output.request === 'fitCallback') {
-        //     this.fitRegisteredPromises.get(output.requestId || '')?.promise.then(() => {
-        //         this.rendererComms.postMessage(output);
-        //     });
-        //     return;
-        // }
-
+    public appendTensorflowVisOutput(output: DisplayData) {
+        const individualOutputItems: TensorFlowVis[] = [];
+        if (output.type === 'multi-mime') {
+            individualOutputItems.push(...(output.value.filter((item) => item.type === 'tensorFlowVis') as any));
+        } else if (output.type === 'tensorFlowVis') {
+            individualOutputItems.push(output as any);
+        }
+        if (individualOutputItems.length === 0) {
+            return;
+        }
         this.promise = this.promise
-            .finally(() => {
-                // if (output.type === 'tensorflowProgress') {
-                //     if (this.lastProgressOutput) {
-                //         const text = output.value.startsWith('Epoch')
-                //             ? output.value
-                //             : `${this.lastProgressOutput.value}${output.value}`;
-                //         const item = NotebookCellOutputItem.stdout(text);
-                //         if (this.hasOutputOtherThanTfjsProgress) {
-                //             return this.task.replaceOutputItems(item, this.lastProgressOutput.output).then(noop, noop);
-                //         } else {
-                //             return this.task.replaceOutput(this.lastProgressOutput?.output).then(noop, noop);
-                //         }
-                //     } else {
-                //         this.lastProgressOutput = {
-                //             output: new NotebookCellOutput([NotebookCellOutputItem.stdout(output.value)]),
-                //             value: output.value
-                //         };
-                //         if (this.hasOutputOtherThanTfjsProgress) {
-                //             return this.task.appendOutput(this.lastProgressOutput?.output).then(noop, noop);
-                //         } else {
-                //             return this.task.replaceOutput(this.lastProgressOutput?.output).then(noop, noop);
-                //         }
-                //     }
-                // } else {
-                const promise = (() => {
-                    const individualOutputItems: DisplayData[] = [];
-                    if (output.type === 'multi-mime') {
-                        individualOutputItems.push(...output.value);
-                    } else {
-                        individualOutputItems.push(output);
-                    }
-                    const items: NotebookCellOutputItem[] = [];
-                    individualOutputItems.forEach((value) => {
+            .finally(async () => {
+                await Promise.all(
+                    individualOutputItems.map(async (value) => {
+                        switch (value.request) {
+                            case 'layer': {
+                                // TODO: Special, as we need to send the tensor info.
+                                return;
+                            }
+                            case 'barchart':
+                            case 'confusionmatrix':
+                            case 'heatmap':
+                            case 'histogram':
+                            case 'modelsummary':
+                            case 'history':
+                            case 'linechart':
+                            case 'perclassaccuracy':
+                            case 'valuesdistribution':
+                            case 'table':
+                            case 'scatterplot':
+                            case 'registerfitcallback': {
+                                const containerId = JSON.stringify(value.container);
+                                const existingInfo = this.outputsByTfVisContainer.get(containerId);
+                                if (existingInfo) {
+                                    // If the output exists & we're just updating that,
+                                    // then send a message to that renderer (faster to update).
+                                    if (
+                                        existingInfo.cell.outputs.find(
+                                            (item) => item.metadata?.containerId === containerId
+                                        )
+                                    ) {
+                                        this.rendererComms.postMessage({
+                                            ...value
+                                        });
+                                        return;
+                                    }
+                                    // If it hasn't been rendered yet, then wait 5s for it to get rendered.
+                                    // If still not rendered, then just render a whole new item.
+                                    // Its possible the user hit the clear outputs button.
+                                    if (!existingInfo.deferred.completed) {
+                                        await Promise.race([existingInfo.deferred.promise, sleep(5_000)]);
+                                    }
+                                    if (
+                                        existingInfo.cell.outputs.find(
+                                            (item) => item.metadata?.containerId === containerId
+                                        )
+                                    ) {
+                                        this.rendererComms.postMessage({
+                                            ...value
+                                        });
+                                        return;
+                                    }
+                                    // Perhaps the user cleared the outputs.
+                                }
+                                // Create a new output item to render this information.
+                                const tfVisOutputToAppend = new NotebookCellOutput(
+                                    [
+                                        NotebookCellOutputItem.json(
+                                            value,
+                                            `application/vnd.tfjsvis.${value.request.toLowerCase()}`
+                                        )
+                                    ],
+                                    { containerId, requestId: value.requestId }
+                                );
+                                this.outputsByTfVisContainer.set(containerId, {
+                                    cell: this.cell,
+                                    output: tfVisOutputToAppend,
+                                    deferred: createDeferred<void>()
+                                });
+                                await this.task.appendOutput(tfVisOutputToAppend).then(noop, noop);
+                                // Wait for output to get created.
+                                if (
+                                    this.cell.outputs.find((item) => item.metadata?.containerId === containerId) &&
+                                    this.outputsByTfVisContainer.get(containerId)
+                                ) {
+                                    this.outputsByTfVisContainer.get(containerId)?.deferred.resolve();
+                                }
+                                return;
+                            }
+                            case 'fitcallback': {
+                                // Look for this output.
+                                const containerId = JSON.stringify(value.container);
+                                const existingInfo = this.outputsByTfVisContainer.get(containerId);
+                                if (existingInfo) {
+                                    // Wait till the UI element is rendered by the renderer.
+                                    // & Once rendered, we can send a message instead of rendering outputs.
+                                    existingInfo?.deferred.promise.finally(() =>
+                                        this.rendererComms.postMessage({
+                                            ...value
+                                        })
+                                    );
+                                }
+                                return;
+                            }
+                            case 'show':
+                            case 'setactivetab': {
+                                return;
+                            }
+                            default:
+                                break;
+                        }
+                    })
+                );
+            })
+            .finally(() => this.endTempTask());
+    }
+    public appendOutput(output: DisplayData) {
+        this.promise = this.promise
+            .finally(async () => {
+                const individualOutputItems: DisplayData[] = [];
+                if (output.type === 'multi-mime') {
+                    individualOutputItems.push(...output.value);
+                } else {
+                    individualOutputItems.push(output);
+                }
+                const items: NotebookCellOutputItem[] = [];
+                await Promise.all(
+                    individualOutputItems.map(async (value) => {
                         switch (value.type) {
                             case 'image': {
                                 if (value.mime === 'svg+xml') {
@@ -260,10 +312,8 @@ export class CellOutput {
                                 );
                             }
                             case 'tensorFlowVis': {
-                                if (value.request === 'registerFitCallback') {
-                                    this.fitRegisteredPromises.set(value.requestId || '', createDeferred());
-                                }
-                                return items.push(NotebookCellOutputItem.json(value, 'application/vnd.tfjsvis'));
+                                // We have a separate method for this.
+                                return;
                             }
                             case 'markdown': {
                                 return items.push(NotebookCellOutputItem.text(value.value, 'text/markdown'));
@@ -271,48 +321,34 @@ export class CellOutput {
                             default:
                                 return items.push(NotebookCellOutputItem.text(value.value.toString()));
                         }
-                    });
-                    if (items.length === 0) {
-                        return;
-                    }
-                    // this.hasOutputOtherThanTfjsProgress = true;
+                    })
+                );
+                if (items.length > 0) {
                     return this.task.appendOutput(new NotebookCellOutput(items)).then(noop, noop);
-                    // }
-                })();
-
-                if (promise) {
-                    this.pendingPromises.push(promise);
                 }
-                return promise;
             })
             .finally(() => this.endTempTask());
     }
     public appendError(ex?: Partial<Error>) {
         this.promise = this.promise
             .finally(() => {
-                CellDiagnosticsProvider.displayErrorsAsProblems(this.task.cell.notebook, ex);
+                CellDiagnosticsProvider.displayErrorsAsProblems(this.cell.notebook, ex);
                 const newEx = new Error(ex?.message || '<unknown>');
                 newEx.name = ex?.name || '';
                 newEx.stack = ex?.stack || '';
                 // We dont want the same error thing display again
                 // (its already in the stack trace & the error renderer displays it again)
                 newEx.stack = newEx.stack.replace(`${newEx.name}: ${newEx.message}\n`, '');
-                newEx.stack = Compiler.fixCellPathsInStackTrace(this.task.cell.notebook, newEx);
+                newEx.stack = Compiler.fixCellPathsInStackTrace(this.cell.notebook, newEx);
                 const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
-                // this.hasOutputOtherThanTfjsProgress = true;
-                const promise = this.task.appendOutput(output);
-                this.pendingPromises.push(promise);
-                return promise;
+                return this.task.appendOutput(output);
             })
             .then(noop, (ex) => console.error('Failed to append the Error output in cellOutput', ex))
             .finally(() => this.endTempTask());
     }
     private endTempTask() {
         if (this.tempTask) {
-            this.tempTask.end(
-                this.originalTask.cell.executionSummary?.success,
-                this.originalTask.cell.executionSummary?.timing?.endTime
-            );
+            this.tempTask.end(this.cell.executionSummary?.success, this.cell.executionSummary?.timing?.endTime);
             this.tempTask = undefined;
         }
     }

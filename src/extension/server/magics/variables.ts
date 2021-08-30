@@ -33,6 +33,7 @@ export class VariableListingMagicCommandHandler {
             success: true,
             result: {
                 type: 'text',
+                requestId: request.requestId,
                 value: vars
                     .filter((item) => !reservedVars.has(item))
                     .sort()

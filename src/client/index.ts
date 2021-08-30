@@ -34,27 +34,23 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
             tfvis.visor().open();
             break;
         }
-        case 'setActiveTab':
+        case 'setactivetab':
             tfvis.visor().setActiveTab(message.tabName);
             break;
-        case 'registerFitCallback': {
+        case 'registerfitcallback': {
             const callbacks = tfvis.show.fitCallbacks(message.container as any, message.metrics);
             fitCallbackHandlersMappedByContianer.set(JSON.stringify(message.container), callbacks);
             break;
         }
         case 'history': {
-            const promise = tfvis.show.history(
-                message.container as any,
-                message.history as any,
-                message.metrics,
-                message.opts
-            );
-            if (message.requestId) {
-                sendPromiseResult(promise, 'history', message.requestId);
-            }
+            void tfvis.show.history(message.container as any, message.history as any, message.metrics, message.opts);
             break;
         }
-        case 'fitCallback': {
+        case 'perclassaccuracy': {
+            tfvis.show.perClassAccuracy(message.container as any, message.classAccuracy, message.classLabels);
+            break;
+        }
+        case 'fitcallback': {
             const callbacks = fitCallbackHandlersMappedByContianer.get(JSON.stringify(message.container));
             if (!callbacks) {
                 return console.error(`No callbacks registered for ${JSON.stringify(message.container)}`);
@@ -65,31 +61,19 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
             break;
         }
         case 'barchart': {
-            const promise = tfvis.render.barchart(message.container as any, message.data, message.opts);
-            if (message.requestId) {
-                sendPromiseResult(promise, message.request, message.requestId);
-            }
+            void tfvis.render.barchart(message.container as any, message.data, message.opts);
             break;
         }
-        case 'confusionMatrix': {
-            const promise = tfvis.render.confusionMatrix(message.container as any, message.data, message.opts);
-            if (message.requestId) {
-                sendPromiseResult(promise, message.request, message.requestId);
-            }
+        case 'confusionmatrix': {
+            void tfvis.render.confusionMatrix(message.container as any, message.data, message.opts);
             break;
         }
         case 'linechart': {
-            const promise = tfvis.render.linechart(message.container as any, message.data, message.opts);
-            if (message.requestId) {
-                sendPromiseResult(promise, message.request, message.requestId);
-            }
+            void tfvis.render.linechart(message.container as any, message.data, message.opts);
             break;
         }
         case 'scatterplot': {
-            const promise = tfvis.render.scatterplot(message.container as any, message.data, message.opts);
-            if (message.requestId) {
-                sendPromiseResult(promise, message.request, message.requestId);
-            }
+            void tfvis.render.scatterplot(message.container as any, message.data, message.opts);
             break;
         }
         case 'histogram': {
@@ -102,23 +86,17 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
         }
         case 'heatmap': {
             const data: any = message.isTensor ? tf.tensor(message.data as any) : message.data;
-            const promise = tfvis.render.heatmap(message.container as any, data, message.opts);
-            if (message.requestId) {
-                sendPromiseResult(promise, message.request, message.requestId);
-            }
+            void tfvis.render.heatmap(message.container as any, data, message.opts);
             break;
         }
-        case 'modelSummary': {
+        case 'modelsummary': {
             const data = message.model;
             (data as any).layers = data.layers.map((layer) => {
                 const newLayer = layer;
                 newLayer.countParams = () => (layer as any).parameters;
                 return newLayer;
             });
-            const promise = tfvis.show.modelSummary(message.container as any, data);
-            if (message.requestId) {
-                sendPromiseResult(promise, message.request, message.requestId);
-            }
+            void tfvis.show.modelSummary(message.container as any, data);
             break;
         }
         default:

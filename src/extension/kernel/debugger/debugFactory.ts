@@ -37,6 +37,35 @@ export class DebuggerFactory {
     public static isAttached(notebook: NotebookDocument) {
         return !!debuggersByNotebookId.get(notebook.uri.toString());
     }
+    public static stripDebuggerMessages(data: string): string {
+        // When debugging we get messages of the form
+        // Debugger listening on ws://127.0.0.1:60620/e2558def-1a2a-498a-861c-46a1f9eabd67
+        // For help, see: https://nodejs.org/en/docs/inspector
+        // Remove this.
+        if (data.includes('Debugger listening on ws')) {
+            const lines = data.split('\n');
+            const indexOfLineWithDebuggerMessage = lines.findIndex((line) =>
+                line.startsWith('Debugger listening on ws:')
+            );
+            if (indexOfLineWithDebuggerMessage >= 0) {
+                lines.splice(indexOfLineWithDebuggerMessage, 2);
+            }
+            data = lines.join('\n');
+        }
+        // In case this message came separately.
+        // For help, see: https://nodejs.org/en/docs/inspector
+        if (data.includes('For help, see: https://nodejs.org/en/docs/inspector')) {
+            const lines = data.split('\n');
+            const indexOfLineWithDebuggerMessage = lines.findIndex((line) =>
+                line.startsWith('For help, see: https://nodejs.org/en/docs/inspector')
+            );
+            if (indexOfLineWithDebuggerMessage >= 0) {
+                lines.splice(indexOfLineWithDebuggerMessage, 1);
+            }
+            data = lines.join('\n');
+        }
+        return data;
+    }
     public static async start(notebook: NotebookDocument, kernel: JavaScriptKernel) {
         let info = debuggersByNotebookId.get(notebook.uri.toString());
         if (info) {

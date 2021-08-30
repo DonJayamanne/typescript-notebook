@@ -13,54 +13,63 @@ export function isBase64OrSvg(value: string) {
 function utilInspect(value) {
     return util.inspect(value, { colors: true, compact: false });
 }
-export async function formatImage(image: string | Buffer | Uint8Array): Promise<DisplayData | undefined> {
+export async function formatImage(
+    image: string | Buffer | Uint8Array,
+    requestId: string
+): Promise<DisplayData | undefined> {
     if (typeof image !== 'string') {
-        return formatValue(image);
+        return formatValue(image, requestId);
     }
     if (typeof image === 'string' && isBase64OrSvg(image)) {
-        return formatValue(image);
+        return formatValue(image, requestId);
     }
     // Sometimes the value could be a file path.
     try {
         const buffer = await fs.readFile(image);
         const type = await fileType.fromBuffer(buffer);
         if (type?.mime.startsWith('image/')) {
-            return formatValue(`data:${type.mime};base64,${buffer.toString('base64')}`);
+            return formatValue(`data:${type.mime};base64,${buffer.toString('base64')}`, requestId);
         }
     } catch (ex) {
         logMessage('Unable to get image type', ex);
     }
 }
-export async function formatValue(value: unknown): Promise<DisplayData | undefined> {
+export async function formatValue(value: unknown, requestId: string): Promise<DisplayData | undefined> {
     if (typeof value === undefined) {
         return;
     } else if (typeof value === 'string' && value.startsWith('data:image/')) {
         return {
             type: 'multi-mime',
+            requestId,
             value: [
                 {
                     type: 'image',
                     value: value.substring(value.indexOf(',') + 1),
-                    mime: value.substring(value.indexOf(':') + 1, value.indexOf(';'))
+                    mime: value.substring(value.indexOf(':') + 1, value.indexOf(';')),
+                    requestId
                 },
                 {
                     type: 'text',
-                    value
+                    value,
+                    requestId
                 }
             ]
         };
     } else if (typeof value === 'string' && value.endsWith('</svg>') && value.includes('<svg')) {
         return {
             type: 'multi-mime',
+            requestId,
             value: [
                 {
                     type: 'image',
                     value: value,
-                    mime: 'svg+xml'
+                    mime: 'svg+xml',
+                    requestId
                 },
                 {
                     type: 'text',
-                    value
+                    value,
+                    requestId
                 }
             ]
         };
@@ -73,19 +82,21 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
                 return {
                     type: 'image',
                     value: buffer.toString('base64'),
-                    mime: type.mime
+                    mime: type.mime,
+                    requestId
                 };
             }
         } catch (ex) {
             logMessage('Unable to get type', ex);
         }
         // Return as plain text.
-        return { type: 'text', value: utilInspect(value) };
+        return { type: 'text', value: utilInspect(value), requestId };
     } else if (isTensor(value)) {
-        return formatTensor(value);
+        return formatTensor(value, requestId);
     } else if (value && Array.isArray(value)) {
         return {
             type: 'text',
+            requestId,
             value: utilInspect(value) // stringify(value) // We use this in case we have circular references in the Objects.
         };
     } else if (value && DanfoJsFormatter.instance.canFormatAsDanfo(value)) {
@@ -93,11 +104,13 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
     } else if (value && typeof value === 'object' && value.constructor?.name === 'Tensor') {
         return {
             type: 'text',
+            requestId,
             value: utilInspect(value) // We use this in case we have circular references in the Objects.
         };
     } else if (value && typeof value === 'object') {
         return {
             type: 'text',
+            requestId,
             value: utilInspect(value) // We use this in case we have circular references in the Objects.
         };
     }
@@ -106,5 +119,5 @@ export async function formatValue(value: unknown): Promise<DisplayData | undefin
         return;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return { type: 'text', value: utilInspect(value) };
+    return { type: 'text', value: utilInspect(value), requestId };
 }

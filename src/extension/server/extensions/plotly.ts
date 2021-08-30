@@ -2,38 +2,39 @@ import type * as plotly from 'plotly.js';
 import * as fs from 'fs/promises';
 import * as tmp from 'tmp';
 import { addMessageHandler, removeMessageHandler, sendMessage } from '../comms';
-import { v4 as uuid } from 'uuid';
 import { ResponseType } from '../types';
 import { errorFromJson } from '../../coreUtils';
 
 export const Plotly = {
+    requestId: '',
     async toBase64(
         data: plotly.Data[],
         layout: plotly.Layout,
         format: 'png' | 'svg' | 'jpeg' = 'png'
     ): Promise<string> {
+        const requestId = Plotly.requestId;
         // In case users forget and use the same args as newPlot
         if (typeof data === 'string') {
             data = layout as any;
             layout = format as any;
             format = 'png';
         }
-        const id = uuid().replace(/-/g, '');
         return new Promise<string>((resolve, reject) => {
             sendMessage({
                 type: 'output',
+                requestId,
                 data: {
                     type: 'generatePlot',
                     data,
                     layout,
-                    requestId: id,
+                    requestId,
                     download: true,
                     format,
                     hidden: true
                 }
             });
             const messageHandler = (data: ResponseType) => {
-                if (data.type === 'plotGenerated' && data.requestId === id) {
+                if (data.type === 'plotGenerated' && data.requestId === requestId) {
                     removeMessageHandler('plotGenerated', messageHandler);
                     if (data.success) {
                         resolve(data.base64);
@@ -68,7 +69,9 @@ export const Plotly = {
     async newPlot(ele: string, data: plotly.Data[], layout: plotly.Layout): Promise<void> {
         sendMessage({
             type: 'output',
+            requestId: Plotly.requestId,
             data: {
+                requestId: Plotly.requestId,
                 type: 'generatePlot',
                 ele,
                 data,

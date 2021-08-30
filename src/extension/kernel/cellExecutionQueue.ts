@@ -1,13 +1,11 @@
 import {
     CancellationToken,
     CancellationTokenSource,
-    ExtensionContext,
     NotebookCell,
     NotebookCellExecution,
     NotebookCellKind,
     NotebookController,
-    NotebookDocument,
-    workspace
+    NotebookDocument
 } from 'vscode';
 import { IDisposable } from '../types';
 import { registerDisposable } from '../utils';
@@ -16,6 +14,7 @@ import { ShellKernel } from './shellKernel';
 import { execute as executeInBrowser } from './browserExecution';
 import { CellExecutionState } from './types';
 import { CellDiagnosticsProvider } from './problems';
+import { CellOutput } from './cellOutput';
 
 function wrapCancellationToken(token: CancellationToken): CancellationTokenSource {
     const wrapper = new CancellationTokenSource();
@@ -33,9 +32,6 @@ export class CellExecutionQueue implements IDisposable {
         private readonly controller: NotebookController
     ) {
         registerDisposable(this);
-    }
-    public static regsiter(context: ExtensionContext) {
-        workspace.onDidCloseNotebookDocument((e) => CellExecutionQueue.get(e)?.dispose(), this, context.subscriptions);
     }
     public static get(notebookDocument: NotebookDocument) {
         return cellExecutionQueues.get(notebookDocument);
@@ -123,6 +119,7 @@ export class CellExecutionQueue implements IDisposable {
             });
     }
     private async runCell(task: NotebookCellExecution, token: CancellationTokenSource): Promise<CellExecutionState> {
+        CellOutput.resetCell(task.cell);
         switch (task.cell.document.languageId) {
             case 'shellscript':
             case 'powershell': {

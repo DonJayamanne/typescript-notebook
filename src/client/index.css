@@ -14,6 +14,6 @@ tr {
 
 /* Tensor flow table headings should not have a white background */
 /* Problem is, in dark theme, the font color is white and this backtround makes the text difficult to read */
-table.tf-table thead tr th {
-    background-color: inherit;
+table.tf-table thead tr th, .subsurface-title, .tf-label {
+    background-color: inherit !important;
 }

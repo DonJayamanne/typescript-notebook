@@ -27,6 +27,7 @@ import { quote } from 'shell-quote';
 import { getNextExecutionOrder } from './executionOrder';
 import { DebuggerFactory } from './debugger/debugFactory';
 import { EOL } from 'os';
+import { createConsoleOutputCompletedMarker } from '../const';
 
 const kernels = new WeakMap<NotebookDocument, JavaScriptKernel>();
 const usedPorts = new Set<number>();
@@ -126,7 +127,7 @@ export class JavaScriptKernel implements IDisposable {
         }
         const requestId = generateId();
         this.waitingForLastOutputMessage = {
-            expectedString: `d1786f7c-d2ed-4a27-bd8a-ce19f704d111-${requestId}`,
+            expectedString: createConsoleOutputCompletedMarker(requestId),
             deferred: createDeferred<void>()
         };
         const result = createDeferred<CellExecutionState>();
@@ -224,32 +225,7 @@ export class JavaScriptKernel implements IDisposable {
                     if (output) {
                         data = data.toString();
                         if (DebuggerFactory.isAttached(this.notebook)) {
-                            // When debugging we get messages of the form
-                            // Debugger listening on ws://127.0.0.1:60620/e2558def-1a2a-498a-861c-46a1f9eabd67
-                            // For help, see: https://nodejs.org/en/docs/inspector
-                            // Remove this.
-                            if (data.includes('Debugger listening on ws')) {
-                                const lines = data.split('\n');
-                                const indexOfLineWithDebuggerMessage = lines.findIndex((line) =>
-                                    line.startsWith('Debugger listening on ws:')
-                                );
-                                if (indexOfLineWithDebuggerMessage >= 0) {
-                                    lines.splice(indexOfLineWithDebuggerMessage, 2);
-                                }
-                                data = lines.join('\n');
-                            }
-                            // In case this message came separately.
-                            // For help, see: https://nodejs.org/en/docs/inspector
-                            if (data.includes('For help, see: https://nodejs.org/en/docs/inspector')) {
-                                const lines = data.split('\n');
-                                const indexOfLineWithDebuggerMessage = lines.findIndex((line) =>
-                                    line.startsWith('For help, see: https://nodejs.org/en/docs/inspector')
-                                );
-                                if (indexOfLineWithDebuggerMessage >= 0) {
-                                    lines.splice(indexOfLineWithDebuggerMessage, 1);
-                                }
-                                data = lines.join('\n');
-                            }
+                            data = DebuggerFactory.stripDebuggerMessages(data);
                         }
                         if (data.length > 0) {
                             output.appendStreamOutput(data, 'stderr');
@@ -312,31 +288,26 @@ export class JavaScriptKernel implements IDisposable {
                         message.request === 'linechart' ||
                         message.request === 'heatmap' ||
                         message.request === 'layer' ||
-                        message.request === 'valuesDistribution' ||
+                        message.request === 'valuesdistribution' ||
+                        // message.request === 'registerfitcallback' || // Disabled, as VSC is slow to display the output.
+                        // message.request === 'fitcallback' || // Disabled, as VSC is slow to display the output.
                         message.request === 'table' ||
-                        message.request === 'showPerClassAccuracy' ||
+                        message.request === 'perclassaccuracy' ||
                         message.request === 'histogram' ||
                         message.request === 'barchart' ||
-                        message.request === 'confusionMatrix' ||
-                        message.request === 'modelSummary')
+                        message.request === 'confusionmatrix' ||
+                        message.request === 'modelsummary')
                 ) {
-                    const item = this.tasks.get(message.requestId || '')?.stdOutput || this.getCellOutput();
+                    const item = this.tasks.get(message.requestId)?.stdOutput || this.getCellOutput();
                     if (item) {
-                        item.appendOutput(message);
+                        item.appendTensorflowVisOutput(message);
                     }
                 }
                 TensorflowVisClient.sendMessage(message);
                 break;
             }
-            case 'tensorflowProgress': {
-                const item = this.tasks.get(message.requestId || '')?.stdOutput || this.getCellOutput();
-                if (item) {
-                    item.appendOutput(message);
-                }
-                break;
-            }
             case 'cellExec': {
-                const item = this.tasks.get(message.requestId || '');
+                const item = this.tasks.get(message.requestId);
                 if (item) {
                     if (message.success == true && message.result) {
                         const result = message.result;
@@ -377,7 +348,7 @@ export class JavaScriptKernel implements IDisposable {
                 break;
             }
             case 'output': {
-                const item = this.tasks.get(message.requestId || '')?.stdOutput || this.getCellOutput();
+                const item = this.tasks.get(message.requestId)?.stdOutput || this.getCellOutput();
                 if (item) {
                     if (message.data) {
                         item.appendOutput(message.data);

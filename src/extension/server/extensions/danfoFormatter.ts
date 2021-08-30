@@ -12,6 +12,7 @@ export class DanfoJsFormatter {
     private isLoaded?: boolean;
     private failedToInject?: boolean;
     private danfoJs?: typeof dfd;
+    public static requestId: string = '';
     public static get instance() {
         if (DanfoJsFormatter._instance) {
             return DanfoJsFormatter._instance;
@@ -44,7 +45,8 @@ export class DanfoJsFormatter {
                 value: [
                     {
                         type: 'html',
-                        value: html
+                        value: html,
+                        requestId: DanfoJsFormatter.requestId
                     },
                     // {
                     //     type: 'json',
@@ -52,14 +54,17 @@ export class DanfoJsFormatter {
                     // },
                     {
                         type: 'text',
-                        value: (value as any).toString()
+                        value: (value as any).toString(),
+                        requestId: DanfoJsFormatter.requestId
                     }
-                ]
+                ],
+                requestId: DanfoJsFormatter.requestId
             };
         } else {
             return {
                 type: 'json',
-                value
+                value,
+                requestId: DanfoJsFormatter.requestId
             };
         }
     }
@@ -108,13 +113,15 @@ function hijackSeriesPrint(danfoJs: typeof dfd, config?: Configs) {
         const { html } = seriesToHtmlJson(this, config);
         sendMessage({
             type: 'output',
-            requestId: '',
+            requestId: DanfoJsFormatter.requestId,
             data: {
                 type: 'multi-mime',
+                requestId: DanfoJsFormatter.requestId,
                 value: [
                     {
                         type: 'html',
-                        value: html
+                        value: html,
+                        requestId: DanfoJsFormatter.requestId
                     },
                     // {
                     //     type: 'json',
@@ -122,7 +129,8 @@ function hijackSeriesPrint(danfoJs: typeof dfd, config?: Configs) {
                     // },
                     {
                         type: 'text',
-                        value: rawText
+                        value: rawText,
+                        requestId: DanfoJsFormatter.requestId
                     }
                 ]
             }
@@ -140,13 +148,15 @@ function hijackNDFramePrint(danfoJs: typeof dfd, config?: Configs) {
         const { html } = frameToHtmlJson(this, config);
         sendMessage({
             type: 'output',
-            requestId: '',
+            requestId: DanfoJsFormatter.requestId,
             data: {
                 type: 'multi-mime',
+                requestId: DanfoJsFormatter.requestId,
                 value: [
                     {
                         type: 'html',
-                        value: html
+                        value: html,
+                        requestId: DanfoJsFormatter.requestId
                     },
                     // {
                     //     type: 'json',
@@ -154,7 +164,8 @@ function hijackNDFramePrint(danfoJs: typeof dfd, config?: Configs) {
                     // },
                     {
                         type: 'text',
-                        value: rawText
+                        value: rawText,
+                        requestId: DanfoJsFormatter.requestId
                     }
                 ]
             }

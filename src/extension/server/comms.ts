@@ -23,6 +23,7 @@ export function sendMessage(message: ResponseType) {
             } catch (ex) {
                 sendMessage({
                     type: 'logMessage',
+                    requestId: '',
                     category: 'error',
                     message: format(`Failed to send a message ${message.type}`, ex)
                 });

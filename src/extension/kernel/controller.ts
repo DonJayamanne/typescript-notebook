@@ -12,6 +12,7 @@ import { notebookType } from '../const';
 import { IDisposable } from '../types';
 import { disposeAllDisposables, registerDisposable } from '../utils';
 import { CellExecutionQueue } from './cellExecutionQueue';
+import { CellOutput } from './cellOutput';
 import { resetExecutionOrder } from './executionOrder';
 import { JavaScriptKernel } from './jsKernel';
 
@@ -46,6 +47,7 @@ export class Controller implements IDisposable {
             this,
             this.disposables
         );
+        workspace.onDidCloseNotebookDocument((e) => this.resetNotebook(e), this, this.disposables);
         this.disposables.push(commands.registerCommand('node.kernel.restart', this.restart, this));
         // this.disposables.push(commands.registerCommand('node.notebook.debug', this.debug, this));
     }
@@ -89,8 +91,12 @@ export class Controller implements IDisposable {
         if (!notebook) {
             return;
         }
+        this.resetNotebook(notebook);
+    }
+    private resetNotebook(notebook: NotebookDocument) {
         resetExecutionOrder(notebook);
         CellExecutionQueue.get(notebook)?.dispose();
         JavaScriptKernel.get(notebook)?.dispose();
+        CellOutput.reset(notebook);
     }
 }
