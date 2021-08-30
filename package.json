@@ -57,7 +57,7 @@
 		],
 		"jupyter.kernels": [
 			{
-				"title": "TypeScipt",
+				"title": "TypeScript",
 				"defaultlanguage": "typescript"
 			}
 		]
