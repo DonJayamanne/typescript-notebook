@@ -16,22 +16,6 @@ export namespace display {
      * Displays an image from bytes.
      */
     export function image(bytes: Uint8Array): void;
-    /**
-     * Appends an image from a base64 string into an existing image output.
-     */
-    // export function appendImage(base64: string): void;
-    // /**
-    //  * Appends an SVG image into an existing image output.
-    //  */
-    // export function appendImage(svg: string): void;
-    // /**
-    //  * Appends an image loaded from a file into an existing image output.
-    //  */
-    // export function appendImage(filePath: string): void;
-    // /**
-    //  * Appends an image loaded from bytes into an existing image output.
-    //  */
-    // export function appendImage(bytes: Uint8Array): void;
 
     /**
      * Displays a JSON
