@@ -2,15 +2,49 @@
     "cells": [
         {
             "language": "shellscript",
-            "source": "## Uncomment this to install missing dependencies\n# npm install danfojs-node"
+            "source": [
+                "## Uncomment this to install missing dependencies\n# npm install danfojs-node"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "import * as dfd from 'danfojs-node';\nconst df = await dfd.read_csv(\"https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv\");\ndf.head().print();"
+            "source": [
+                "import * as dfd from 'danfojs-node';\nconst df = await dfd.read_csv(\"https://web.stanford.edu/class/archive/cs/cs109/cs109.1166/stuff/titanic.csv\");\ndf.head().print();"
+            ],
+            "outputs": [
+                {
+                    "items": [
+                        {
+                            "mime": "application/vnd.code.notebook.stderr",
+                            "value": [
+                                "node-pre-gyp info This Node instance does not support builds for N-API version 8",
+                                "node-pre-gyp info This Node instance does not support builds for N-API version 8",
+                                ""
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "items": [
+                        {
+                            "mime": "application/vnd.code.notebook.error",
+                            "value": {
+                                "name": "Error",
+                                "message": "The Node.js native addon module (tfjs_binding.node) can not be found at path: /Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/node_modules/@tensorflow/tfjs-node/lib/napi-v7/tfjs_binding.node. \nPlease run command 'npm rebuild @tensorflow/tfjs-node --build-addon-from-source' to rebuild the native addon module. \nIf you have problem with building the addon module, please check https://github.com/tensorflow/tfjs/blob/master/tfjs-node/WINDOWS_TROUBLESHOOTING.md or file an issue.",
+                                "stack": "/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/node_modules/@tensorflow/tfjs-node/dist/index.js:49\n    throw new Error(\"The Node.js native addon module (tfjs_binding.node) can not \" +\n    ^\n\n    at Object.<anonymous> (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/node_modules/@tensorflow/tfjs-node/dist/index.js:49:11)\n    at Module._compile (internal/modules/cjs/loader.js:1063:30)\n    at Object.Module._extensions..js (internal/modules/cjs/loader.js:1092:10)\n    at Module.load (internal/modules/cjs/loader.js:928:32)\n    at Function.Module._load (internal/modules/cjs/loader.js:769:14)\n    at Function.m._load (/Users/donjayamanne/.vscode-insiders/extensions/donjayamanne.typescript-notebook-2.0.0/out/extension/server/index.js:2:114426)\n    at Module.require (internal/modules/cjs/loader.js:952:19)\n    at require (internal/modules/cjs/helpers.js:88:18)\n    at Object.<anonymous> (/Users/donjayamanne/Desktop/Development/vsc/vscode-typescript-notebook/node_modules/danfojs-node/dist/core/generic.js:10:34)\n    at Module._compile (internal/modules/cjs/loader.js:1063:30)"
+                            }
+                        }
+                    ]
+                }
+            ]
         },
         {
             "language": "javascript",
-            "source": "s = new dfd.Series([1, 3, 5, undefined, 6, 8])\ns.print()"
+            "source": [
+                "s = new dfd.Series([1, 3, 5, undefined, 6, 8])\ns.print()"
+            ],
+            "outputs": []
         }
     ]
 }
