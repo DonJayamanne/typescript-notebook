@@ -16,7 +16,7 @@ However, this extension leverages the power of Notebooks to provide the same ric
 ## Getting started
 * Create a file in VS Code with the extension `*.nnb`, e.g. `sample.nnb`
 * Add a cell and run it
-* Or try a sample notebook (use the command `Open a sample node.js notebook` from the command palette)
+* Or try a sample notebook (use the command [Open a sample node.js notebook](command:node.notebook.sample) from the command palette)
 
 ![Demo](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/demo.gif)
 
@@ -29,8 +29,6 @@ However, this extension leverages the power of Notebooks to provide the same ric
 * node.js needs to be in the current path
 
 ## Roadmap
-* Saving outputs (currently outputs are not saved)
-* Improved integration with [@tensforflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis)
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
 
 ### Known issues, workarounds and technical details
