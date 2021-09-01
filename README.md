@@ -30,6 +30,7 @@ However, this extension leverages the power of Notebooks to provide the same ric
 
 ## Roadmap
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
+* Open a plain js/ts file as a notebook & vice versa.
 
 ### Known issues, workarounds and technical details
 * See [here](https://github.com/DonJayamanne/typescript-notebook/wiki/Kernel-behaviour-(known-issues-&-workarounds)) for more details
