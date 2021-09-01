@@ -277,7 +277,7 @@
                     {
                         "id": "tensorflowVis",
                         "title": "Tensorflow visualizations in node.js",
-                        "description": "Tensorflow visualization are no longer limited to just browser environments, you can now use them in node.js. Or [try it your self](command:node.notebook.sample.tensorflow.sample)",
+                        "description": "Tensorflow visualization are no longer limited to just browser environments, you can now use them in node.js.",
                         "media": {
                             "markdown": "resources/docs/tensorflow/sample.md"
                         }
@@ -285,7 +285,7 @@
                     {
                         "id": "tensorflowBoards",
                         "title": "Tensorboards for Tensorflow.js in node.js",
-                        "description": "View tensorboards in Visual Studio Code. Or [try it your self](command:node.notebook.sample.tensorflow.tensorboard)",
+                        "description": "View tensorboards in Visual Studio Code.",
                         "media": {
                             "markdown": "resources/docs/tensorflow/tensorboard.md"
                         }
@@ -293,7 +293,7 @@
                     {
                         "id": "plotlyGenerate",
                         "title": "Plotly plots node.js",
-                        "description": "Generate & view plotly plots from within a node.js environment. Or [try it your self](command:node.notebook.sample.plotly.generate)",
+                        "description": "Generate & view plotly plots from within a node.js environment.",
                         "media": {
                             "markdown": "resources/docs/plotly/generate.md"
                         }
@@ -301,7 +301,7 @@
                     {
                         "id": "danfojsHtmlOutput",
                         "title": "Danfo.js with rich dataframes node.js",
-                        "description": "Generate and view rich Html outputs for dataframes and series when using danfo.js. Or [try it your self](command:node.notebook.sample.danfojs.htmlOutput)",
+                        "description": "Generate and view rich Html outputs for dataframes and series when using danfo.js.",
                         "media": {
                             "markdown": "resources/docs/danfojs/htmlOutput.md"
                         }
@@ -309,7 +309,7 @@
                     {
                         "id": "danfojsPlots",
                         "title": "Danfo.js plots in node.js",
-                        "description": "Generate & view danfor.js plots from within a node.js environment. Or [try it your self](command:node.notebook.sample.danfojs.plots)",
+                        "description": "Generate & view danfor.js plots from within a node.js environment.",
                         "media": {
                             "markdown": "resources/docs/danfojs/plots.md"
                         }
