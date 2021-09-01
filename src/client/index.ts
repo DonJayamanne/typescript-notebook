@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // declare const tfvis: typeof import('@tensorflow/tfjs-vis');
 import * as tfvis from '@tensorflow/tfjs-vis';
-import * as tf from '@tensorflow/tfjs-core';
 import type { fitCallbacks } from '@tensorflow/tfjs-vis/dist/show/history';
 import './index.css';
 import { deserialize } from '../extension/serializer';
 import { TensorFlowVis, TensorFlowVisRequest } from '../extension/server/types';
+import { renderHeatmap, renderLayer, valuesDistribution } from './common';
 
 console.log('Inside VIS');
 const api = acquireVsCodeApi();
@@ -50,6 +50,10 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
             tfvis.show.perClassAccuracy(message.container as any, message.classAccuracy, message.classLabels);
             break;
         }
+        case 'layer': {
+            void renderLayer(message.container as any, message.layer as any);
+            break;
+        }
         case 'fitcallback': {
             const callbacks = fitCallbackHandlersMappedByContianer.get(JSON.stringify(message.container));
             if (!callbacks) {
@@ -62,6 +66,10 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
         }
         case 'barchart': {
             void tfvis.render.barchart(message.container as any, message.data, message.opts);
+            break;
+        }
+        case 'valuesdistribution': {
+            valuesDistribution(message.container, message.tensor.stats, message.tensor.values);
             break;
         }
         case 'confusionmatrix': {
@@ -85,8 +93,8 @@ function handleTensorFlowMessage(message: TensorFlowVis) {
             break;
         }
         case 'heatmap': {
-            const data: any = message.isTensor ? tf.tensor(message.data as any) : message.data;
-            void tfvis.render.heatmap(message.container as any, data, message.opts);
+            const { spec, embedOpts } = message.data;
+            renderHeatmap(message.container, spec, embedOpts);
             break;
         }
         case 'modelsummary': {

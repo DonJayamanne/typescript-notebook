@@ -252,17 +252,9 @@
                 ],
                 "steps": [
                     {
-                        "id": "nodeNotebookGettingStarted",
-                        "title": "Run javascript or typescript",
-                        "description": "Run javascript in node.js or even typescript without having to install a typescript compiler.",
-                        "media": {
-                            "markdown": "resources/docs/basics/sample.md"
-                        }
-                    },
-                    {
                         "id": "nodeNotebookRichOutput",
                         "title": "Rich outputs",
-                        "description": "Unlock notebooks to generate rich outputs when running in node.js (images, html, markdown, etc). Or [try it your self](command:node.notebook.sample.basics.richOutput)",
+                        "description": "Unlock notebooks to generate rich outputs when running in node.js (images, html, markdown, etc).",
                         "media": {
                             "markdown": "resources/docs/basics/richOutput.md"
                         }
@@ -270,7 +262,7 @@
                     {
                         "id": "nodeNotebookDebug",
                         "title": "Debugging",
-                        "description": "You debug a mix of javascript/typescript in a notebook, along ith stepping into external javascript/typescript modules. Or [try it your self](command:node.notebook.sample.basics.debug)",
+                        "description": "Debug a mix of javascript/typescript in a notebook, along ith stepping into external javascript/typescript modules.",
                         "media": {
                             "markdown": "resources/docs/basics/debug.md"
                         }
@@ -278,7 +270,7 @@
                     {
                         "id": "tensorflowVis",
                         "title": "Tensorflow visualizations for Tensorflow.js in node.js",
-                        "description": "This extension leverages the power of Notebooks to bring tensorflow visulizations to node.js, which is currently limited to a browser. Or [try it your self](command:node.notebook.sample.tensorflow.sample)",
+                        "description": "Tensorflow visualization are no longer limited to just browser environments, you can now use them in node.js. Or [try it your self](command:node.notebook.sample.tensorflow.sample)",
                         "media": {
                             "markdown": "resources/docs/tensorflow/sample.md"
                         }
@@ -286,7 +278,7 @@
                     {
                         "id": "tensorflowBoards",
                         "title": "Tensorboards for Tensorflow.js in node.js",
-                        "description": "View tensorboards in VS Code. Or [try it your self](command:node.notebook.sample.tensorflow.tensorboard)",
+                        "description": "View tensorboards in Visual Studio Code. Or [try it your self](command:node.notebook.sample.tensorflow.tensorboard)",
                         "media": {
                             "markdown": "resources/docs/tensorflow/tensorboard.md"
                         }
@@ -294,31 +286,15 @@
                     {
                         "id": "plotlyGenerate",
                         "title": "Plotly plots node.js",
-                        "description": "This extension leverages the power of Notebooks to generate and view plotly plots from a node.js environment, instead of a browser. Or [try it your self](command:node.notebook.sample.plotly.generate)",
+                        "description": "Generate & view plotly plots from within a node.js environment. Or [try it your self](command:node.notebook.sample.plotly.generate)",
                         "media": {
                             "markdown": "resources/docs/plotly/generate.md"
                         }
                     },
                     {
-                        "id": "plotlySaveToFile",
-                        "title": "Save Plotly plots to file",
-                        "description": "Clicking on a `Save As` or `Download` icon is a thing of the past.  Or [try it your self](command:node.notebook.sample.plotly.saveToFile)",
-                        "media": {
-                            "markdown": "resources/docs/plotly/saveToFile.md"
-                        }
-                    },
-                    {
-                        "id": "plotlyEmbedInDiv",
-                        "title": "Embed Plotly plots in custom HTML",
-                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.plotly.embedInDiv)",
-                        "media": {
-                            "markdown": "resources/docs/plotly/embedInDiv.md"
-                        }
-                    },
-                    {
                         "id": "danfojsHtmlOutput",
                         "title": "Danfo.js with rich dataframes node.js",
-                        "description": "This extension leverages the power of Notebooks to generate HTML outputs for dataframes and series when using danfo.js. Or [try it your self](command:node.notebook.sample.danfojs.htmlOutput)",
+                        "description": "Generate and view rich Html outputs for dataframes and series when using danfo.js. Or [try it your self](command:node.notebook.sample.danfojs.htmlOutput)",
                         "media": {
                             "markdown": "resources/docs/danfojs/htmlOutput.md"
                         }
@@ -326,17 +302,9 @@
                     {
                         "id": "danfojsPlots",
                         "title": "Danfo.js plots in node.js",
-                        "description": "This extension leverages the power of Notebooks to generate plots using danof.js in node.js, lifting the restriction to use the browser. Or [try it your self](command:node.notebook.sample.danfojs.plots)",
+                        "description": "Generate & view danfor.js plots from within a node.js environment. Or [try it your self](command:node.notebook.sample.danfojs.plots)",
                         "media": {
                             "markdown": "resources/docs/danfojs/plots.md"
-                        }
-                    },
-                    {
-                        "id": "danfojsEmbedInDiv",
-                        "title": "Embed danfo.js plots in custom HTML",
-                        "description": "You could render custom HTML from another cell and have a placeholder in that HTML. Later you could generate the plot and have it renderered in the placeholder.  Or [try it your self](command:node.notebook.sample.danfojs.embedInDiv)",
-                        "media": {
-                            "markdown": "resources/docs/danfojs/embedInDiv.md"
                         }
                     }
                 ]

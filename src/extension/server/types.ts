@@ -2,14 +2,12 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import type * as plotly from 'plotly.js';
 import type { Logs } from '@tensorflow/tfjs-layers/dist/logs';
-import type { Tensor } from '@tensorflow/tfjs';
 import { Layer } from '@tensorflow/tfjs-layers/dist/engine/topology';
 import { LayersModel } from '@tensorflow/tfjs-layers/dist/engine/training';
 import type {
     BarChartOpts,
     ConfusionMatrixData,
     ConfusionMatrixOptions,
-    HeatmapData,
     HeatmapOptions,
     HistogramOpts,
     SurfaceInfo,
@@ -212,9 +210,8 @@ export type TensorFlowHeatMap = BaseMessage<
     {
         request: 'heatmap';
         container: SurfaceInfo | string;
-        data: HeatmapData;
+        data: { spec: any; embedOpts: any };
         opts?: HeatmapOptions;
-        isTensor: boolean;
     }
 >;
 export type TensorFlowBarChart = BaseMessage<
@@ -287,7 +284,7 @@ export type TensorFlowVis =
           {
               request: 'valuesdistribution';
               container: SurfaceInfo | string;
-              tensor: Tensor;
+              tensor: { stats; values };
           }
       >
     | BaseMessage<

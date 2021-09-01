@@ -166,10 +166,7 @@ export class CellOutput {
                 await Promise.all(
                     individualOutputItems.map(async (value) => {
                         switch (value.request) {
-                            case 'layer': {
-                                // TODO: Special, as we need to send the tensor info.
-                                return;
-                            }
+                            case 'layer':
                             case 'barchart':
                             case 'confusionmatrix':
                             case 'heatmap':

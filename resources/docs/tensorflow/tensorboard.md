@@ -1,10 +1,12 @@
 # Run tensorflow within a notebook and view the [Tensborboard](https://www.tensorflow.org/tensorboard) within in VS Code
 
-1. Train a model and generate data using the sample provided [here](https://js.tensorflow.org/api_node/1.0.2/#node.tensorBoard)
-2. Create two cell as follows
+1. Install the [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+2. Train the model
+2. Launch the tensorboard using the command `Python: Launch TensorBoard`
+
 ```javascript
-import * as tf from '@tensorflow/tfjs-node'
-import * as path from 'path';
+const tf = require('@tensorflow/tfjs-node') as typeof import('@tensorflow/tfjs-node');
+const path = require('path');
 ```
 
 ```javascript
@@ -33,7 +35,5 @@ await model.fit(xs, ys, {
     callbacks: tf.node.tensorBoard(path.join(__dirname, 'tmp/fit_logs_1'))
 });
 ```
-3. Train the model (by running the two code cells).
-4. Use the command `Python: Launch TensorBoard` to launch the tensorboard
 
 ![Tensorboard](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/resources/docs/tensorflow/tensorboard.png)

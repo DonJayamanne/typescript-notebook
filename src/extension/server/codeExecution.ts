@@ -276,6 +276,7 @@ Module._load = function (request: any, parent: any) {
     if (
         parent &&
         request === '@tensorflow/tfjs-core' &&
+        parent.filename &&
         parent.filename.includes('@tensorflow/tfjs-vis') &&
         !parent.filename.includes('@tensorflow/tfjs-vis/dist/util/math')
     ) {
@@ -285,10 +286,13 @@ Module._load = function (request: any, parent: any) {
         return Utils.instance;
     }
     if (request === '@tensorflow/tfjs-vis') {
-        const result = vm.runInNewContext("require('@tensorflow/tfjs-vis/dist/util/math');", replServer.context, {
+        const tfMath = vm.runInNewContext("require('@tensorflow/tfjs-vis/dist/util/math');", replServer.context, {
             displayErrors: false
         });
-        return TensorflowJsVisualizer.initialize(result);
+        const tfCore = vm.runInNewContext("require('@tensorflow/tfjs-core');", replServer.context, {
+            displayErrors: false
+        });
+        return TensorflowJsVisualizer.initialize(tfCore, tfMath);
     }
     if (request === '@tensorflow/tfjs-node') {
         // injectCustomProgress();

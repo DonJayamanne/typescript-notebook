@@ -4,6 +4,7 @@ import * as tfvis from '@tensorflow/tfjs-vis';
 import { ActivationFunction, OutputItem, RendererContext } from 'vscode-notebook-renderer';
 import { TensorFlowVis } from '../extension/server/types';
 import { Logs } from '@tensorflow/tfjs-layers';
+import { renderHeatmap, renderLayer, valuesDistribution } from './common';
 interface FitCallbackHandlers {
     [key: string]: (iteration: number, log: Logs) => Promise<void>;
 }
@@ -96,23 +97,21 @@ function renderTensorflowVis(outputItemId: string | undefined, data: TensorFlowV
             tfvis.render.histogram(getContainer(data.container, element), data.data, data.opts);
             break;
         case 'heatmap':
-            tfvis.render.heatmap(getContainer(data.container, element), data.data, data.opts);
+            const { spec, embedOpts } = data.data;
+            renderHeatmap(getContainer(data.container, element), spec, embedOpts);
             break;
         case 'perclassaccuracy':
             tfvis.show.perClassAccuracy(getContainer(data.container, element), data.classAccuracy, data.classLabels);
             break;
         case 'layer':
-            tfvis.show.layer(getContainer(data.container, element), data.layer);
+            void renderLayer(getContainer(data.container, element), data.layer as any);
             break;
         case 'registerfitcallback':
             const handlers = tfvis.show.fitCallbacks(getContainer(data.container, element), data.metrics, data.opts);
             containerFitCallbacks.set(containerId, handlers);
             break;
         case 'valuesdistribution': {
-            // const values = (data as any).values;
-            // const stats = (data as any).stats;
-            // tfvis.render.histogram(getContainer(data.container, element), values, { height: 150, stats });
-            tfvis.show.valuesDistribution(getContainer(data.container, element), data.tensor);
+            valuesDistribution(getContainer(data.container, element), data.tensor.stats, data.tensor.values);
             break;
         }
         case 'table':
@@ -149,7 +148,7 @@ export const activate: ActivationFunction = (context) => {
             // tfvis sets max width to 550px.
             // https://github.com/tensorflow/tfjs/blob/master/tfjs-vis/src/components/surface.tsx#L36
             // modelSummary is an html table, no need to limit the width.
-            if (data.request !== 'modelsummary' && data.request !== 'table') {
+            if (data.request !== 'modelsummary' && data.request !== 'table' && data.request !== 'layer') {
                 element.style.maxWidth = '550px';
             }
             if (data.container && typeof data.container === 'object' && 'name' in data.container) {

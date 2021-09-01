@@ -1,11 +1,11 @@
 # Run tensorflow within a notebook and use the [tensorflow visualizations](https://www.npmjs.com/package/@tensorflow/tfjs-vis) within node.js
 
 ### Simple scatter plot
-1. Create 3 cells as follows:
+
 ```javascript
-import * as tfvis from '@tensorflow/tfjs-vis'
-import * as tf from '@tensorflow/tfjs-node'
-import * as fetch from 'node-fetch';
+const tf = require('@tensorflow/tfjs-node') as typeof import('@tensorflow/tfjs-node');
+const tfvis = require('@tensorflow/tfjs-vis') as typeof import('@tensorflow/tfjs-vis');
+const fetch = require('node-fetch') as typeof import('node-fetch');
 ```
 
 ```javascript
@@ -51,7 +51,6 @@ const data = await getData();
 await run()
 ```
 
-2. Run all three cells & watch the output in the last cell
 ![First Scatter Plot](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/resources/docs/tensorflow/scatterPlot.png)
 
 

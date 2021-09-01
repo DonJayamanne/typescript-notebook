@@ -2,67 +2,147 @@
     "cells": [
         {
             "language": "javascript",
-            "source": "// This module is built into the notebook. YOu do not need to install this.\n// You could install this to get code completion (i.e. intellisense).\n\nconst {display} = require('node-kernel');"
+            "source": [
+                "// This module is built into the notebook. You do not need to install this.\n// You could install this to get code completion (i.e. intellisense).\n\nconst {display} = require('node-kernel');"
+            ],
+            "outputs": []
         },
         {
             "language": "markdown",
-            "source": "# Plain text output"
+            "source": [
+                "# Plain text output"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "// Plain text outputs (boring, same as `console.log`)\ndisplay.text('Hello World');"
+            "source": [
+                "// Plain text outputs (boring, same as `console.log`)\ndisplay.text('Hello World');"
+            ],
+            "outputs": []
         },
         {
             "language": "markdown",
-            "source": "# Markdown output"
+            "source": [
+                "# Markdown output"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "// Use javascript to generate a list of markdown bullet points.\nconst toc = ['Index', 'Getting Started', 'Help', 'Gloassary'];\nconst items = toc.map(item => `* ${item}`).join('\\n');\ndisplay.markdown('# Markdown generated in js and displayed in notebooks\\n' + items);"
+            "source": [
+                "// Use javascript to generate a list of markdown bullet points.\nconst toc = ['Index', 'Getting Started', 'Help', 'Gloassary'];\nconst items = toc.map(item => `* ${item}`).join('\\n');\ndisplay.markdown('# Markdown generated in js and displayed in notebooks\\n' + items);"
+            ],
+            "outputs": []
         },
         {
             "language": "markdown",
-            "source": "# HTML & javascript outputs"
+            "source": [
+                "# HTML & javascript outputs"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "// Rich HTML output.\nconst buttonText = 'Click me';\ndisplay.html(`\n    <button id='myButton'>${buttonText}</button>\n    <script type='text/javascript'>\n        const btn = document.getElementById('myButton');\n        btn.addEventListener(\"click\", () => btn.innerText = 'You clicked the button');\n    </script>\n`)"
+            "source": [
+                "// Rich HTML output.\nconst buttonText = 'Click me';\ndisplay.html(`\n    <button id='myButton'>${buttonText}</button>\n    <script type='text/javascript'>\n    (() => {\n        const btn = document.getElementById('myButton');\n        btn.addEventListener(\"click\", () => btn.innerText = 'You clicked the button');\n    })();\n    </script>\n`)"
+            ],
+            "outputs": []
         },
         {
             "language": "html",
-            "source": "<div>\n    This is plain HTML with some divs and buttons, make note of the language of this cell, its `HTML`.\n    <div id='myOutput' style='color:red; background-color: yellow; font-size: 2em;'></div><br>\n    <button id='anotherButton'>This is yet another button</button>\n</div>"
+            "source": [
+                "<!-- HTML cells can be executed and displayed (even with javascript/css) -->\n<div>\n    This is plain HTML with some divs and buttons, make note of the language of this cell, its `HTML`.\n    <div id='myOutput' style='color:red; background-color: yellow; font-size: 2em;'></div><br>\n    <button id='anotherButton'>This is yet another button</button>\n</div>"
+            ],
+            "outputs": [
+                {
+                    "items": [
+                        {
+                            "mime": "text/html",
+                            "value": [
+                                "<!-- HTML cells can be executed and displayed (even with javascript/css) -->",
+                                "<div>",
+                                "    This is plain HTML with some divs and buttons, make note of the language of this cell, its `HTML`.",
+                                "    <div id='myOutput' style='color:red; background-color: yellow; font-size: 2em;'></div><br>",
+                                "    <button id='anotherButton'>This is yet another button</button>",
+                                "</div>"
+                            ]
+                        }
+                    ]
+                }
+            ]
         },
         {
             "language": "javascript",
-            "source": "// In node.js we can generate some JavaScript  that will interact with the above HTML.\ndisplay.javascript(`\n    document.getElementById('anotherButton').addEventListener(\"click\", () => {\n        console.log('Clicked another button');\n        document.getElementById('myOutput').innerHTML = 'You clicked the button';\n    });\n`);\n\n// Run this cell, and click the button in the previous cell."
+            "source": [
+                "// In node.js we can generate some JavaScript  that will interact with the above HTML.\ndisplay.javascript(`\n    document.getElementById('anotherButton').addEventListener(\"click\", () => {\n        console.log('Clicked another button');\n        document.getElementById('myOutput').innerHTML = 'You clicked the button';\n    });\n`);\n\n// Run this cell, and click the button in the previous cell."
+            ],
+            "outputs": [
+                {
+                    "items": [
+                        {
+                            "mime": "text/html",
+                            "value": [
+                                "<style> table, th, tr { text-align: left; }</style><script type='text/javascript'>",
+                                "    document.getElementById('anotherButton').addEventListener(\"click\", () => {",
+                                "        console.log('Clicked another button');",
+                                "        document.getElementById('myOutput').innerHTML = 'You clicked the button';",
+                                "    });",
+                                "</script>"
+                            ]
+                        }
+                    ]
+                }
+            ]
         },
         {
             "language": "markdown",
-            "source": "# Images"
+            "source": [
+                "# Images"
+            ],
+            "outputs": []
         },
         {
             "language": "shellscript",
-            "source": "# # First install node-fetch, if you don't already have it.\n# # Un comment the below line & run this cell.\n# npm i node-fetch"
+            "source": [
+                "# # First install node-fetch, if you don't already have it.\n# # Un comment the below line & run this cell.\n# npm i node-fetch"
+            ],
+            "outputs": []
         },
         {
             "language": "typescript",
-            "source": "import * as fetch from 'node-fetch'"
+            "source": [
+                "import * as fetch from 'node-fetch'"
+            ],
+            "outputs": []
         },
         {
             "language": "typescript",
-            "source": "const svgImage = await fetch('https://nodejs.org/static/images/logo.svg').then(res => res.text());\nconsole.log(`svgImage is of type '${typeof svgImage}`);\nsvgImage\n\n// Note, you can switch the mime type and view the raw text representation of the content."
+            "source": [
+                "const svgImage = await fetch('https://nodejs.org/static/images/logo.svg').then(res => res.text());\nconsole.log(`svgImage is of type '${typeof svgImage}`);\nsvgImage\n\n// Note, you can switch the mime type and view the raw text representation of the content."
+            ],
+            "outputs": []
         },
         {
             "language": "typescript",
-            "source": "const res = await fetch('https://github.githubassets.com/images/modules/logos_page/Octocat.png');\nconst arrayBuffer = await res.arrayBuffer();\nconst buffer = Buffer.from(arrayBuffer)\nbuffer;\n\n// The format of the image is detected automatically and displayed in the output."
+            "source": [
+                "const res = await fetch('https://github.githubassets.com/images/modules/logos_page/Octocat.png');\nconst arrayBuffer = await res.arrayBuffer();\nconst buffer = Buffer.from(arrayBuffer)\nbuffer;\n\n// The format of the image is detected automatically and displayed in the output."
+            ],
+            "outputs": []
         },
         {
             "language": "typescript",
-            "source": "// Base64 encoded images are also understood and displayed as images instead of base64 string.\n// If you wish to have a look at the base64 string, you can switch the mime types from the image to text.\n\nconst base64String = buffer.toString('base64');\nconst encodedImages = `data:image/png;base64,${base64String}`;\nencodedImages"
+            "source": [
+                "// Base64 encoded images are also understood and displayed as images instead of base64 string.\n// If you wish to have a look at the base64 string, you can switch the mime types from the image to text.\n\nconst base64String = buffer.toString('base64');\nconst encodedImages = `data:image/png;base64,${base64String}`;\nencodedImages"
+            ],
+            "outputs": []
         },
         {
             "language": "typescript",
-            "source": ""
+            "source": [
+                ""
+            ],
+            "outputs": []
         }
     ]
 }

@@ -25,6 +25,7 @@ import { Layer } from '@tensorflow/tfjs-layers/dist/engine/topology';
 import { LayersModel } from '@tensorflow/tfjs-layers/dist/engine/training';
 import { sendMessage } from '../comms';
 import { serialize } from '../../serializer';
+import { heatmap } from './heatmap';
 
 class VisorProxy {
     constructor(
@@ -80,7 +81,35 @@ class VisorProxy {
         });
     }
 }
+/*
+ * Gets summary stats and shape for all weights in a layer.
+ */
+async function getLayerDetails(layer: Layer, math: typeof import('@tensorflow/tfjs-vis/dist/util/math')) {
+    const weights = layer.getWeights();
+    const layerVariables = layer.weights;
+    const statsPromises = weights.map(math.tensorStats);
+    const stats = await Promise.all(statsPromises);
+    const shapes = weights.map((w) => w.shape);
+    return weights.map((weight, i) => ({
+        name: layerVariables[i].name,
+        stats: stats[i],
+        shape: formatShape(shapes[i]),
+        weight
+    }));
+}
+function formatShape(shape) {
+    const oShape = shape.slice();
+    if (oShape.length === 0) {
+        return 'Scalar';
+    }
+    if (oShape[0] === null) {
+        oShape[0] = 'batch';
+    }
+    return `[${oShape.join(',')}]`;
+}
+
 class ShowProxy {
+    constructor(readonly math: typeof import('@tensorflow/tfjs-vis/dist/util/math')) {}
     public fitCallbacks(
         container: SurfaceInfo,
         metrics: string[],
@@ -144,21 +173,37 @@ class ShowProxy {
         });
     }
     public async valuesDistribution(container: SurfaceInfo | string, tensor: Tensor): Promise<void> {
+        const [stats, values] = await Promise.all([this.math.tensorStats(tensor), tensor.data()]);
         sendMessage({
             type: 'tensorFlowVis',
             request: 'valuesdistribution',
             container,
             requestId: TensorflowJsVisualizer.requestId,
-            tensor: TensorflowJsVisualizer.serializeTensor(tensor) as any
+            tensor: { stats, values: Array.from(values) }
         });
     }
     public async layer(container: SurfaceInfo | string, layer: Layer): Promise<void> {
+        const details = await getLayerDetails(layer, this.math);
+        const weights = {};
+        await Promise.all(
+            details.map(async (item) => {
+                weights[item.name] = Array.from(await item.weight.data());
+            })
+        );
+        const detailsToSend = details.map((item) => {
+            return {
+                ...item,
+                weight: {
+                    size: item.weight.size
+                }
+            };
+        });
         sendMessage({
             type: 'tensorFlowVis',
             request: 'layer',
             requestId: TensorflowJsVisualizer.requestId,
             container,
-            layer
+            layer: { details: detailsToSend, weights } as any
         });
     }
     public async modelSummary(container: SurfaceInfo | string, model: LayersModel): Promise<void> {
@@ -187,6 +232,7 @@ class ShowProxy {
 }
 
 class RendererProxy {
+    constructor(readonly tf: typeof import('@tensorflow/tfjs-core')) {}
     public async barchart(
         container: SurfaceInfo | string,
         data: Array<{
@@ -275,20 +321,14 @@ class RendererProxy {
     }
     public async heatmap(container: SurfaceInfo | string, data: HeatmapData, opts?: HeatmapOptions): Promise<void> {
         const requestId = TensorflowJsVisualizer.requestId;
-        let isTensor = false;
-        let dataToSend: any = data;
-        if (!Array.isArray(data)) {
-            isTensor = true;
-            dataToSend = await TensorflowJsVisualizer.serializeTensor(data as any);
-            // Serialize as a tensor2D.
-        }
+        const details = await heatmap(this.tf, data, opts);
+
         sendMessage({
             type: 'tensorFlowVis',
             request: 'heatmap',
             requestId,
             container,
-            data: dataToSend,
-            isTensor,
+            data: details,
             opts
         });
     }
@@ -302,16 +342,22 @@ export class TensorflowJsVisualizer {
     public static async serializeTensor(tensor: Tensor) {
         return tensor.array();
     }
-    public static initialize(metrics: typeof tfvis.metrics) {
+    public static initialize(
+        tf: typeof import('@tensorflow/tfjs-core'),
+        math: typeof import('@tensorflow/tfjs-vis/dist/util/math')
+    ) {
         if (TensorflowJsVisualizer.instance) {
             return TensorflowJsVisualizer.instance;
         }
         TensorflowJsVisualizer.instance = {
             version_vis: '1.5.0',
-            show: new ShowProxy(),
-            render: new RendererProxy(),
-            // import { accuracy, confusionMatrix, perClassAccuracy } from '@tensorflow/tfjs-vis/dist/util/math';
-            metrics,
+            show: new ShowProxy(math),
+            render: new RendererProxy(tf),
+            metrics: {
+                accuracy: math.accuracy,
+                perClassAccuracy: math.perClassAccuracy,
+                confusionMatrix: math.confusionMatrix
+            },
             visor: () => _visor
         } as any;
         return TensorflowJsVisualizer.instance!;
