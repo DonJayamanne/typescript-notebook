@@ -3,40 +3,9 @@
         {
             "language": "javascript",
             "source": [
-                "const { Plotly } = require('node-kernel');\nvar data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nvar layout = {\n    height: 400,\n    width: 500\n};\n// There is no HTML element named `myDiv`, hence the plot is displayed below.\nPlotly.newPlot('myDiv', data, layout);"
+                "const { Plotly } = require('node-kernel');\nconst data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nconst layout = {\n    height: 400,\n    width: 500\n};\n// There is no HTML element named `myDiv`, hence the plot is displayed below.\nPlotly.newPlot('myDiv', data, layout);"
             ],
-            "outputs": [
-                {
-                    "items": [
-                        {
-                            "mime": "application/vnd.ts.notebook.plotly+json",
-                            "value": {
-                                "type": "generatePlot",
-                                "ele": "myDiv",
-                                "data": [
-                                    {
-                                        "values": [
-                                            19,
-                                            26,
-                                            55
-                                        ],
-                                        "labels": [
-                                            "Residential",
-                                            "Non-Residential",
-                                            "Utility"
-                                        ],
-                                        "type": "pie"
-                                    }
-                                ],
-                                "layout": {
-                                    "height": 400,
-                                    "width": 500
-                                }
-                            }
-                        }
-                    ]
-                }
-            ]
+            "outputs": []
         }
     ]
 }

@@ -2,27 +2,52 @@
     "cells": [
         {
             "language": "markdown",
-            "source": "## This sample shows how we can render some HTML, and in the html have a placeholder for the plot\n"
+            "source": [
+                "## This sample shows how we can render some HTML, and in the html have a placeholder for the plot\n"
+            ],
+            "outputs": []
         },
         {
             "language": "shellscript",
-            "source": "## Uncomment this to install missing dependencies\n# npm install danfojs-node"
+            "source": [
+                "## Uncomment this to install missing dependencies\n# npm install danfojs-node"
+            ],
+            "outputs": []
         },
         {
             "language": "html",
-            "source": "<style>\n    #div {\n        width: 500px;\n    }\n    #dvText {\n        margin-left: 310px;\n        font-size: large;\n        float: left;\n    }\n</style>\n<div style=\"width: 100%; overflow: hidden;\">\n    <div id='dvText'>\n        This is a sample plot. Note, initially there is no plot.\n        However we have an empty div with the id `myDiv`.\n        The plotly renderer will first look for an id you have specified, if found it will render the plot in that HTML\n        Element, if not found\n        it will render the plot in the output of the same cell which contains the code for the plot.\n    </div>\n    <div id=\"myDiv\"></div>\n</div>"
-        },
-        {
-            "language": "javascript",
-            "source": "const { Plotly } = require('node-kernel');\nvar data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nvar layout = {\n    height: 200,\n    width: 300,\n    margin: {l:20, t:20, b:20, r:20}\n};\n\n// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displyed above.\nPlotly.newPlot('myDiv', data, layout);"
+            "source": [
+                "<style>\n    #div {\n        width: 500px;\n    }\n    #dvText {\n        margin-left: 310px;\n        font-size: large;\n        float: left;\n    }\n</style>\n<div style=\"width: 100%; overflow: hidden;\">\n    <div id='dvText'>\n        This is a sample plot. Note, initially there is no plot.\n        However we have an empty div with the id `myDiv`.\n        The plotly renderer will first look for an id you have specified, if found it will render the plot in that HTML\n        Element, if not found\n        it will render the plot in the output of the same cell which contains the code for the plot.\n    </div>\n    <div id=\"myDiv\"></div>\n</div>"
+            ],
+            "outputs": []
         },
         {
             "language": "typescript",
-            "source": "import {display} from 'node-kernel';\ndisplay.html(`\n    This is a sample plot. Note, initially there is plot.\n    However we have an empty div with the id \"myDiv\". The plot will be renderered within this HTML element.\n    <div id=\"mySecondDiv\"></div>`);"
+            "source": [
+                "const dfd = require('danfojs-node') as typeof import('danfojs-node');\nconst df = await dfd.read_csv(\"https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv\")\n\nconst layout = {\n    title: 'A financial charts',\n    xaxis: {\n        title: 'Date',\n    },\n    yaxis: {\n        title: 'Count',\n    }\n}\n\nconst new_df = df.set_index({ key: \"Date\" })\n// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displyed above.\nnew_df.plot(\"myDiv\").line({ columns: [\"AAPL.Open\", \"AAPL.High\"], layout: layout })\n"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "typescript",
+            "source": [
+                "import {display} from 'node-kernel';\ndisplay.html(`\n    This is a sample plot. Note, initially there is plot.\n    However we have an empty div with the id \"myDiv\". The plot will be renderered within this HTML element.\n    <div id=\"mySecondDiv\"></div>`);"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "Plotly.newPlot('mySecondDiv', data, layout);"
+            "source": [
+                "new_df.plot(\"mySecondDiv\").line({ columns: [\"AAPL.Open\", \"AAPL.High\"], layout: layout })"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                ""
+            ],
+            "outputs": []
         }
     ]
 }

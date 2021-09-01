@@ -2,11 +2,17 @@
     "cells": [
         {
             "language": "shellscript",
-            "source": "## Uncomment this to install missing dependencies\n# npm install danfojs-node"
+            "source": [
+                "## Uncomment this to install missing dependencies\n# npm install danfojs-node"
+            ],
+            "outputs": []
         },
         {
-            "language": "javascript",
-            "source": "import * as dfd from 'danfojs-node';\nconst df = await dfd.read_csv(\"https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv\")\n\nvar layout = {\n    title: 'A financial charts',\n    xaxis: {\n        title: 'Date',\n    },\n    yaxis: {\n        title: 'Count',\n    }\n}\n\nnew_df = df.set_index({ key: \"Date\" })\nnew_df.plot(\"plot_div\").line({ columns: [\"AAPL.Open\", \"AAPL.High\"], layout: layout })"
+            "language": "typescript",
+            "source": [
+                "const dfd = require('danfojs-node') as typeof import('danfojs-node');\nconst df = await dfd.read_csv(\"https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv\")\n\nconst layout = {\n    title: 'A financial charts',\n    xaxis: {\n        title: 'Date',\n    },\n    yaxis: {\n        title: 'Count',\n    }\n}\n\nconst new_df = df.set_index({ key: \"Date\" })\nnew_df.plot(\"plot_div\").line({ columns: [\"AAPL.Open\", \"AAPL.High\"], layout: layout })"
+            ],
+            "outputs": []
         }
     ]
 }

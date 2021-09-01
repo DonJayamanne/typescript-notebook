@@ -1,5 +1,6 @@
 import * as repl from 'repl';
 import * as vm from 'vm';
+import * as path from 'path';
 import { sendMessage } from './comms';
 import { logErrorMessage, logMessage } from './logger';
 import { CodeObject, Configuration, DisplayData, RunCellRequest, RunCellResponse } from './types';
@@ -98,7 +99,14 @@ export function initialize(config?: Configuration) {
 }
 
 function startRepl() {
-    replServer = repl.start({ prompt: '', eval: replEvalCode, ignoreUndefined: true, terminal: true, useColors: true });
+    replServer = repl.start({
+        prompt: '',
+        eval: replEvalCode,
+        ignoreUndefined: true,
+        terminal: true,
+        useColors: true,
+        useGlobal: true
+    });
     // replServer.context.$$ = Utils.instance;
     injectTslib(replServer.context);
     if (configuration?.registerTsNode === true) {
@@ -130,6 +138,7 @@ async function runCode(
     try {
         const start = Date.now();
         const fileName = typeof code === 'object' ? code.sourceFilename : undefined;
+        replServer.context.__filename = path.join(process.cwd(), `__exec.js`);
         const result = await vm.runInNewContext(source, replServer.context, {
             displayErrors: true,
             filename: fileName

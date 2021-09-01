@@ -2,12 +2,12 @@
 
 ```javascript
 const { Plotly } = require('node-kernel');
-var data = [{
+const data = [{
     values: [19, 26, 55],
     labels: ['Residential', 'Non-Residential', 'Utility'],
     type: 'pie'
 }];
-var layout = {
+const layout = {
     height: 400,
     width: 500
 };

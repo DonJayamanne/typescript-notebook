@@ -3,54 +3,9 @@
         {
             "language": "javascript",
             "source": [
-                "const { Plotly } = require('node-kernel');\nvar data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nvar layout = {\n    height: 400,\n    width: 500\n};\n\n// You could provide he path where the image needs to be written into.\n// await Plotly.toFile(data, layout, 'png', '<pass fully qualified path>');\n\n// Or don't provide anything, and it will be written into a temporar file.\nconst tempImageFileName = await Plotly.toFile(data, layout, 'png');\nconsole.log(tempImageFileName);"
+                "const { Plotly } = require('node-kernel');\nconst data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nconst layout = {\n    height: 400,\n    width: 500\n};\n\n// You could provide he path where the image needs to be written into.\n// await Plotly.toFile(data, layout, 'png', '<pass fully qualified path>');\n\n// Or don't provide anything, and it will be written into a temporar file.\nconst tempImageFileName = await Plotly.toFile(data, layout, 'png');\nconsole.log(tempImageFileName);"
             ],
-            "outputs": [
-                {
-                    "items": [
-                        {
-                            "mime": "application/vnd.ts.notebook.plotly+json",
-                            "value": {
-                                "type": "generatePlot",
-                                "data": [
-                                    {
-                                        "values": [
-                                            19,
-                                            26,
-                                            55
-                                        ],
-                                        "labels": [
-                                            "Residential",
-                                            "Non-Residential",
-                                            "Utility"
-                                        ],
-                                        "type": "pie"
-                                    }
-                                ],
-                                "layout": {
-                                    "height": 400,
-                                    "width": 500
-                                },
-                                "requestId": "17010ec9bd1a4ed4a8600b06823d20b8",
-                                "download": true,
-                                "format": "png",
-                                "hidden": true
-                            }
-                        }
-                    ]
-                },
-                {
-                    "items": [
-                        {
-                            "mime": "application/vnd.code.notebook.stdout",
-                            "value": [
-                                "/var/folders/3t/z38qn8r53l169lv_1nfk8y6w0000gn/T/tmp-77960-OCGeftTBImou-.png",
-                                ""
-                            ]
-                        }
-                    ]
-                }
-            ]
+            "outputs": []
         }
     ]
 }
