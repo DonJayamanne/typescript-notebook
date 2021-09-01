@@ -1,0 +1,60 @@
+{
+    "cells": [
+        {
+            "language": "markdown",
+            "source": [
+                "# Better code completions"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "When using ES6 style import statements, you will not get any code completions in other cells.\n\n**Solution**: Use common js style imports as follows."
+            ],
+            "outputs": []
+        },
+        {
+            "language": "typescript",
+            "source": [
+                "const fs = require('fs') as typeof import('fs');"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "typescript",
+            "source": [
+                "// You will get code completions for `fs.`\nfs."
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "# Unnecessary warnings"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "If you have two notebooks opened and both end up with the same imports or same variables/constants, you'll get warnings from VS Code or the typescript language server.\n\n**Solution**: Keep one notebook open."
+            ],
+            "outputs": []
+        },
+        {
+            "language": "typescript",
+            "source": [
+                "const a = 'Hello World';"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "Open another notebook and add a variable/constant named `a` and watch how you end up with warnings. Now close the other notebooks except this."
+            ],
+            "outputs": []
+        }
+    ]
+}

@@ -1,5 +1,7 @@
 # Generate and view Plotly plots in Notebooks
 
+The extension ships with the latest version of Plotly, making it unnecessary to install plotly.js.
+
 ```javascript
 const { Plotly } = require('node-kernel');
 const data = [{

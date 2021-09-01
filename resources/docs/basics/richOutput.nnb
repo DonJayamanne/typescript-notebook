@@ -54,46 +54,14 @@
             "source": [
                 "<!-- HTML cells can be executed and displayed (even with javascript/css) -->\n<div>\n    This is plain HTML with some divs and buttons, make note of the language of this cell, its `HTML`.\n    <div id='myOutput' style='color:red; background-color: yellow; font-size: 2em;'></div><br>\n    <button id='anotherButton'>This is yet another button</button>\n</div>"
             ],
-            "outputs": [
-                {
-                    "items": [
-                        {
-                            "mime": "text/html",
-                            "value": [
-                                "<!-- HTML cells can be executed and displayed (even with javascript/css) -->",
-                                "<div>",
-                                "    This is plain HTML with some divs and buttons, make note of the language of this cell, its `HTML`.",
-                                "    <div id='myOutput' style='color:red; background-color: yellow; font-size: 2em;'></div><br>",
-                                "    <button id='anotherButton'>This is yet another button</button>",
-                                "</div>"
-                            ]
-                        }
-                    ]
-                }
-            ]
+            "outputs": []
         },
         {
             "language": "javascript",
             "source": [
                 "// In node.js we can generate some JavaScript  that will interact with the above HTML.\ndisplay.javascript(`\n    document.getElementById('anotherButton').addEventListener(\"click\", () => {\n        console.log('Clicked another button');\n        document.getElementById('myOutput').innerHTML = 'You clicked the button';\n    });\n`);\n\n// Run this cell, and click the button in the previous cell."
             ],
-            "outputs": [
-                {
-                    "items": [
-                        {
-                            "mime": "text/html",
-                            "value": [
-                                "<style> table, th, tr { text-align: left; }</style><script type='text/javascript'>",
-                                "    document.getElementById('anotherButton').addEventListener(\"click\", () => {",
-                                "        console.log('Clicked another button');",
-                                "        document.getElementById('myOutput').innerHTML = 'You clicked the button';",
-                                "    });",
-                                "</script>"
-                            ]
-                        }
-                    ]
-                }
-            ]
+            "outputs": []
         },
         {
             "language": "markdown",

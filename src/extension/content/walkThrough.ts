@@ -7,35 +7,29 @@ import { ContentProvider } from '.';
 const samples: (QuickPickItem & { path: string; command: string })[] = [];
 // basics
 samples.push({
-    command: 'node.notebook.sample.basics.sample',
-    label: 'Explore running javascript or typescript in node.js',
-    description: 'basics',
-    path: path.join('resources', 'docs', 'basics', 'sample.nnb')
-});
-samples.push({
     command: 'node.notebook.sample.basics.richOutput',
     label: 'Generate rich outputs in node.js',
     description: 'basics',
     path: path.join('resources', 'docs', 'basics', 'richOutput.nnb')
 });
 samples.push({
-    command: 'node.notebook.sample.basics.debug',
-    label: 'Debug typescript & javascript code node.js',
+    command: 'node.notebook.sample.basics.shellScripts',
+    label: 'Run shell scripts from within a notebook',
     description: 'basics',
-    path: path.join('resources', 'docs', 'basics', 'debug.nnb')
+    path: path.join('resources', 'docs', 'basics', 'shellScripts.nnb')
 });
 // Tensorflow.js
 samples.push({
     command: 'node.notebook.sample.tensorflow.sample',
     label: 'View tensorflow visualizations in node.js',
     description: 'tensorflow.js',
-    path: path.join('resources', 'docs', 'tensorflow', 'sample.nnb')
+    path: path.join('resources', 'docs', 'tensorflow', 'visualizations.nnb')
 });
 samples.push({
     command: 'node.notebook.sample.tensorflow.tensorboard',
-    label: 'View Tensorboards for models trained in Tensorflow.js',
+    label: 'Train MNIST in tensorflow.js with visulizations',
     description: 'tensorflow.js',
-    path: path.join('resources', 'docs', 'tensorflow', 'tensorboard.nnb')
+    path: path.join('resources', 'docs', 'tensorflow', 'mnist.nnb')
 });
 // Plotly
 samples.push({
@@ -74,6 +68,12 @@ samples.push({
     label: 'Render plots in custom HTML elements',
     description: 'danfo.js',
     path: path.join('resources', 'docs', 'danfojs', 'embedInDiv.nnb')
+});
+samples.push({
+    command: 'node.notebook.sample.basics.tips',
+    label: 'Tips and tricks for improved development experience in node.js notebooks',
+    description: 'basics',
+    path: path.join('resources', 'docs', 'basics', 'tips.nnb')
 });
 
 export class Samples {

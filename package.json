@@ -65,6 +65,8 @@
         "onCommand:node.notebook.sample.tensorflow.sample",
         "onCommand:node.notebook.sample.tensorflow.tensorboard",
         "onCommand:node.notebook.sample.basics.sample",
+        "onCommand:node.notebook.sample.basics.shellScripts",
+        "onCommand:node.notebook.sample.basics.tips",
         "onCommand:node.notebook.sample.basics.richOutput",
         "onCommand:node.notebook.sample.basics.debug",
         "onCommand:node.notebook.new",
@@ -77,7 +79,7 @@
             {
                 "category": "Notebook",
                 "command": "node.notebook.new",
-                "title": "New Node Notebook"
+                "title": "Node.js Notebook"
             },
             {
                 "category": "Notebook",
@@ -150,6 +152,11 @@
                     "command": "node.notebook.debug",
                     "group": "navigation@3",
                     "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
+                }
+            ],
+            "file/newFile": [
+                {
+                    "command": "node.notebook.new"
                 }
             ]
         },
@@ -305,6 +312,15 @@
                         "description": "Generate & view danfor.js plots from within a node.js environment. Or [try it your self](command:node.notebook.sample.danfojs.plots)",
                         "media": {
                             "markdown": "resources/docs/danfojs/plots.md"
+                        }
+                    },
+                    {
+                        "id": "samples",
+                        "title": "Sample notebooks",
+                        "description": "View a number of different sample notebooks",
+                        "command": "node.notebook.sample",
+                        "media": {
+                            "markdown": "resources/docs/basics/samples.md"
                         }
                     }
                 ]

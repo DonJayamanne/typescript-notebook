@@ -1,6 +1,13 @@
 {
     "cells": [
         {
+            "language": "markdown",
+            "source": [
+                "The extension ships with the latest version of Plotly, making it unnecessary to install plotly.js."
+            ],
+            "outputs": []
+        },
+        {
             "language": "javascript",
             "source": [
                 "const { Plotly } = require('node-kernel');\nconst data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nconst layout = {\n    height: 400,\n    width: 500\n};\n// There is no HTML element named `myDiv`, hence the plot is displayed below.\nPlotly.newPlot('myDiv', data, layout);"

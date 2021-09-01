@@ -5,7 +5,7 @@
 * Built in support for [plotly](https://plotly.com/javascript/) (plotly.js is shipped with the extension)
 * Rich (inline visualizations) using [@tensforflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [Tensorboards](https://www.tensorflow.org/tensorboard)
 * Excellent support for [danfo.js](https://danfo.jsdata.org/) (rich HTML output and plots)
-* Run shell commands within the notebook cell.
+* Run shell scripts within the notebook cell.
 * Quickly prototype and view HTML/JavaScript/CSS output
 
 **Note:**
