@@ -38,6 +38,7 @@ However, this extension leverages the power of Notebooks to provide the same ric
 ## Thanks
 Thanks to the various packages we provide integrations with which help make this extension useful:
 * [ts-node](https://typestrong.org/ts-node/)
-* [plotly](https://plotly.com/javascript/)
 * [Tensorflow.js](https://www.tensorflow.org/js)
+* [plotly](https://plotly.com/javascript/)
 * [danfo.js](https://danfo.jsdata.org/)
+* [node-pty](https://github.com/microsoft/node-pty)
