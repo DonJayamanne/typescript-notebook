@@ -244,7 +244,7 @@
             {
                 "id": "nodeNotebookWalkthrough",
                 "title": "Getting started with notebooks for node.js",
-                "description": "Use VS Code Notebooks to run/debug code in node.js with rich visualizations",
+                "description": "Run/debug node.js code within notebooks with rich visualizations & more.",
                 "featuredFor": [
                     "node.js",
                     "visualizations",
@@ -269,7 +269,7 @@
                     },
                     {
                         "id": "tensorflowVis",
-                        "title": "Tensorflow visualizations for Tensorflow.js in node.js",
+                        "title": "Tensorflow visualizations in node.js",
                         "description": "Tensorflow visualization are no longer limited to just browser environments, you can now use them in node.js. Or [try it your self](command:node.notebook.sample.tensorflow.sample)",
                         "media": {
                             "markdown": "resources/docs/tensorflow/sample.md"
