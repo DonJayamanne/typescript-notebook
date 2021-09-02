@@ -1,20 +1,8 @@
-# Node Notebook supports multiple rich output formats
-
-You are no longer limited to just plain text outputs via `console.log` in node.js environments.
-The node notebook supports a multitude of various output formats, and include:
-* Text
-* Json
-* Html
-* Markdown
-* Images (in different formats, base64 encoded, file paths, bytes)
-* Plots & more
-
-The following [notebook](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/resources/docs/basics/richOutput.nnb) includes various samples.
-
-## Samples
+# Rich outputs
 
 `node-kernel` is built into the notebook runtime. You do not need to install this.
 You could install this to get code completions (i.e. intellisense).
+
 ```javascript
 const {display} = require('node-kernel');
 display.text('Hello World');

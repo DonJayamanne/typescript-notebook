@@ -261,7 +261,7 @@
                     {
                         "id": "nodeNotebookRichOutput",
                         "title": "Rich outputs",
-                        "description": "Unlock notebooks to generate rich outputs when running in node.js (images, html, markdown, etc).",
+                        "description": "Unlock power of notebooks to generate rich outputs in node.js (images, html, markdown, plots, etc).",
                         "media": {
                             "markdown": "resources/docs/basics/richOutput.md"
                         }
@@ -269,7 +269,7 @@
                     {
                         "id": "nodeNotebookDebug",
                         "title": "Debugging",
-                        "description": "Debug a mix of javascript/typescript in a notebook, along ith stepping into external javascript/typescript modules.",
+                        "description": "Debug javascript and typescript without installing typescript, including iexternal javascript/typescript modules.",
                         "media": {
                             "markdown": "resources/docs/basics/debug.md"
                         }
@@ -277,7 +277,7 @@
                     {
                         "id": "tensorflowVis",
                         "title": "Tensorflow visualizations in node.js",
-                        "description": "Tensorflow visualization are no longer limited to just browser environments, you can now use them in node.js.",
+                        "description": "Tensorflow visualization ([@tensorflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis)) are no longer limited to just browser environments.",
                         "media": {
                             "markdown": "resources/docs/tensorflow/sample.md"
                         }
@@ -293,7 +293,7 @@
                     {
                         "id": "plotlyGenerate",
                         "title": "Plotly plots node.js",
-                        "description": "Generate & view plotly plots from within a node.js environment.",
+                        "description": "Generate & view plotly plots in node.js.",
                         "media": {
                             "markdown": "resources/docs/plotly/generate.md"
                         }
@@ -309,7 +309,7 @@
                     {
                         "id": "danfojsPlots",
                         "title": "Danfo.js plots in node.js",
-                        "description": "Generate & view danfor.js plots from within a node.js environment.",
+                        "description": "Generate & view danfor.js plots in node.js.",
                         "media": {
                             "markdown": "resources/docs/danfojs/plots.md"
                         }
