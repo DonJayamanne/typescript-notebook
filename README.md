@@ -21,8 +21,8 @@ However, this extension leverages the power of Notebooks to provide the same ric
 ![Demo](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/demo.gif)
 
 ## Examples
-* Use the command `Open a sample node.js notebook` (from the command palette) to open a sample notebook
-* Use the command `Welcome: Open Walkthrought...` (from the command palette) to checkout the samples
+* Use the command [Open a sample node.js notebook](command:node.notebook.sample) to open a sample notebook.
+* Use the command [Welcome: Open Walkthrought...](command:workbench.action.openWalkthrough) to checkout the samples.
 
 ## Requirements
 * node.js >= 12
@@ -32,6 +32,7 @@ However, this extension leverages the power of Notebooks to provide the same ric
 * Support user input (node.js `readline` for basic input in scripts)
 * Open a plain js/ts file as a notebook & vice versa.
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
+* Custom node arguments
 
 
 ### Known issues, workarounds and technical details
