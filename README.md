@@ -8,15 +8,15 @@
 * Run shell scripts within the notebook cell.
 * Quickly prototype and view HTML/JavaScript/CSS output
 
-**Note:**
-HTML (rich) visualzation is only supported in the browser for [plotly](https://plotly.com/javascript/), [tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [danfo.js](https://danfo.jsdata.org/).
-However, this extension leverages the power of Notebooks to provide the same rich visualzations when targetting node.js.
+Packages such [plotly](https://plotly.com/javascript/), [tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [danfo.js](https://danfo.jsdata.org/) support rich visualzation only in the browser,
+wowever, this extension leverages the power of Notebooks to provide the same rich visualzations when targetting node.js.
 
+Use the command [Open a sample node.js notebook](command:node.notebook.sample) to open a sample notebook to get started with plotly.js, danfo.js, tensorflow.js, etc.
 
 ## Getting started
-* Create a file in VS Code with the extension `*.nnb`, e.g. `sample.nnb`
-* Add a cell and run it
-* Or try a sample notebook (use the command [Open a sample node.js notebook](command:node.notebook.sample) from the command palette)
+* Create a file with the extension `*.nnb`, e.g. `sample.nnb`
+* Or use the menu item [New File](command:welcome.showNewFileEntries) to create a Node.js notebook
+
 
 ![Demo](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/demo.gif)
 
