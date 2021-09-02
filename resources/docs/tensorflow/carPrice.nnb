@@ -1,0 +1,154 @@
+{
+    "cells": [
+        {
+            "language": "markdown",
+            "source": [
+                "# A Non-linear regression model for Used Car price Prediction\nCreation of a simple non linear regression model for used Audi car price from the given data set\n\n[https://medium.com/@swathylenjini/non-linear-regression-for-used-car-price-prediction-model-tensorflow-js-bcce05f970c5](https://medium.com/@swathylenjini/non-linear-regression-for-used-car-price-prediction-model-tensorflow-js-bcce05f970c5)\n\n### SWATHY L"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "# Prerequisites\n\n* Download audi.csvs from https://www.kaggle.com/adityadesai13/used-car-dataset-ford-and-mercedes?select=audi.csv\n* install `@tensorflow/tfjs-node`, `@tensorflow/tfjs-vis`"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "typescript",
+            "source": [
+                "const tf = require('@tensorflow/tfjs-node') as typeof import('@tensorflow/tfjs-node');\nconst tfvis = require('@tensorflow/tfjs-vis') as typeof import('@tensorflow/tfjs-vis');"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "async function plot(pointsArray, featureName) {\n    tfvis.render.scatterplot(\n        { name: `${featureName} vs Car Price` },\n        { values: [pointsArray], series: ['original'] },\n        {\n            xLabel: featureName,\n            yLabel: 'Price',\n        }\n    )\n}"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "# Case 1: Lets evaluate the model using mileage as a feature."
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "// Import data\nconst audi_data = tf.data.csv('file://<fully qualified file path>/audi.csv');\n// Extract x and y values to plot in graph\nconst dataSet = audi_data.map(record => ({\n    x: record.mileage,\n    y: record.price,\n}));\nconst points = await dataSet.toArray();\nplot(points, 'Mileage');"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "function normalise(tensor) {\n    const min = tensor.min();\n    const max = tensor.max();\n    const normalisedTensor = tensor.sub(min).div(max.sub(min));\n    return {\n        tensor: normalisedTensor,\n        min,\n        max\n    };\n}\n"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "//Shuffle\ntf.util.shuffle(points);\n// Extract Features (inputs)\nconst featureValues = points.map(p => p.x);\nconst featureTensor = tf.tensor2d(featureValues, [featureValues.length, 1]);\n// Extract Labels (outputs)\nconst labelValues = points.map(p => p.y);\nconst labelTensor = tf.tensor2d(labelValues, [labelValues.length, 1]);\n// Normalise features and labels\nconst normalisedFeature = normalise(featureTensor);\nconst normalisedLabel = normalise(labelTensor);\n"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "const [trainingFeatureTensor, testingFeatureTensor] = tf.split(normalisedFeature.tensor, 2);\nconst [trainingLabelTensor, testingLabelTensor] = tf.split(normalisedLabel.tensor, 2);"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "function createModel() {\n    model = tf.sequential();\n    model.add(tf.layers.dense({\n        units: 1,\n        useBias: true,\n        activation: 'sigmoid',\n        inputDim: 1\n    }));\n    model.compile({\n        loss: 'meanSquaredError',\n        optimizer: tf.train.adam()\n    });\n    return model;\n}"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "//Create Model\nconst model = createModel();"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "async function trainModel(model, trainingFeatureTensor, trainingLabelTensor, trainingLabel) {\n    const { onBatchEnd, onEpochEnd } = tfvis.show.fitCallbacks({ name: trainingLabel }, ['loss']);\n    return model.fit(trainingFeatureTensor, trainingLabelTensor, {\n        batchSize: 32,\n        epochs: 20,\n        validationSplit: 0.2,\n        callbacks: {\n            onEpochEnd,\n        }\n    });\n}"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "//Train Model\nconst result = await trainModel(model, trainingFeatureTensor, trainingLabelTensor, \"Training Performance\");"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "const trainingLoss = result.history.loss.pop();\nconsole.log(`Training loss: ${trainingLoss}`);\nconst validationLoss = result.history.val_loss.pop();\nconsole.log(`Validation loss: ${validationLoss}`);"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "//Evaluate Model\nconst lossTensor = model.evaluate(testingFeatureTensor, testingLabelTensor);\nconst loss = await lossTensor.dataSync();\nconsole.log(`Testing loss: ${loss}`);"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "# Case 2: Let's evaluate the model using mpg as a feature."
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "// Import data\nconst audi_data = tf.data.csv('file://<fully qualified file path>/audi.csv');\n// Extract x and y values to plot in graph\nconst dataSet = audi_data.map(record => ({\n    x: record.mpg,\n    y: record.price,\n}));\nconst points = await dataSet.toArray();\nplot(points, 'MPG');\n"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "markdown",
+            "source": [
+                "# Case 3: Lets evaluate model using both mileage and mpg as features for price prediction model. "
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "function createModel() {\n    model = tf.sequential();\n    model.add(tf.layers.dense({\n        units: 10,\n        useBias: true,\n        activation: 'sigmoid',\n        inputDim: 2,\n    }));\n    model.add(tf.layers.dense({\n        units: 1,\n        useBias: true,\n        activation: 'sigmoid',\n    }));\n    model.compile({\n        loss: 'meanSquaredError',\n        optimizer: tf.train.adam()\n    });\n    return model;\n}"
+            ],
+            "outputs": []
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "const dataSet = audi_data.map((record) => ({\n    x1: record.mpg,\n    x2: record.mileage,\n    y: record.price\n}));\nconst points = await dataSet.toArray();\n//Shuffle\ntf.util.shuffle(points);\n// Extract and normalise features\nconst normalisedFeature1 = normalise(tf.tensor2d(points.map((p) => [p.x1]))).tensor.dataSync();\nconst normalisedFeature2 = normalise(tf.tensor2d(points.map((p) => [p.x2]))).tensor.dataSync();\nconst normFeatureInput = [];\nnormalisedFeature1.forEach((item, i, self) => { normFeatureInput.push([normalisedFeature1[i], normalisedFeature2[i]]) })\n// Extract and normalise Labels (outputs)\nconst labelValues = points.map(p => p.y);\nconst labelTensor = tf.tensor2d(labelValues, [labelValues.length, 1]);\nconst normalisedLabel = normalise(labelTensor);\n//Training and testing data sets\nconst [trainingFeatureTensor, testingFeatureTensor] = tf.split(normFeatureInput, 2);\nconst [trainingLabelTensor, testingLabelTensor] = tf.split(normalisedLabel.tensor, 2);\n//Create Model\nconst model = createModel();\n//Train Model\nconst result = await trainModel(model, trainingFeatureTensor, trainingLabelTensor, \"Training Performance (case 3)\");\nconst trainingLoss = result.history.loss.pop();\nconsole.log(`Training loss: ${trainingLoss}`);\nconst validationLoss = result.history.val_loss.pop();\nconsole.log(`Validation loss: ${validationLoss}`);\n//Evaluate Model\nconst lossTensor = model.evaluate(testingFeatureTensor, testingLabelTensor);\nconst loss = await lossTensor.dataSync();\nconsole.log(`Testing loss: ${loss}`);"
+            ],
+            "outputs": [],
+            "metadata": {
+                "outputCollapsed": true
+            }
+        },
+        {
+            "language": "javascript",
+            "source": [
+                "tfvis.show.history({ name: 'Case 3 Training History' }, result, ['loss'])"
+            ],
+            "outputs": []
+        }
+    ]
+}

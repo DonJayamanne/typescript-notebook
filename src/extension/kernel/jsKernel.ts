@@ -131,7 +131,7 @@ export class JavaScriptKernel implements IDisposable {
             deferred: createDeferred<void>()
         };
         const result = createDeferred<CellExecutionState>();
-        const stdOutput = CellOutput.getOrCreate(task, this.controller);
+        const stdOutput = CellOutput.getOrCreate(task, this.controller, requestId);
         this.currentTask = { task, requestId, result, stdOutput };
         this.lastStdOutput = stdOutput;
         this.tasks.set(requestId, { task, requestId, result, stdOutput });

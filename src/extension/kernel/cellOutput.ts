@@ -11,7 +11,7 @@ import {
 import { CellDiagnosticsProvider } from './problems';
 import { Compiler } from './compiler';
 import { DisplayData, TensorFlowVis } from '../server/types';
-import { createDeferred, Deferred, noop, sleep } from '../coreUtils';
+import { createDeferred, Deferred, noop } from '../coreUtils';
 
 const taskMap = new WeakMap<NotebookCell, CellOutput>();
 const tfVisContainersInACell = new WeakMap<NotebookCell, Set<string>>();
@@ -62,7 +62,11 @@ export class CellOutput {
         }
         return this.originalTask;
     }
-    constructor(private originalTask: NotebookCellExecution, private readonly controller: NotebookController) {
+    constructor(
+        private originalTask: NotebookCellExecution,
+        private readonly controller: NotebookController,
+        private readonly requestId: string
+    ) {
         this.cell = originalTask.cell;
         this.rendererComms.onDidReceiveMessage((e) => {
             if (typeof e.message !== 'object' || !e.message) {
@@ -105,12 +109,13 @@ export class CellOutput {
         }
         taskMap.delete(this.cell);
     }
-    public static getOrCreate(task: NotebookCellExecution, controller: NotebookController) {
-        taskMap.set(task.cell, taskMap.get(task.cell) || new CellOutput(task, controller));
+    public static getOrCreate(task: NotebookCellExecution, controller: NotebookController, requestId: string) {
+        taskMap.set(task.cell, taskMap.get(task.cell) || new CellOutput(task, controller, requestId));
         const output = taskMap.get(task.cell)!;
         output.setTask(task);
         return output;
     }
+    private lastOutputStream?: { output: NotebookCellOutput; stream: 'stdout' | 'stderr'; id: string };
     public appendStreamOutput(value: string, stream: 'stdout' | 'stderr') {
         if (value.length === 0) {
             return;
@@ -118,25 +123,17 @@ export class CellOutput {
         this.promise = this.promise
             .finally(async () => {
                 value = Compiler.fixCellPathsInStackTrace(this.cell.notebook, value);
-                const cell = this.task.cell;
-                let output: NotebookCellOutput | undefined;
-                if (cell.outputs.length) {
-                    const lastOutput = cell.outputs[cell.outputs.length - 1];
-                    const expectedMime =
-                        stream === 'stdout'
-                            ? 'application/vnd.code.notebook.stdout'
-                            : 'application/vnd.code.notebook.stderr';
-                    if (lastOutput.items.length === 1 && lastOutput.items[0].mime === expectedMime) {
-                        output = lastOutput;
-                    }
-                }
-                if (output && this.cell.outputs) {
+                const output: NotebookCellOutput | undefined =
+                    this.lastOutputStream && this.lastOutputStream.stream === stream
+                        ? this.cell.outputs.find((item) => item.metadata?._id === this.requestId)
+                        : undefined;
+                if (output) {
                     const newText = `${output.items[0].data.toString()}${value}`;
                     const item =
                         stream === 'stderr'
                             ? NotebookCellOutputItem.stderr(newText)
                             : NotebookCellOutputItem.stdout(newText);
-                    await this.task
+                    this.task
                         .replaceOutputItems(item, output)
                         .then(noop, (ex) => console.error('Failed to replace output items in CellOutput', ex));
                 } else {
@@ -145,8 +142,16 @@ export class CellOutput {
                             ? NotebookCellOutputItem.stderr(value)
                             : NotebookCellOutputItem.stdout(value);
                     await this.task
-                        .appendOutput(new NotebookCellOutput([item]))
+                        .appendOutput(new NotebookCellOutput([item], { _id: this.requestId, stream }))
                         .then(noop, (ex) => console.error('Failed to append output items in CellOutput', ex));
+                    const output = this.cell.outputs.find(
+                        (item) => item.metadata?._id === this.requestId && item.metadata?.stream === stream
+                    );
+                    if (output) {
+                        this.lastOutputStream = { output, stream, id: this.requestId };
+                    } else {
+                        this.lastOutputStream = undefined;
+                    }
                 }
             })
             .finally(() => this.endTempTask());
@@ -194,13 +199,11 @@ export class CellOutput {
                                         });
                                         return;
                                     }
-                                    // If it hasn't been rendered yet, then wait 5s for it to get rendered.
-                                    // If still not rendered, then just render a whole new item.
-                                    // Its possible the user hit the clear outputs button.
                                     if (!existingInfo.deferred.completed) {
-                                        await Promise.race([existingInfo.deferred.promise, sleep(5_000)]);
+                                        return;
                                     }
                                     if (
+                                        existingInfo.deferred.completed &&
                                         existingInfo.cell.outputs.find(
                                             (item) => item.metadata?.containerId === containerId
                                         )
@@ -227,6 +230,7 @@ export class CellOutput {
                                     output: tfVisOutputToAppend,
                                     deferred: createDeferred<void>()
                                 });
+                                this.lastOutputStream = undefined;
                                 await this.task.appendOutput(tfVisOutputToAppend).then(noop, noop);
                                 // Wait for output to get created.
                                 if (
@@ -234,6 +238,8 @@ export class CellOutput {
                                     this.outputsByTfVisContainer.get(containerId)
                                 ) {
                                     this.outputsByTfVisContainer.get(containerId)?.deferred.resolve();
+                                } else {
+                                    this.outputsByTfVisContainer.delete(containerId);
                                 }
                                 return;
                             }
@@ -244,7 +250,7 @@ export class CellOutput {
                                 if (existingInfo) {
                                     // Wait till the UI element is rendered by the renderer.
                                     // & Once rendered, we can send a message instead of rendering outputs.
-                                    existingInfo?.deferred.promise.finally(() =>
+                                    existingInfo.deferred.promise.finally(() =>
                                         this.rendererComms.postMessage({
                                             ...value
                                         })
@@ -274,7 +280,7 @@ export class CellOutput {
                     individualOutputItems.push(output);
                 }
                 const items: NotebookCellOutputItem[] = [];
-                await Promise.all(
+                Promise.all(
                     individualOutputItems.map(async (value) => {
                         switch (value.type) {
                             case 'image': {
@@ -321,7 +327,8 @@ export class CellOutput {
                     })
                 );
                 if (items.length > 0) {
-                    return this.task.appendOutput(new NotebookCellOutput(items)).then(noop, noop);
+                    this.lastOutputStream = undefined;
+                    this.task.appendOutput(new NotebookCellOutput(items)).then(noop, noop);
                 }
             })
             .finally(() => this.endTempTask());
@@ -338,7 +345,7 @@ export class CellOutput {
                 newEx.stack = newEx.stack.replace(`${newEx.name}: ${newEx.message}\n`, '');
                 newEx.stack = Compiler.fixCellPathsInStackTrace(this.cell.notebook, newEx);
                 const output = new NotebookCellOutput([NotebookCellOutputItem.error(newEx)]);
-                return this.task.appendOutput(output);
+                this.task.appendOutput(output);
             })
             .then(noop, (ex) => console.error('Failed to append the Error output in cellOutput', ex))
             .finally(() => this.endTempTask());

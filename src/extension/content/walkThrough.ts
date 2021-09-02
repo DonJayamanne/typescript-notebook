@@ -31,6 +31,12 @@ samples.push({
     description: 'tensorflow.js',
     path: path.join('resources', 'docs', 'tensorflow', 'mnist.nnb')
 });
+samples.push({
+    command: 'node.notebook.sample.tensorflow.carprice',
+    label: 'Non-linear regression model for used car price prediction',
+    description: 'tensorflow.js',
+    path: path.join('resources', 'docs', 'tensorflow', 'carPrice.nnb')
+});
 // Plotly
 samples.push({
     command: 'node.notebook.sample.plotly.generate',
