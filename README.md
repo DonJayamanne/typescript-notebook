@@ -18,7 +18,8 @@ Use the command [Open a sample node.js notebook](command:node.notebook.sample) t
 * Or use the menu item [New File](command:welcome.showNewFileEntries) to create a Node.js notebook
 
 
-![Demo](/images/demo.gif)
+![Demo](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/demo.gif)
+
 
 ## Examples
 * Use the command [Open a sample node.js notebook](command:node.notebook.sample) to open a sample notebook.
