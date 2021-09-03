@@ -2,7 +2,7 @@
     "name": "typescript-notebook",
     "displayName": "Node.js Notebooks",
     "description": "Iterative & iteractive programing for Node.js in JavaScript/TypeScript, with great support for Tensorflow.js, debugging, & more..",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "engines": {
         "vscode": "^1.60.0"
     },
