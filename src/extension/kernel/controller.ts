@@ -24,24 +24,16 @@ export class Controller implements IDisposable {
     public static get nodeNotebookController(): NotebookController {
         return Controller._tsNbController;
     }
-    private static _jupyterController: NotebookController;
-    public static get jupyterNotebookController(): NotebookController {
-        return Controller._jupyterController;
-    }
     private readonly disposables: IDisposable[] = [];
     public static regsiter() {
         registerDisposable(new Controller());
     }
     constructor() {
         Controller._tsNbController = this.createController(notebookType, 'node');
-        Controller._jupyterController = this.createController('jupyter-notebook', 'node');
         workspace.onDidOpenNotebookDocument(
             (e) => {
                 if (e.notebookType === notebookType) {
                     Controller._tsNbController.updateNotebookAffinity(e, NotebookControllerAffinity.Preferred);
-                }
-                if (e.notebookType === 'jupyter-notebook') {
-                    Controller._jupyterController.updateNotebookAffinity(e, NotebookControllerAffinity.Preferred);
                 }
             },
             this,
@@ -49,12 +41,10 @@ export class Controller implements IDisposable {
         );
         workspace.onDidCloseNotebookDocument((e) => this.resetNotebook(e), this, this.disposables);
         this.disposables.push(commands.registerCommand('node.kernel.restart', this.restart, this));
-        // this.disposables.push(commands.registerCommand('node.notebook.debug', this.debug, this));
     }
     public dispose() {
         disposeAllDisposables(this.disposables);
         Controller._tsNbController.dispose();
-        Controller._jupyterController.dispose();
     }
     private createController(nbType: string, type: 'node' | 'browser') {
         const controller = notebooks.createNotebookController(

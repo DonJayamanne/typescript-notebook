@@ -51,7 +51,6 @@
     },
     "activationEvents": [
         "onNotebook:node-notebook",
-        "onNotebook:jupyter-notebook",
         "onWalkthrough:plotlyWalkthrough",
         "onWalkthrough:danfojsWalkthrough",
         "onWalkthrough:tensorflowWalkthrough",
@@ -92,7 +91,7 @@
                 "command": "node.notebook.debug",
                 "shortTitle": "Debugx",
                 "title": "Debug Notebook",
-                "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
+                "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted"
             },
             {
                 "category": "Notebook",
@@ -100,7 +99,7 @@
                 "command": "node.kernel.restart",
                 "shortTitle": "Restart",
                 "title": "Restart Kernel",
-                "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
+                "enablement": "notebookType == 'node-notebook' && isWorkspaceTrusted"
             },
             {
                 "command": "node.notebook.runAndDebugCell",
@@ -133,7 +132,7 @@
                     "command": "node.kernel.restart",
                     "title": "Restart Kernel",
                     "group": "Notebook",
-                    "when": "false && notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
+                    "when": "false && notebookType == 'node-notebook' && isWorkspaceTrusted"
                 }
             ],
             "notebook/cell/execute": [
@@ -146,12 +145,12 @@
                 {
                     "command": "node.kernel.restart",
                     "group": "navigation@1",
-                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
+                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted"
                 },
                 {
                     "command": "node.notebook.debug",
                     "group": "navigation@3",
-                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted || notebookType == 'jupyter-notebook' && isWorkspaceTrusted"
+                    "when": "notebookType == 'node-notebook' && isWorkspaceTrusted"
                 }
             ],
             "file/newFile": [

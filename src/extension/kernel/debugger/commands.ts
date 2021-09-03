@@ -33,10 +33,7 @@ async function startDebugger(uri: Uri) {
     if (!notebook) {
         throw new Error('Notebook not found');
     }
-    const controller =
-        notebook.notebookType === 'jupyter-notebook'
-            ? Controller.jupyterNotebookController
-            : Controller.nodeNotebookController;
+    const controller = Controller.nodeNotebookController;
     const kernel = JavaScriptKernel.getOrCreate(notebook, controller);
     return DebuggerFactory.start(notebook, kernel);
 }
