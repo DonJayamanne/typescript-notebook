@@ -3,21 +3,30 @@ import { TensorFlowVis } from '../server/types';
 import { registerDisposable } from '../utils';
 
 const viewType = 'tfjs-vis';
+function shouldShowPanel(request: TensorFlowVis['request']) {
+    switch (request) {
+        case 'registerfitcallback':
+        case 'fitcallback':
+            return false;
+        default:
+            return true;
+    }
+}
 export class TensorflowVisClient implements WebviewViewProvider {
     private static view?: WebviewView;
     private static cachedMessages: TensorFlowVis[] = [];
+    private static viewVisibilitySet?: boolean;
 
     constructor(private readonly extensionUri: Uri) {}
     public static sendMessage(message: TensorFlowVis) {
         TensorflowVisClient.sendMessageInternal(message);
     }
     private static async sendMessageInternal(message: TensorFlowVis) {
-        if (!TensorflowVisClient.view && message.request === 'show') {
-            await commands.executeCommand(`${viewType}.focus`);
-        } else if (!TensorflowVisClient.view && message.type === 'tensorFlowVis') {
+        if (!TensorflowVisClient.view && shouldShowPanel(message.request)) {
+            void commands.executeCommand('setContext', 'node_notebook.tfjs-vis.used', true);
             await commands.executeCommand(`${viewType}.focus`);
         }
-        if (message.request == 'show' && TensorflowVisClient.view) {
+        if (shouldShowPanel(message.request) && TensorflowVisClient.view) {
             if (!TensorflowVisClient.view.visible) {
                 TensorflowVisClient.view.show(true);
             }
@@ -27,7 +36,7 @@ export class TensorflowVisClient implements WebviewViewProvider {
         TensorflowVisClient.sendMessages();
     }
     private static sendMessages() {
-        if (!TensorflowVisClient.view) {
+        if (!TensorflowVisClient.view || !TensorflowVisClient.viewVisibilitySet) {
             return;
         }
         while (TensorflowVisClient.cachedMessages.length) {
@@ -35,7 +44,7 @@ export class TensorflowVisClient implements WebviewViewProvider {
             if (!message) {
                 continue;
             }
-            if (message.request == 'show') {
+            if (shouldShowPanel(message.request)) {
                 if (!TensorflowVisClient.view.visible) {
                     TensorflowVisClient.view.show(true);
                 }
@@ -66,17 +75,10 @@ export class TensorflowVisClient implements WebviewViewProvider {
 
         webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.type) {
-                case 'helloBack': {
-                    window.showInformationMessage(data.data);
-                    break;
-                }
-                case 'initialized': {
-                    window.showInformationMessage(data.data);
+                case 'loaded': {
+                    TensorflowVisClient.viewVisibilitySet = true;
                     TensorflowVisClient.sendMessages();
-                    break;
-                }
-                case 'clicked': {
-                    window.showInformationMessage(data.data);
+
                     break;
                 }
                 case 'tensorFlowVis': {

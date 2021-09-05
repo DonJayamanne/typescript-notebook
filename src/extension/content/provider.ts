@@ -163,7 +163,5 @@ function outputToStorageFormat(output: NotebookCellOutput): CellOutput {
 }
 function storageFormatToOutput(output: CellOutput): NotebookCellOutput {
     const items = output.items.map(storageFormatToOutputItem);
-    return {
-        items
-    };
+    return new NotebookCellOutput(items);
 }

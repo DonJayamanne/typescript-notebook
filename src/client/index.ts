@@ -10,17 +10,13 @@ import { renderHeatmap, renderLayer, valuesDistribution } from './common';
 console.log('Inside VIS');
 const api = acquireVsCodeApi();
 window.addEventListener('message', (e) => onMessage(e.data));
-api.postMessage({ type: 'loaded', data: 'Hi' });
-api.postMessage({ type: 'initialized' });
+api.postMessage({ type: 'loaded' });
 
 function onMessage(data?: { _type?: 'helloWorld' } | TensorFlowVis | any) {
     if (!data || !data.type) {
         return;
     }
     switch (data.type) {
-        case 'helloWorld':
-            api.postMessage({ type: 'helloBack', data: 'Something' });
-            break;
         case 'tensorFlowVis': {
             handleTensorFlowMessage(data);
         }

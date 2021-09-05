@@ -184,7 +184,8 @@
                 {
                     "name": "Tensorflow Visualization",
                     "id": "tfjs-vis",
-                    "type": "webview"
+                    "type": "webview",
+                    "when": "node_notebook.tfjs-vis.used && !config.node_notebook.disableTensorflowVis"
                 }
             ]
         },
@@ -230,6 +231,12 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Register ts-node that allows importing TypeScript modules without the user having to transpile TypeScript into JavaScript.",
+                    "scope": "machine"
+                },
+                "node_notebook.disableTensorflowVis": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Disables the Tensorflow Visualization panel (even if @tensorflow/tfjs-vis is used the panel will not be displayed.",
                     "scope": "machine"
                 },
                 "node_notebook.disablePseudoTerminal": {
