@@ -14,6 +14,7 @@ import { register as registerTsNode } from './tsnode';
 import { noop } from '../coreUtils';
 import { createConsoleOutputCompletedMarker } from '../const';
 import { DanfoNodePlotter } from './extensions/danforPlotter';
+import { ArqueroFormatter } from './extensions/arqueroFormatter';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Module = require('module');
 
@@ -153,9 +154,6 @@ async function runCode(
     }
 }
 
-async function runCodeSilently(code: string | CodeObject): Promise<unknown> {
-    return runCode(code, 'silent');
-}
 async function replEvalCode(code, _context, _filename, _callback) {
     return runCode(code);
 }
@@ -303,15 +301,14 @@ Module._load = function (request: any, parent: any) {
         });
         return TensorflowJsVisualizer.initialize(tfCore, tfMath);
     }
-    if (request === '@tensorflow/tfjs-node') {
-        // injectCustomProgress();
-        // TensorFormatter.initialize();
-    }
 
     // eslint-disable-next-line prefer-rest-params
     const result = originalLoad.apply(this, arguments);
     if (request === 'danfojs-node') {
-        DanfoJsFormatter.initialize(runCodeSilently, result);
+        DanfoJsFormatter.initialize(result);
+    }
+    if (request === 'arquero') {
+        ArqueroFormatter.initialize(result);
     }
     return result;
 };
