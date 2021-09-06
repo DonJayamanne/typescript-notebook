@@ -20,8 +20,8 @@ export class DanfoJsFormatter {
         DanfoJsFormatter._instance = new DanfoJsFormatter();
         return DanfoJsFormatter._instance;
     }
-    public static initialize(codeRunner: (code: string) => Promise<unknown>, danfoModule: typeof dfd) {
-        DanfoJsFormatter.instance.inject(codeRunner, danfoModule);
+    public static initialize(danfoModule: typeof dfd) {
+        DanfoJsFormatter.instance.inject(danfoModule);
     }
     public canFormatAsDanfo(value: unknown) {
         if ((!value && typeof value !== 'object') || !this.danfoJs) {
@@ -68,7 +68,7 @@ export class DanfoJsFormatter {
             };
         }
     }
-    public inject(codeRunner: (code: string) => Promise<unknown>, danfoModule: typeof dfd) {
+    public inject(danfoModule: typeof dfd) {
         if (this.isLoaded || this.failedToInject) {
             return;
         }

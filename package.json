@@ -389,6 +389,7 @@
         "@types/yargs": "^17.0.2",
         "@typescript-eslint/eslint-plugin": "^4.29.0",
         "@typescript-eslint/parser": "^4.29.0",
+        "arquero": "^4.8.4",
         "cache-loader": "^4.1.0",
         "concurrently": "^5.2.0",
         "copy-webpack-plugin": "^9.0.0",
