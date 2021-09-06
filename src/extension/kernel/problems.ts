@@ -10,6 +10,7 @@ import {
 import { IDisposable } from '../types';
 import { disposeAllDisposables } from '../utils';
 import { parse as parseStack } from 'error-stack-parser';
+import type ErrorStackParser from 'error-stack-parser';
 import { Compiler } from './compiler';
 
 const diagnosticsCollection = languages.createDiagnosticCollection('Typscript Notebook');
@@ -35,7 +36,14 @@ export class CellDiagnosticsProvider {
         if (!ex || !ex?.stack) {
             return;
         }
-        const stacks = parseStack(ex as Error);
+        let stacks: ErrorStackParser.StackFrame[] = [];
+        try {
+            stacks = parseStack(ex as Error);
+        } catch (ex) {
+            // TODO: Seems to fail in windows.
+            console.error('Failed to parse Stack trace', ex);
+            return;
+        }
         if (stacks.length === 0) {
             return;
         }

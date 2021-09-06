@@ -6,6 +6,7 @@ import { logMessage } from '../logger';
 import { DisplayData } from '../types';
 import { DanfoJsFormatter } from './danfoFormatter';
 import { formatTensor, isTensor } from './tensorFormatter';
+import { ArqueroFormatter } from './arqueroFormatter';
 
 export function isBase64OrSvg(value: string) {
     return value.startsWith('data:image/') || (value.endsWith('</svg>') && value.includes('<svg'));
@@ -37,6 +38,12 @@ export async function formatImage(
 export async function formatValue(value: unknown, requestId: string): Promise<DisplayData | undefined> {
     if (typeof value === undefined) {
         return;
+    } else if (ArqueroFormatter.isArqueroTable(value)) {
+        return {
+            type: 'html',
+            requestId,
+            value: (value as any).toHTML()
+        };
     } else if (typeof value === 'string' && value.startsWith('data:image/')) {
         return {
             type: 'multi-mime',
