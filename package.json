@@ -68,6 +68,7 @@
         "onCommand:node.notebook.sample.basics.tips",
         "onCommand:node.notebook.sample.basics.richOutput",
         "onCommand:node.notebook.sample.basics.debug",
+        "onCommand:node.notebook.sample.arquero.htmlOutput",
         "onCommand:node.notebook.new",
         "onRenderer:node-notebook-plot-renderer",
         "onRenderer:tensorflow-vis-renderer"

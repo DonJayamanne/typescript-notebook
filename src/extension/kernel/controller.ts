@@ -55,11 +55,11 @@ export class Controller implements IDisposable {
         if (type === 'node') {
             controller.description = '';
             controller.detail = 'Execute & debug JavaScript/TypeScript in node.js';
-            controller.supportedLanguages = ['javascript', 'typescript', 'html', 'shellscript', 'powershell'];
+            controller.supportedLanguages = ['typescript', 'javascript', 'html', 'shellscript', 'powershell'];
         } else {
             controller.description = 'JavaScript/TypeScript Kernel running in Browser';
             controller.detail = 'Support for JavaScript in Notebooks';
-            controller.supportedLanguages = ['javascript', 'typescript', 'html', 'shellscript', 'powershell'];
+            controller.supportedLanguages = ['typescript', 'javascript', 'html', 'shellscript', 'powershell'];
         }
         controller.executeHandler = this.executeHandler;
         controller.interruptHandler = this.interrupt;

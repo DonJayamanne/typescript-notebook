@@ -48,7 +48,7 @@ export class ContentProvider implements NotebookSerializer {
                 };
                 const kind = item.language === 'markdown' ? NotebookCellKind.Markup : NotebookCellKind.Code;
                 const source = typeof item.source === 'string' ? item.source : item.source.join(EOL);
-                const cell = new NotebookCellData(kind, source, item.language || 'javascript');
+                const cell = new NotebookCellData(kind, source, item.language || 'typescript');
                 cell.metadata = metadata;
                 cell.outputs = (item.outputs || []).map(storageFormatToOutput);
                 return cell;
@@ -93,7 +93,7 @@ export class ContentProvider implements NotebookSerializer {
         );
         context.subscriptions.push(
             commands.registerCommand('node.notebook.new', async () => {
-                const data = new NotebookData([new NotebookCellData(NotebookCellKind.Code, '', 'javascript')]);
+                const data = new NotebookData([new NotebookCellData(NotebookCellKind.Code, '', 'typescript')]);
                 await workspace.openNotebookDocument(notebookType, data);
                 // const doc = await workspace.openNotebookDocument(notebookType, data);
                 // await notebooks.showNotebookDocument(doc);

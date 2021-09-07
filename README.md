@@ -5,6 +5,7 @@
 * Built in support for [plotly](https://plotly.com/javascript/) (plotly.js is shipped with the extension)
 * Rich (inline visualizations) using [@tensforflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [Tensorboards](https://www.tensorflow.org/tensorboard)
 * Excellent support for [danfo.js](https://danfo.jsdata.org/) (rich HTML output and plots)
+* Excellent support for [arquero](https://uwdata.github.io/arquero/) (rich HTML output)
 * Run shell scripts within the notebook cell.
 * Quickly prototype and view HTML/JavaScript/CSS output
 
@@ -30,8 +31,10 @@ Use the command [Open a sample node.js notebook](command:node.notebook.sample) t
 * node.js needs to be in the current path
 
 ## Roadmap
+* Support for [observable inspector](https://github.com/observablehq/inspector)
 * Support user input (node.js `readline` for basic input in scripts)
 * Open a plain js/ts file as a notebook & vice versa.
+* Better renderers for tabular data (arquero, danfo.js, etc)
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
 * Custom node arguments
 
@@ -47,3 +50,4 @@ Thanks to the various packages we provide integrations with which help make this
 * [plotly](https://plotly.com/javascript/)
 * [danfo.js](https://danfo.jsdata.org/)
 * [node-pty](https://github.com/microsoft/node-pty)
+* [arquero](https://uwdata.github.io/arquero/)

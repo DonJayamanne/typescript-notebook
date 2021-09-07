@@ -59,7 +59,7 @@ samples.push({
 // danfo.js
 samples.push({
     command: 'node.notebook.sample.danfojs.htmlOutput',
-    label: 'View dataframe and series in HTML tables',
+    label: 'View dataframe and series as HTML tables',
     description: 'danfo.js',
     path: path.join('resources', 'docs', 'danfojs', 'htmlOutput.nnb')
 });
@@ -81,6 +81,14 @@ samples.push({
     description: 'basics',
     path: path.join('resources', 'docs', 'basics', 'tips.nnb')
 });
+// arquero
+samples.push({
+    command: 'node.notebook.sample.arquero.htmlOutput',
+    label: 'View tables as HTML tables',
+    description: 'arquero',
+    path: path.join('resources', 'docs', 'arquero', 'htmlOutput.nnb')
+});
+
 
 export class Samples {
     public static regsiter(context: ExtensionContext) {

@@ -192,7 +192,14 @@ class ShellPty {
             return true;
         } catch (ex) {
             console.log('Unable to load nodepty', ex);
-            return false;
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                ShellPty.pty = require(path.join(ShellPty.nodePtyPath, 'lib', 'index.js')) as typeof import('node-pty');
+                return true;
+            } catch (ex) {
+                console.log('Unable to load nodepty (lib/index.js)', ex);
+                return false;
+            }
         }
     }
     public static get(cwd?: string) {

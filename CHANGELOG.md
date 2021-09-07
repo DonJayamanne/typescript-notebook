@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.2 (6 Sept 2021)
+* Excellent support for [arquero](https://uwdata.github.io/arquero/) (rich HTML output)
+* New notebooks default cells to `typescript`
+* Displaying cell execution errors on Linux
+
+## 2.0.1 (2 Sept 2021)
+* Updated readme
+
 ## 2.0.0 (2 Sept 2021)
 * Run & debug JavaScript, TypeScript code in node.js
 * Built in support for typescript (ships with [TypeScript](https://www.typescriptlang.org/) & [ts-node](https://typestrong.org/ts-node/)).

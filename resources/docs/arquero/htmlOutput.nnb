@@ -1,0 +1,11 @@
+{
+    "cells": [
+        {
+            "language": "javascript",
+            "source": [
+                "const { loadArrow } = require('arquero');\nconst flights = await loadArrow('https://vega.github.io/vega-datasets/data/flights-200k.arrow');\nflights"
+            ],
+            "outputs": []
+        }
+    ]
+}
