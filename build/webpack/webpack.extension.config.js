@@ -36,7 +36,8 @@ module.exports = {
         'node-pty',
         'profoundjs-node-pty',
         'xterm',
-        'xterm-addon-serialize'
+        'xterm-addon-serialize',
+        'node-kernel'
     ],
     plugins: [...common.getDefaultPlugins('extension')],
     resolve: {
