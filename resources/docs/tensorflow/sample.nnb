@@ -2,51 +2,87 @@
     "cells": [
         {
             "language": "shellscript",
-            "source": "## Uncomment this to install missing dependencies\n# npm i @tensorflow/tfjs\n# npm i node-fetch"
+            "source": [
+                "## Uncomment this to install missing dependencies\n# npm i @tensorflow/tfjs-node @tensorflow/tfjs-vis\n# npm i isomorphic-fetch"
+            ],
+            "outputs": []
         },
         {
             "language": "typescript",
-            "source": "import * as tfvis from '@tensorflow/tfjs-vis'\nimport * as tf from '@tensorflow/tfjs-node'\nimport * as fetch from 'node-fetch';\n"
+            "source": [
+                "import * as tfvis from '@tensorflow/tfjs-vis'\nimport * as tf from '@tensorflow/tfjs-node'\nimport fetch from 'isomorphic-fetch';\n"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "/**\n * Get the car data reduced to just the variables we are interested\n * and cleaned of missing data.\n */\nasync function getData() {\n  const carsDataResponse = await fetch('https://storage.googleapis.com/tfjs-tutorials/carsData.json');\n  const carsData = await carsDataResponse.json();\n  const cleaned = carsData.map(car => ({\n    mpg: car.Miles_per_Gallon,\n    horsepower: car.Horsepower,\n  }))\n    .filter(car => (car.mpg != null && car.horsepower != null));\n\n  return cleaned;\n}"
+            "source": [
+                "/**\n * Get the car data reduced to just the variables we are interested\n * and cleaned of missing data.\n */\nasync function getData() {\n  const carsDataResponse = await fetch('https://storage.googleapis.com/tfjs-tutorials/carsData.json');\n  const carsData = await carsDataResponse.json();\n  const cleaned = carsData.map(car => ({\n    mpg: car.Miles_per_Gallon,\n    horsepower: car.Horsepower,\n  }))\n    .filter(car => (car.mpg != null && car.horsepower != null));\n\n  return cleaned;\n}"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "async function run() {\n  const values = data.map(d => ({\n    x: d.horsepower,\n    y: d.mpg,\n  }));\n\n  tfvis.render.scatterplot(\n    { name: 'Horsepower v MPG' },\n    { values },\n    {\n      xLabel: 'Horsepower',\n      yLabel: 'MPG',\n      height: 300,\n      width: 500\n    }\n  );\n\n  // More code will be added below\n}\n// Load and plot the original input data that we are going to train on.\nconst data = await getData();\nawait run()"
+            "source": [
+                "async function run() {\n  const values = data.map(d => ({\n    x: d.horsepower,\n    y: d.mpg,\n  }));\n\n  tfvis.render.scatterplot(\n    { name: 'Horsepower v MPG' },\n    { values },\n    {\n      xLabel: 'Horsepower',\n      yLabel: 'MPG',\n      height: 300,\n      width: 500\n    }\n  );\n\n  // More code will be added below\n}\n// Load and plot the original input data that we are going to train on.\nconst data = await getData();\nawait run()"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "function createModel() {\n  // Create a sequential model\n  const model = tf.sequential();\n\n  // Add a single input layer\n  model.add(tf.layers.dense({ inputShape: [1], units: 1, useBias: true }));\n\n  // Add an output layer\n  model.add(tf.layers.dense({ units: 1, useBias: true }));\n\n  return model;\n}"
+            "source": [
+                "function createModel() {\n  // Create a sequential model\n  const model = tf.sequential();\n\n  // Add a single input layer\n  model.add(tf.layers.dense({ inputShape: [1], units: 1, useBias: true }));\n\n  // Add an output layer\n  model.add(tf.layers.dense({ units: 1, useBias: true }));\n\n  return model;\n}"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "// Create the model\nconst model = createModel();\ntfvis.show.modelSummary({ name: 'Model Summary' }, model);"
+            "source": [
+                "// Create the model\nconst model = createModel();\ntfvis.show.modelSummary({ name: 'Model Summary' }, model);"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "/**\n * Convert the input data to tensors that we can use for machine\n * learning. We will also do the important best practices of _shuffling_\n * the data and _normalizing_ the data\n * MPG on the y-axis.\n */\nfunction convertToTensor(data) {\n  // Wrapping these calculations in a tidy will dispose any\n  // intermediate tensors.\n\n  return tf.tidy(() => {\n    // Step 1. Shuffle the data\n    tf.util.shuffle(data);\n\n    // Step 2. Convert data to Tensor\n    const inputs = data.map(d => d.horsepower)\n    const labels = data.map(d => d.mpg);\n\n    const inputTensor = tf.tensor2d(inputs, [inputs.length, 1]);\n    const labelTensor = tf.tensor2d(labels, [labels.length, 1]);\n\n    //Step 3. Normalize the data to the range 0 - 1 using min-max scaling\n    const inputMax = inputTensor.max();\n    const inputMin = inputTensor.min();\n    const labelMax = labelTensor.max();\n    const labelMin = labelTensor.min();\n\n    const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));\n    const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));\n\n    return {\n      inputs: normalizedInputs,\n      labels: normalizedLabels,\n      // Return the min/max bounds so we can use them later.\n      inputMax,\n      inputMin,\n      labelMax,\n      labelMin,\n    }\n  });\n}"
+            "source": [
+                "/**\n * Convert the input data to tensors that we can use for machine\n * learning. We will also do the important best practices of _shuffling_\n * the data and _normalizing_ the data\n * MPG on the y-axis.\n */\nfunction convertToTensor(data) {\n  // Wrapping these calculations in a tidy will dispose any\n  // intermediate tensors.\n\n  return tf.tidy(() => {\n    // Step 1. Shuffle the data\n    tf.util.shuffle(data);\n\n    // Step 2. Convert data to Tensor\n    const inputs = data.map(d => d.horsepower)\n    const labels = data.map(d => d.mpg);\n\n    const inputTensor = tf.tensor2d(inputs, [inputs.length, 1]);\n    const labelTensor = tf.tensor2d(labels, [labels.length, 1]);\n\n    //Step 3. Normalize the data to the range 0 - 1 using min-max scaling\n    const inputMax = inputTensor.max();\n    const inputMin = inputTensor.min();\n    const labelMax = labelTensor.max();\n    const labelMin = labelTensor.min();\n\n    const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));\n    const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));\n\n    return {\n      inputs: normalizedInputs,\n      labels: normalizedLabels,\n      // Return the min/max bounds so we can use them later.\n      inputMax,\n      inputMin,\n      labelMax,\n      labelMin,\n    }\n  });\n}"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "async function trainModel(model, inputs, labels) {\n  // Prepare the model for training.\n  model.compile({\n    optimizer: tf.train.adam(),\n    loss: tf.losses.meanSquaredError,\n    metrics: ['mse'],\n  });\n\n  const batchSize = 32;\n  const epochs = 50;\n\n  return await model.fit(inputs, labels, {\n    batchSize,\n    epochs,\n    shuffle: true,\n    callbacks: tfvis.show.fitCallbacks(\n      { name: 'Training Performance' },\n      ['loss', 'mse'],\n      { height: 200, width: 500, callbacks: ['onEpochEnd'],\n      verbose: false }\n    )\n  });\n}\n"
+            "source": [
+                "async function trainModel(model, inputs, labels) {\n  // Prepare the model for training.\n  model.compile({\n    optimizer: tf.train.adam(),\n    loss: tf.losses.meanSquaredError,\n    metrics: ['mse'],\n  });\n\n  const batchSize = 32;\n  const epochs = 50;\n\n  return await model.fit(inputs, labels, {\n    batchSize,\n    epochs,\n    shuffle: true,\n    callbacks: tfvis.show.fitCallbacks(\n      { name: 'Training Performance' },\n      ['loss', 'mse'],\n      { height: 200, width: 500, callbacks: ['onEpochEnd'],\n      verbose: false }\n    )\n  });\n}\n"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "// Convert the data to a form we can use for training.\nconst tensorData = convertToTensor(data);\nconst { inputs, labels } = tensorData;\n// Train the model\nawait trainModel(model, inputs, labels);"
+            "source": [
+                "// Convert the data to a form we can use for training.\nconst tensorData = convertToTensor(data);\nconst { inputs, labels } = tensorData;\n// Train the model\nawait trainModel(model, inputs, labels);"
+            ],
+            "outputs": []
         },
         {
             "language": "markdown",
-            "source": "# Testing the model"
+            "source": [
+                "# Testing the model"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "function testModel(model, inputData, normalizationData) {\n  const { inputMax, inputMin, labelMin, labelMax } = normalizationData;\n\n  // Generate predictions for a uniform range of numbers between 0 and 1;\n  // We un-normalize the data by doing the inverse of the min-max scaling\n  // that we did earlier.\n  const [xs, preds] = tf.tidy(() => {\n\n    const xs = tf.linspace(0, 1, 100);\n    const preds = model.predict(xs.reshape([100, 1]));\n\n    const unNormXs = xs\n      .mul(inputMax.sub(inputMin))\n      .add(inputMin);\n\n    const unNormPreds = preds\n      .mul(labelMax.sub(labelMin))\n      .add(labelMin);\n\n    // Un-normalize the data\n    return [unNormXs.dataSync(), unNormPreds.dataSync()];\n  });\n\n\n  const predictedPoints = Array.from(xs).map((val, i) => {\n    return { x: val, y: preds[i] }\n  });\n\n  const originalPoints = inputData.map(d => ({\n    x: d.horsepower, y: d.mpg,\n  }));\n\n\n  tfvis.render.scatterplot(\n    { name: 'Model Predictions vs Original Data' },\n    { values: [originalPoints, predictedPoints], series: ['original', 'predicted'] },\n    {\n      xLabel: 'Horsepower',\n      yLabel: 'MPG',\n      height: 300,\n      width:500\n    }\n  );\n}"
+            "source": [
+                "function testModel(model, inputData, normalizationData) {\n  const { inputMax, inputMin, labelMin, labelMax } = normalizationData;\n\n  // Generate predictions for a uniform range of numbers between 0 and 1;\n  // We un-normalize the data by doing the inverse of the min-max scaling\n  // that we did earlier.\n  const [xs, preds] = tf.tidy(() => {\n\n    const xs = tf.linspace(0, 1, 100);\n    const preds = model.predict(xs.reshape([100, 1]));\n\n    const unNormXs = xs\n      .mul(inputMax.sub(inputMin))\n      .add(inputMin);\n\n    const unNormPreds = preds\n      .mul(labelMax.sub(labelMin))\n      .add(labelMin);\n\n    // Un-normalize the data\n    return [unNormXs.dataSync(), unNormPreds.dataSync()];\n  });\n\n\n  const predictedPoints = Array.from(xs).map((val, i) => {\n    return { x: val, y: preds[i] }\n  });\n\n  const originalPoints = inputData.map(d => ({\n    x: d.horsepower, y: d.mpg,\n  }));\n\n\n  tfvis.render.scatterplot(\n    { name: 'Model Predictions vs Original Data' },\n    { values: [originalPoints, predictedPoints], series: ['original', 'predicted'] },\n    {\n      xLabel: 'Horsepower',\n      yLabel: 'MPG',\n      height: 300,\n      width:500\n    }\n  );\n}"
+            ],
+            "outputs": []
         },
         {
             "language": "javascript",
-            "source": "// Make some predictions using the model and compare them to the\n// original data\ntestModel(model, data, tensorData);\n"
+            "source": [
+                "// Make some predictions using the model and compare them to the\n// original data\ntestModel(model, data, tensorData);\n"
+            ],
+            "outputs": []
         }
     ]
 }

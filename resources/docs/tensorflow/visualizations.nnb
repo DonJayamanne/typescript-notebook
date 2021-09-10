@@ -8,6 +8,13 @@
             "outputs": []
         },
         {
+            "language": "shellscript",
+            "source": [
+                "# npm i @tensorflow/tfjs-node @tensorflow/tfjs-vis"
+            ],
+            "outputs": []
+        },
+        {
             "language": "markdown",
             "source": [
                 "# Sample tensorflow visualizations"

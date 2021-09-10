@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.3 (10 Sept 2021)
+* Update samples to use `isomorphic-fetch` instead of `node-fetch` (and pre-requisite `npm` packages).
+
 ## 2.0.2 (6 Sept 2021)
 * Excellent support for [arquero](https://uwdata.github.io/arquero/) (rich HTML output)
 * New notebooks default cells to `typescript`

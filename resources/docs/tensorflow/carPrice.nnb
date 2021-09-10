@@ -15,6 +15,13 @@
             "outputs": []
         },
         {
+            "language": "shellscript",
+            "source": [
+                "# npm i @tensorflow/tfjs-node @tensorflow/tfjs-vis"
+            ],
+            "outputs": []
+        },
+        {
             "language": "typescript",
             "source": [
                 "const tf = require('@tensorflow/tfjs-node') as typeof import('@tensorflow/tfjs-node');\nconst tfvis = require('@tensorflow/tfjs-vis') as typeof import('@tensorflow/tfjs-vis');"
