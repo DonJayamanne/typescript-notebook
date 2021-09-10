@@ -15,6 +15,7 @@ import { noop } from '../coreUtils';
 import { createConsoleOutputCompletedMarker } from '../const';
 import { DanfoNodePlotter } from './extensions/danforPlotter';
 import { ArqueroFormatter } from './extensions/arqueroFormatter';
+import { ReadLineProxy } from './extensions/readLineProxy';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Module = require('module');
 
@@ -304,6 +305,9 @@ Module._load = function (request: any, parent: any) {
 
     // eslint-disable-next-line prefer-rest-params
     const result = originalLoad.apply(this, arguments);
+    if (request === 'readline') {
+        ReadLineProxy.initialize(result);
+    }
     if (request === 'danfojs-node') {
         DanfoJsFormatter.initialize(result);
     }

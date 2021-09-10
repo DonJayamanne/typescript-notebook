@@ -9,6 +9,8 @@
 * Excellent support for [arquero](https://uwdata.github.io/arquero/) (rich HTML output)
 * Run shell scripts within the notebook cell.
 * Quickly prototype and view HTML/JavaScript/CSS output
+* Basic support for user input using [readline](https://nodejs.org/api/readline.html#readline_readline_createinterface_options)
+
 
 Packages such [plotly](https://plotly.com/javascript/), [tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [danfo.js](https://danfo.jsdata.org/) support rich visualzation only in the browser,
 wowever, this extension leverages the power of Notebooks to provide the same rich visualzations when targetting node.js.

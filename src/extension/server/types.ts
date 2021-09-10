@@ -38,7 +38,13 @@ export type CodeObject = {
     friendlyName: string;
     sourceMapFilename: string;
 };
-export type RequestType = RunCellRequest | PingRequest | InitializeRequest | TensorFlowVisRequest | PlotGenerated;
+export type RequestType =
+    | RunCellRequest
+    | PingRequest
+    | InitializeRequest
+    | TensorFlowVisRequest
+    | PlotGenerated
+    | ReadLineQuestionResponse;
 export type RunCellRequest = BaseMessage<
     'cellExec',
     {
@@ -63,6 +69,22 @@ export type TensorFlowVisRequest = BaseMessage<
     | { request: 'heatmap'; requestId: string; success: boolean; error?: Error }
 >;
 
+export type ReadLineQuestionRequest = BaseMessage<
+    'readlineRequest',
+    {
+        question: string;
+        requestId: string;
+    }
+>;
+
+export type ReadLineQuestionResponse = BaseMessage<
+    'readlineResponse',
+    {
+        answer?: string;
+        requestId: string;
+    }
+>;
+
 // Responses
 export type ResponseType =
     | RunCellResponse
@@ -72,6 +94,7 @@ export type ResponseType =
     | Initialized
     | OutputResponse
     | PlotGenerated
+    | ReadLineQuestionRequest
     | TensorFlowVis;
 export type LogMessage = BaseMessage<
     'logMessage',

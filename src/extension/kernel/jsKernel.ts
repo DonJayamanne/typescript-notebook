@@ -15,7 +15,7 @@ import * as WebSocket from 'ws';
 import { CellExecutionState } from './types';
 import * as path from 'path';
 import { ChildProcess, spawn } from 'child_process';
-import { createDeferred, Deferred, generateId } from '../coreUtils';
+import { createDeferred, Deferred, generateId, noop } from '../coreUtils';
 import { ServerLogger } from '../serverLogger';
 import { CellOutput as CellOutput } from './cellOutput';
 import { getNotebookCwd } from '../utils';
@@ -278,6 +278,12 @@ export class JavaScriptKernel implements IDisposable {
             }
             case 'replRestarted': {
                 void window.showErrorMessage('JavaScript/TypeScript Notebook Kernel was restarted');
+                break;
+            }
+            case 'readlineRequest': {
+                window.showInputBox({ ignoreFocusOut: true, prompt: message.question }).then((result) => {
+                    void this.sendMessage({ type: 'readlineResponse', answer: result, requestId: message.requestId });
+                }, noop);
                 break;
             }
             case 'tensorFlowVis': {
