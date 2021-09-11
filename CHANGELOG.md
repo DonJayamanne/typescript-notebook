@@ -1,8 +1,8 @@
 # Changelog
 
 ## 2.0.3 (10 Sept 2021)
+* Support for user input in notebooks using [readline](https://nodejs.org/api/readline.html#readline_readline_createinterface_options)
 * Update samples to use `isomorphic-fetch` instead of `node-fetch` (and pre-requisite `npm` packages).
-* Basic support for user input in notebooks using [readline](https://nodejs.org/api/readline.html#readline_readline_createinterface_options)
 
 ## 2.0.2 (6 Sept 2021)
 * Excellent support for [arquero](https://uwdata.github.io/arquero/) (rich HTML output)
