@@ -35,7 +35,6 @@ Use the command `Open a sample node.js notebook` to open a sample notebook to ge
 
 ## Roadmap
 * Interactive Window experience
-* Support user input (node.js `readline` for basic input in scripts)
 * Open a plain js/ts file as a notebook & vice versa.
 * Better renderers for tabular data (arquero, danfo.js, etc)
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
