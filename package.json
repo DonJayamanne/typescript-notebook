@@ -1,7 +1,7 @@
 {
     "name": "typescript-notebook",
     "displayName": "Node.js Notebooks",
-    "description": "Iterative & iteractive programing for Node.js in JavaScript/TypeScript, with great support for Tensorflow.js, debugging, & more..",
+    "description": "Iterative & iteractive programming for Node.js in JavaScript/TypeScript, with great support for Tensorflow.js, debugging, & more..",
     "version": "2.0.3",
     "engines": {
         "vscode": "^1.60.0"
@@ -27,6 +27,7 @@
     },
     "keywords": [
         "notebook",
+        "REPL",
         "typescript",
         "javascript",
         "tensorflow",
