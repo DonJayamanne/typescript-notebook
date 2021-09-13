@@ -39,7 +39,6 @@ Use the command `Open a sample node.js notebook` to open a sample notebook to ge
 * Better renderers for tabular data (arquero, danfo.js, etc)
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
 * Custom node arguments
-* Support for [observable inspector](https://github.com/observablehq/inspector)
 
 
 ### Known issues, workarounds and technical details
