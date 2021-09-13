@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.3 (10 Sept 2021)
+## 2.0.3 (12 Sept 2021)
 * Support for user input in notebooks using [readline](https://nodejs.org/api/readline.html#readline_readline_createinterface_options)
 * Update samples to use `isomorphic-fetch` instead of `node-fetch` (and pre-requisite `npm` packages).
 
