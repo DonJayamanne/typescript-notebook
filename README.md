@@ -1,6 +1,6 @@
 # Node.js Notebooks
 ## Features
-* Node.js REPL experience in Notebooks (with rich output)
+* Enhanced REPL experience for Node.js in Notebooks (with top level awaits)
 * Run & debug JavaScript, TypeScript code in node.js
 * Built in support for typescript (ships with [TypeScript](https://www.typescriptlang.org/) & [ts-node](https://typestrong.org/ts-node/)).
 * Built in support for [plotly](https://plotly.com/javascript/) (plotly.js is shipped with the extension)
