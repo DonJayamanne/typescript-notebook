@@ -8,7 +8,7 @@ import {
     Uri,
     workspace
 } from 'vscode';
-import { notebookType } from '../const';
+import { iwnotebookType, notebookType } from '../const';
 import { IDisposable } from '../types';
 import { disposeAllDisposables, registerDisposable } from '../utils';
 import { CellExecutionQueue } from './cellExecutionQueue';
@@ -21,8 +21,12 @@ export function isBrowserController(controller: NotebookController) {
 }
 export class Controller implements IDisposable {
     private static _tsNbController: NotebookController;
+    private static _iwController: NotebookController;
     public static get nodeNotebookController(): NotebookController {
         return Controller._tsNbController;
+    }
+    public static get interactiveController(): NotebookController {
+        return Controller._iwController;
     }
     private readonly disposables: IDisposable[] = [];
     public static regsiter() {
@@ -30,6 +34,7 @@ export class Controller implements IDisposable {
     }
     constructor() {
         Controller._tsNbController = this.createController(notebookType, 'node');
+        Controller._iwController = this.createController(iwnotebookType, 'node');
         workspace.onDidOpenNotebookDocument(
             (e) => {
                 if (e.notebookType === notebookType) {
@@ -45,6 +50,7 @@ export class Controller implements IDisposable {
     public dispose() {
         disposeAllDisposables(this.disposables);
         Controller._tsNbController.dispose();
+        Controller._iwController.dispose();
     }
     private createController(nbType: string, type: 'node' | 'browser') {
         const controller = notebooks.createNotebookController(

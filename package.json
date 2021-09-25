@@ -1,8 +1,8 @@
 {
     "name": "typescript-notebook",
-    "displayName": "Node.js Notebooks",
-    "description": "Iterative & iteractive programming for Node.js in JavaScript/TypeScript, with great support for Tensorflow.js, debugging, & more..",
-    "version": "2.0.3",
+    "displayName": "Node.js Notebooks (REPL)",
+    "description": "Iterative & iteractive programming for Node.js in JavaScript/TypeScript (REPL), with great support for Tensorflow.js, debugging, & more..",
+    "version": "2.0.4",
     "engines": {
         "vscode": "^1.60.0"
     },
@@ -71,6 +71,7 @@
         "onCommand:node.notebook.sample.basics.debug",
         "onCommand:node.notebook.sample.arquero.htmlOutput",
         "onCommand:node.notebook.new",
+        "onCommand:node.notebook.newREPL",
         "onRenderer:node-notebook-plot-renderer",
         "onRenderer:tensorflow-vis-renderer"
     ],
@@ -86,6 +87,11 @@
                 "category": "Notebook",
                 "command": "node.notebook.sample",
                 "title": "Open a sample node.js notebook"
+            },
+            {
+                "category": "Notebook",
+                "command": "node.notebook.newREPL",
+                "title": "Open node.js REPL"
             },
             {
                 "category": "Notebook",

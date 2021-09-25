@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.4 (26 Sept 2021)
+* Support for a REPL (Interactive Window) experience (https://github.com/DonJayamanne/typescript-notebook/issues/37)
+
 ## 2.0.3 (12 Sept 2021)
 * Support for user input in notebooks using [readline](https://nodejs.org/api/readline.html#readline_readline_createinterface_options)
 * Update samples to use `isomorphic-fetch` instead of `node-fetch` (and pre-requisite `npm` packages).

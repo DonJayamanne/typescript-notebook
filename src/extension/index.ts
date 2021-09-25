@@ -11,6 +11,7 @@ import { ShellKernel } from './kernel/shellKernel';
 import { JavaScriptKernel } from './kernel/jsKernel';
 import { Compiler } from './kernel/compiler';
 import { Samples } from './content/walkThrough';
+import { NodeRepl } from './kernel/repl';
 
 export async function activate(context: ExtensionContext) {
     registerDisposableRegistry(context);
@@ -25,4 +26,5 @@ export async function activate(context: ExtensionContext) {
     PlotlyDownloadRenderer.register(context);
     ShellKernel.register(context);
     JavaScriptKernel.register(context);
+    NodeRepl.register(context);
 }

@@ -18,8 +18,10 @@ wowever, this extension leverages the power of Notebooks to provide the same ric
 Use the command `Open a sample node.js notebook` to open a sample notebook to get started with plotly.js, danfo.js, tensorflow.js, etc.
 
 ## Getting started
-* Create a file with the extension `*.nnb`, e.g. `sample.nnb`
-* Or use the menu item `New File...` to create a Node.js notebook
+* For a REPL experience use the command `Open Node.js REPL`
+    * Consider installing the [Jupyter](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) extension for an enhance user interface (toolbars).
+* For a notebook experience, create a file with the extension `*.nnb`, e.g. `sample.nnb`
+    * Or use the menu item `New File...` to create a Node.js notebook
 
 
 ![Demo](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/demo.gif)
@@ -34,7 +36,6 @@ Use the command `Open a sample node.js notebook` to open a sample notebook to ge
 * node.js needs to be in the current path
 
 ## Roadmap
-* Interactive Window experience
 * Open a plain js/ts file as a notebook & vice versa.
 * Better renderers for tabular data (arquero, danfo.js, etc)
 * [Vega](https://vega.github.io/vega/) plots without having to install vega
