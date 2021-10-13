@@ -11,6 +11,6 @@
   "license": "ISC",
   "dependencies": {
     "profoundjs-node-pty": "^2.0.3",
-    "ts-node": "^10.2.1"
+    "ts-node": "^10.3.0"
   }
 }
