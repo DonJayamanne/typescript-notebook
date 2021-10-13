@@ -24,6 +24,7 @@ Use the command `Open a sample node.js notebook` to open a sample notebook to ge
     * Or use the menu item `New File...` to create a Node.js notebook
 
 
+![Repl](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/REPL.gif)
 ![Demo](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/images/demo.gif)
 
 
