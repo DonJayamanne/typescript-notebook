@@ -4,7 +4,7 @@
 * Run & debug JavaScript, TypeScript code in node.js
 * Built in support for typescript (ships with [TypeScript](https://www.typescriptlang.org/) & [ts-node](https://typestrong.org/ts-node/)).
 * Built in support for [plotly](https://plotly.com/javascript/) (plotly.js is shipped with the extension)
-* Rich (inline visualizations) using [@tensforflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [Tensorboards](https://www.tensorflow.org/tensorboard)
+* Rich (inline visualizations) using [@tensorflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [Tensorboards](https://www.tensorflow.org/tensorboard)
 * Excellent support for [danfo.js](https://danfo.jsdata.org/) (rich HTML output and plots)
 * Excellent support for [arquero](https://uwdata.github.io/arquero/) (rich HTML output)
 * Run shell scripts within the notebook cell.
@@ -12,8 +12,8 @@
 * Support for user input using [readline](https://nodejs.org/api/readline.html#readline_readline_createinterface_options)
 
 
-Packages such [plotly](https://plotly.com/javascript/), [tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [danfo.js](https://danfo.jsdata.org/) support rich visualzation only in the browser,
-wowever, this extension leverages the power of Notebooks to provide the same rich visualzations when targetting node.js.
+Packages such [plotly](https://plotly.com/javascript/), [tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) & [danfo.js](https://danfo.jsdata.org/) support rich visualization only in the browser,
+however, this extension leverages the power of Notebooks to provide the same rich visualizations when targeting node.js.
 
 Use the command `Open a sample node.js notebook` to open a sample notebook to get started with plotly.js, danfo.js, tensorflow.js, etc.
 
@@ -30,7 +30,7 @@ Use the command `Open a sample node.js notebook` to open a sample notebook to ge
 
 ## Examples
 * Use the command `Open a sample node.js notebook` to open a sample notebook.
-* Use the command `Welcome: Open Walkthrought...` to checkout the samples.
+* Use the command `Welcome: Open Walkthrough...` to checkout the samples.
 
 ## Requirements
 * node.js >= 12
