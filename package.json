@@ -1,7 +1,7 @@
 {
     "name": "typescript-notebook",
     "displayName": "Node.js Notebooks (REPL)",
-    "description": "Iterative & iteractive programming for Node.js in JavaScript/TypeScript (REPL), with great support for Tensorflow.js, debugging, & more..",
+    "description": "Iterative & interactive programming for Node.js in JavaScript/TypeScript (REPL), with great support for Tensorflow.js, debugging, & more..",
     "version": "2.0.4",
     "engines": {
         "vscode": "^1.61.0"
@@ -183,7 +183,7 @@
                 {
                     "icon": "resources/icons/tf.svg",
                     "id": "node-notebook",
-                    "title": "Tensorflow Visualzation"
+                    "title": "Tensorflow Visualization"
                 }
             ]
         },
@@ -211,7 +211,7 @@
                 "id": "tensorflow-vis-renderer",
                 "entrypoint": "./out/views/tfjsvisRenderer.js",
                 "requiresMessaging": "always",
-                "displayName": "Tensorflow Visualzation",
+                "displayName": "Tensorflow Visualization",
                 "mimeTypes": [
                     "application/vnd.tfjsvis",
                     "application/vnd.tfjsvis.registerfitcallback",
@@ -250,7 +250,7 @@
                 "node_notebook.disablePseudoTerminal": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Disables the psuedo terminal (backed by node-pty). If disabled, will always use process based shells which won't provide the best experience.",
+                    "description": "Disables the pseudo terminal (backed by node-pty). If disabled, will always use process based shells which won't provide the best experience.",
                     "scope": "machine"
                 },
                 "node_notebook.inlineTensorflowVisualizations": {
@@ -283,7 +283,7 @@
                     {
                         "id": "nodeNotebookDebug",
                         "title": "Debugging",
-                        "description": "Debug javascript and typescript without installing typescript, including iexternal javascript/typescript modules.",
+                        "description": "Debug javascript and typescript without installing typescript, including external javascript/typescript modules.",
                         "media": {
                             "markdown": "resources/docs/basics/debug.md"
                         }
