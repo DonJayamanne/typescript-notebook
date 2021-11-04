@@ -26,7 +26,7 @@
 </div>
 ```
 
-2. Next create a JavaScript cell with the followig code and run it
+2. Next create a JavaScript cell with the following code and run it
 
 ```javascript
 const { Plotly } = require('node-kernel');
@@ -40,7 +40,7 @@ var layout = {
     width: 500
 };
 
-// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displyed above.
+// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displayed above.
 Plotly.newPlot('myDiv', data, layout);
 ```
 
