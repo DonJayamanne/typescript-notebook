@@ -3,7 +3,7 @@
         {
             "language": "markdown",
             "source": [
-                "Documentation on the visulizations (API) provided by the module [@tensorflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) can be found here:\n* [https://www.npmjs.com/package/@tensorflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis)\n* [https://js.tensorflow.org/api_vis/1.5.1/#Visor%20&%20Surfaces](https://js.tensorflow.org/api_vis/1.5.1/#Visor%20&%20Surfaces)"
+                "Documentation on the visualizations (API) provided by the module [@tensorflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis) can be found here:\n* [https://www.npmjs.com/package/@tensorflow/tfjs-vis](https://www.npmjs.com/package/@tensorflow/tfjs-vis)\n* [https://js.tensorflow.org/api_vis/1.5.1/#Visor%20&%20Surfaces](https://js.tensorflow.org/api_vis/1.5.1/#Visor%20&%20Surfaces)"
             ],
             "outputs": []
         },
