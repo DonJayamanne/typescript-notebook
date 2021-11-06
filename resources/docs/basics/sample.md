@@ -35,4 +35,4 @@ const sample = require('./sample');
 console.log(sample.add(1,2));
 ```
 
-![Smaple](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/resources/docs/basics/sample.png)
+![Sample](https://raw.githubusercontent.com/DonJayamanne/typescript-notebook/main/resources/docs/basics/sample.png)

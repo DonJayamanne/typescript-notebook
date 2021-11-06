@@ -3,7 +3,7 @@
         {
             "language": "markdown",
             "source": [
-                "Though node.js notebooks supports `shellscript` and `powershell`, they both end up getting executed using the same terminal [node-pty](https://github.com/microsoft/node-pty).\n\nThe two langauges are provided for convinience (better intellisense and the like if one prefers to use `powershell` over `bash` or vice versa)."
+                "Though node.js notebooks supports `shellscript` and `powershell`, they both end up getting executed using the same terminal [node-pty](https://github.com/microsoft/node-pty).\n\nThe two languages are provided for convenience (better intellisense and the like if one prefers to use `powershell` over `bash` or vice versa)."
             ],
             "outputs": []
         },
