@@ -1,7 +1,7 @@
 {
     "name": "typescript-notebook",
     "displayName": "Node.js Notebooks (REPL)",
-    "description": "Iterative & iteractive programming for Node.js in JavaScript/TypeScript (REPL), with great support for Tensorflow.js, debugging, & more..",
+    "description": "Iterative & interactive programming for Node.js in JavaScript/TypeScript (REPL), with great support for Tensorflow.js, debugging, & more..",
     "version": "2.0.5",
     "engines": {
         "vscode": "^1.62.0"
@@ -179,7 +179,7 @@
                 {
                     "icon": "resources/icons/tf.svg",
                     "id": "node-notebook",
-                    "title": "Tensorflow Visualzation"
+                    "title": "Tensorflow Visualization"
                 }
             ]
         },
@@ -207,7 +207,7 @@
                 "id": "tensorflow-vis-renderer",
                 "entrypoint": "./out/views/tfjsvisRenderer.js",
                 "requiresMessaging": "always",
-                "displayName": "Tensorflow Visualzation",
+                "displayName": "Tensorflow Visualization",
                 "mimeTypes": [
                     "application/vnd.tfjsvis",
                     "application/vnd.tfjsvis.registerfitcallback",
@@ -246,7 +246,7 @@
                 "node_notebook.disablePseudoTerminal": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Disables the psuedo terminal (backed by node-pty). If disabled, will always use process based shells which won't provide the best experience.",
+                    "description": "Disables the pseudo terminal (backed by node-pty). If disabled, will always use process based shells which won't provide the best experience.",
                     "scope": "machine"
                 },
                 "node_notebook.inlineTensorflowVisualizations": {
@@ -279,7 +279,7 @@
                     {
                         "id": "nodeNotebookDebug",
                         "title": "Debugging",
-                        "description": "Debug javascript and typescript without installing typescript, including iexternal javascript/typescript modules.",
+                        "description": "Debug javascript and typescript without installing typescript, including external javascript/typescript modules.",
                         "media": {
                             "markdown": "resources/docs/basics/debug.md"
                         }
@@ -339,13 +339,12 @@
     },
     "scripts": {
         "vscode:prepublish": "npm run build",
-        "dev": "concurrently -r npm:compile:typescript npm:compile:extension:watch npm:compile:client:watch",
+        "dev": "concurrently -r npm:compile:extension:watch npm:compile:client:watch",
         "installtsnode": "cd resources/scripts && npm i -S ts-node",
         "build": "webpack --config=build/webpack/webpack.config.js --mode=production",
         "compile:extension:watch": "tsc --watch -p ./",
         "compile:client:watch": "webpack --config=build/webpack/webpack.client.config.js --watch",
         "compile:extension:webpack": "webpack --config=build/webpack/webpack.extension.config.js",
-        "compile:typescript": "webpack --config=build/webpack/webpack.typescript.config.js",
         "lint": "eslint src/client --ext ts && eslint src/extension --ext ts && eslint build --ext js",
         "lint-format": "npx prettier 'src/**/*.ts*' --check && npx prettier 'build/**/*.js' --check",
         "package": "vsce package --yarn -o node-notebooks.vsix",
@@ -373,7 +372,7 @@
         "shell-quote": "^1.7.2",
         "source-map": "^0.6.1",
         "tmp": "^0.2.1",
-        "typescript": "^4.4.3",
+        "typescript": "^4.4.4",
         "uuid": "^8.3.2",
         "ws": "^7.5.3",
         "xterm": "^4.13.0",
@@ -396,7 +395,7 @@
         "arquero": "^4.8.4",
         "cache-loader": "^4.1.0",
         "concurrently": "^5.2.0",
-        "copy-webpack-plugin": "^9.0.0",
+        "copy-webpack-plugin": "^9.0.1",
         "css-loader": "^3.5.3",
         "danfojs-node": "^0.2.7",
         "eslint": "^7.32.0",

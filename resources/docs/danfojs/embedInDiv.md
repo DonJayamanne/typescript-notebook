@@ -26,7 +26,7 @@
 </div>
 ```
 
-2. Next create a JavaScript cell with the followig code and run it
+2. Next create a JavaScript cell with the following code and run it
 
 ```javascript
 import * as dfd from 'danfojs-node';
@@ -44,7 +44,7 @@ var layout = {
 
 new_df = df.set_index({ key: "Date" })
 
-// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displyed above.
+// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displayed above.
 new_df.plot("plot_div").line({ columns: ["AAPL.Open", "AAPL.High"], layout: layout })
 ```
 

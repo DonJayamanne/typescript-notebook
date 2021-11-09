@@ -208,7 +208,7 @@ export namespace Compiler {
             const matchingItem =
                 typeof location.column === 'number'
                     ? // Find the next closes column we have, we if cannot find an exact match.
-                      map.get(location.column) || map.get(location.column - 1) || map.get(location.column + 1)
+                    map.get(location.column) || map.get(location.column - 1) || map.get(location.column + 1)
                     : map.get(0)!;
             if (matchingItem) {
                 mappedLocation.line = matchingItem.generatedLine;
@@ -266,11 +266,12 @@ export namespace Compiler {
                 {
                     sourceMap: true,
                     inlineSourceMap: true,
-                    sourceRoot: path.dirname(details.sourceFilename),
+                    jsx: ts.JsxEmit.None,
+                    sourceRoot: path.dirname(details.sourceTsFilename),
                     noImplicitUseStrict: true,
                     importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
                     strict: false, // No way.
-                    fileName: details.sourceFilename,
+                    fileName: details.sourceTsFilename,
                     resolveJsonModule: true,
                     removeComments: true,
                     target: ts.ScriptTarget.ESNext, // Minimum Node12 (but let users use what ever they want). Lets look into user defined tsconfig.json.
@@ -288,7 +289,7 @@ export namespace Compiler {
                     allowSyntheticDefaultImports: true,
                     skipLibCheck: true // We expect users to rely on VS Code to let them know if they have issues in their code.
                 },
-                details.sourceFilename
+                details.sourceTsFilename
             );
             // let transpiledCode = result;
             // let transpiledCode = result.replace(
@@ -529,6 +530,7 @@ function createCodeObject(cell: NotebookCell) {
     const codeObject: CodeObject = {
         code: '',
         sourceFilename: '',
+        sourceTsFilename: '',
         sourceMapFilename: '',
         friendlyName: cwd && !cell.notebook.isUntitled
             ? `${path.relative(cwd, notebookFSPath)}?cell=${cell.index + 1}`
@@ -542,10 +544,16 @@ function createCodeObject(cell: NotebookCell) {
     // codeObject.sourceFilename = codeObject.sourceFilename || cell.document.uri.toString();
     codeObject.sourceFilename =
         codeObject.sourceFilename || path.join(tmpDirectory, `notebook_cell_${cell.document.uri.fragment}.js`);
+    codeObject.sourceTsFilename =
+        codeObject.sourceTsFilename || path.join(tmpDirectory, `notebook_cell_${cell.document.uri.fragment}.ts`);
     codeObject.sourceMapFilename = codeObject.sourceMapFilename || `${codeObject.sourceFilename}.map`;
     mapOfSourceFilesToNotebookUri.set(codeObject.sourceFilename, cell.document.uri);
     mapOfSourceFilesToNotebookUri.set(cell.document.uri.toString(), cell.document.uri);
     mapFromCellToPath.set(cell, codeObject);
+    // For some reason if the file is empty, then generics don't work
+    // To fix this issue (https://github.com/DonJayamanne/typescript-notebook/issues/40) we must have code in the file.
+    // Even tried locally by manullay importing typescript and using compiler, same problem.
+    fs.writeFileSync(codeObject.sourceTsFilename, cell.document.getText());
     return codeObject;
 }
 function updateCodeObject(codeObject: CodeObject, cell: NotebookCell, sourceCode: string, sourceMapText: string) {
@@ -556,6 +564,7 @@ function updateCodeObject(codeObject: CodeObject, cell: NotebookCell, sourceCode
 
     if (codeObject.textDocumentVersion !== cell.document.version) {
         fs.writeFileSync(codeObject.sourceFilename, sourceCode);
+        fs.writeFileSync(codeObject.sourceTsFilename, sourceCode);
         // if (sourceMapText) {
         //     fs.writeFileSync(codeObject.sourceMapFilename, sourceMapText);
         // }
@@ -662,15 +671,15 @@ export type VariableDeclaration = BaseNode<'VariableDeclaration'> & {
 };
 type VariableDeclarator = BaseNode<'VariableDeclarator'> & {
     id:
-        | (BaseNode<string> & { name: string; loc: BodyLocation; type: 'Identifier' | '<other>' })
-        | (BaseNode<'ObjectPattern'> & {
-              name: string;
-              properties: { type: 'Property'; key: { name: string }; value: { name: string } }[];
-          })
-        | (BaseNode<'ArrayPattern'> & {
-              name: string;
-              elements: { name: string; type: 'Identifier' }[];
-          });
+    | (BaseNode<string> & { name: string; loc: BodyLocation; type: 'Identifier' | '<other>' })
+    | (BaseNode<'ObjectPattern'> & {
+        name: string;
+        properties: { type: 'Property'; key: { name: string }; value: { name: string } }[];
+    })
+    | (BaseNode<'ArrayPattern'> & {
+        name: string;
+        elements: { name: string; type: 'Identifier' }[];
+    });
     init?: { loc: BodyLocation };
     loc: BodyLocation;
 };
@@ -684,14 +693,14 @@ type BlockStatement = {
 };
 type ExpressionStatement = BaseNode<'ExpressionStatement'> & {
     expression:
+    | (BaseNode<'CallExpression'> & {
+        callee:
+        | (BaseNode<'ArrowFunctionExpression'> & { body: BlockStatement })
         | (BaseNode<'CallExpression'> & {
-              callee:
-                  | (BaseNode<'ArrowFunctionExpression'> & { body: BlockStatement })
-                  | (BaseNode<'CallExpression'> & {
-                        body: BlockStatement;
-                        callee: { name: string; loc: BodyLocation };
-                    });
-          })
-        | BaseNode<'other'>;
+            body: BlockStatement;
+            callee: { name: string; loc: BodyLocation };
+        });
+    })
+    | BaseNode<'other'>;
     loc: BodyLocation;
 };

@@ -17,14 +17,14 @@
         {
             "language": "javascript",
             "source": [
-                "const { Plotly } = require('node-kernel');\nvar data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nvar layout = {\n    height: 200,\n    width: 300,\n    margin: {l:20, t:20, b:20, r:20}\n};\n\n// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displyed above.\nPlotly.newPlot('myDiv', data, layout);"
+                "const { Plotly } = require('node-kernel');\nvar data = [{\n    values: [19, 26, 55],\n    labels: ['Residential', 'Non-Residential', 'Utility'],\n    type: 'pie'\n}];\nvar layout = {\n    height: 200,\n    width: 300,\n    margin: {l:20, t:20, b:20, r:20}\n};\n\n// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displayed above.\nPlotly.newPlot('myDiv', data, layout);"
             ],
             "outputs": []
         },
         {
             "language": "typescript",
             "source": [
-                "import {display} from 'node-kernel';\ndisplay.html(`\n    This is a sample plot. Note, initially there is plot.\n    However we have an empty div with the id \"myDiv\". The plot will be renderered within this HTML element.\n    <div id=\"mySecondDiv\"></div>`);"
+                "import {display} from 'node-kernel';\ndisplay.html(`\n    This is a sample plot. Note, initially there is plot.\n    However we have an empty div with the id \"myDiv\". The plot will be rendered within this HTML element.\n    <div id=\"mySecondDiv\"></div>`);"
             ],
             "outputs": []
         },

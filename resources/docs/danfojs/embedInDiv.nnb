@@ -24,14 +24,14 @@
         {
             "language": "typescript",
             "source": [
-                "const dfd = require('danfojs-node') as typeof import('danfojs-node');\nconst df = await dfd.read_csv(\"https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv\")\n\nconst layout = {\n    title: 'A financial charts',\n    xaxis: {\n        title: 'Date',\n    },\n    yaxis: {\n        title: 'Count',\n    }\n}\n\nconst new_df = df.set_index({ key: \"Date\" })\n// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displyed above.\nnew_df.plot(\"myDiv\").line({ columns: [\"AAPL.Open\", \"AAPL.High\"], layout: layout })\n"
+                "const dfd = require('danfojs-node') as typeof import('danfojs-node');\nconst df = await dfd.read_csv(\"https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv\")\n\nconst layout = {\n    title: 'A financial charts',\n    xaxis: {\n        title: 'Date',\n    },\n    yaxis: {\n        title: 'Count',\n    }\n}\n\nconst new_df = df.set_index({ key: \"Date\" })\n// Note, the div is defined in the HTML of the previous cell, hence the Plot will be displayed above.\nnew_df.plot(\"myDiv\").line({ columns: [\"AAPL.Open\", \"AAPL.High\"], layout: layout })\n"
             ],
             "outputs": []
         },
         {
             "language": "typescript",
             "source": [
-                "import {display} from 'node-kernel';\ndisplay.html(`\n    This is a sample plot. Note, initially there is plot.\n    However we have an empty div with the id \"myDiv\". The plot will be renderered within this HTML element.\n    <div id=\"mySecondDiv\"></div>`);"
+                "import {display} from 'node-kernel';\ndisplay.html(`\n    This is a sample plot. Note, initially there is plot.\n    However we have an empty div with the id \"myDiv\". The plot will be rendered within this HTML element.\n    <div id=\"mySecondDiv\"></div>`);"
             ],
             "outputs": []
         },

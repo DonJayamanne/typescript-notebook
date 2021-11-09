@@ -31,7 +31,7 @@
         {
             "language": "javascript",
             "source": [
-                "// Use javascript to generate a list of markdown bullet points.\nconst toc = ['Index', 'Getting Started', 'Help', 'Gloassary'];\nconst items = toc.map(item => `* ${item}`).join('\\n');\ndisplay.markdown('# Markdown generated in js and displayed in notebooks\\n' + items);"
+                "// Use javascript to generate a list of markdown bullet points.\nconst toc = ['Index', 'Getting Started', 'Help', 'Glossary'];\nconst items = toc.map(item => `* ${item}`).join('\\n');\ndisplay.markdown('# Markdown generated in js and displayed in notebooks\\n' + items);"
             ],
             "outputs": []
         },

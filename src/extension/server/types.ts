@@ -35,6 +35,7 @@ export type CodeObject = {
     code: string;
     textDocumentVersion: number;
     sourceFilename: string;
+    sourceTsFilename: string;
     friendlyName: string;
     sourceMapFilename: string;
 };

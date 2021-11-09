@@ -1,6 +1,6 @@
 1. Use tsconfig from users workspace folder, closest to the ipynb file.
 3. Interactive widow will be a great addition
-4. Better way to view image tensors (helper to generate images & probaly zoom in - or just use jupyters tensor visualizer)
+4. Better way to view image tensors (helper to generate images & probably zoom in - or just use Jupyter's tensor visualizer)
 5. Variable viewer? or tensor viewer or easy image viewer (from tensors)?
 6. Changing cwd permanently in shells? (probably not)
 7. Cell magics (to change CWD, send variable from node to browser)?

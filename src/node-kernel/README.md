@@ -55,7 +55,7 @@ display.html(`
 `);
 
 // Render output that will result in execution of javascript in the output.
-dipslay.javascript(`
+display.javascript(`
     document.getElementById('myButton').innerHTML = 'Updated button';
 `);
 ```
@@ -103,7 +103,7 @@ var layout = {
     height: 400,
     width: 500
 };
-// If an HTML element named `myDiv` does not exist, the plot will be generated immdiately below the cell.
+// If an HTML element named `myDiv` does not exist, the plot will be generated immediately below the cell.
 Plotly.newPlot('myDiv', data, layout);
 ```
 
