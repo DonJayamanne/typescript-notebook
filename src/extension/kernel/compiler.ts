@@ -232,6 +232,12 @@ export namespace Compiler {
     export function getCodeObject(cell: NotebookCell) {
         return mapFromCellToPath.get(cell)!;
     }
+    function getNotebookCwd(notebook: NotebookDocument){
+        if (notebook.isUntitled){
+            return workspace.workspaceFolders?.length ? workspace.workspaceFolders[0].uri.fsPath : os.tmpdir();
+        }
+        return path.dirname(notebook.uri.fsPath);
+    }
     export function getOrCreateCodeObject(
         cell: NotebookCell,
         code = cell.document.getText(),
@@ -278,7 +284,7 @@ export namespace Compiler {
                     allowUnreachableCode: true,
                     preserveConstEnums: true,
                     allowJs: true,
-                    rootDir: path.dirname(cell.notebook.uri.fsPath),
+                    rootDir: getNotebookCwd(cell.notebook),
                     allowSyntheticDefaultImports: true,
                     skipLibCheck: true // We expect users to rely on VS Code to let them know if they have issues in their code.
                 },
@@ -519,13 +525,14 @@ function createCodeObject(cell: NotebookCell) {
         return mapFromCellToPath.get(cell)!;
     }
     const cwd = getNotebookCwd(cell.notebook);
+    const notebookFSPath = cell.notebook.isUntitled ? cell.notebook.uri.toString() : cell.notebook.uri.fsPath;
     const codeObject: CodeObject = {
         code: '',
         sourceFilename: '',
         sourceMapFilename: '',
-        friendlyName: cwd
-            ? `${path.relative(cwd, cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`
-            : `${path.basename(cell.notebook.uri.fsPath)}?cell=${cell.index + 1}`,
+        friendlyName: cwd && !cell.notebook.isUntitled
+            ? `${path.relative(cwd, notebookFSPath)}?cell=${cell.index + 1}`
+            : `${notebookFSPath}?cell=${cell.index + 1}`,
         textDocumentVersion: -1
     };
     if (!tmpDirectory) {

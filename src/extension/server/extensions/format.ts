@@ -1,7 +1,7 @@
 import * as kindOf from 'kind-of';
 import * as fileType from 'file-type';
 import * as util from 'util';
-import * as fs from 'fs/promises';
+import { promises as fs } from "fs";
 import { logMessage } from '../logger';
 import { DisplayData } from '../types';
 import { DanfoJsFormatter } from './danfoFormatter';

@@ -203,7 +203,7 @@ export class JavaScriptKernel implements IDisposable {
                 'server',
                 'index.js'
             );
-            ServerLogger.appendLine(`Starting node & listening on ${debugPort} & websock on ${port}`);
+            ServerLogger.appendLine(`Starting node ${serverFile} & listening on ${debugPort} & websock on ${port}`);
 
             this.serverProcess = spawn(
                 'node',

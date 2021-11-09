@@ -2,9 +2,9 @@
     "name": "typescript-notebook",
     "displayName": "Node.js Notebooks (REPL)",
     "description": "Iterative & iteractive programming for Node.js in JavaScript/TypeScript (REPL), with great support for Tensorflow.js, debugging, & more..",
-    "version": "2.0.4",
+    "version": "2.0.5",
     "engines": {
-        "vscode": "^1.60.0"
+        "vscode": "^1.62.0"
     },
     "publisher": "donjayamanne",
     "author": {
@@ -32,10 +32,6 @@
         "javascript",
         "tensorflow",
         "plotly"
-    ],
-    "extensionKind": [
-        "ui",
-        "workspace"
     ],
     "categories": [
         "Other",

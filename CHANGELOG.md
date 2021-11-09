@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.5 (8 Nov 2021)
+* Ensure it works in WSL (https://github.com/DonJayamanne/typescript-notebook/issues/44)
+
 ## 2.0.4 (26 Sept 2021)
 * Support for a REPL (Interactive Window) experience (https://github.com/DonJayamanne/typescript-notebook/issues/37)
 

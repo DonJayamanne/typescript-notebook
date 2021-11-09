@@ -1,6 +1,6 @@
 import { CancellationTokenSource, commands, ExtensionContext, QuickPickItem, window, workspace } from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs/promises';
+import { promises as fs } from "fs";
 import { notebookType } from '../const';
 import { ContentProvider } from '.';
 
@@ -88,7 +88,6 @@ samples.push({
     description: 'arquero',
     path: path.join('resources', 'docs', 'arquero', 'htmlOutput.nnb')
 });
-
 
 export class Samples {
     public static regsiter(context: ExtensionContext) {

@@ -1,5 +1,5 @@
 import type * as plotly from 'plotly.js';
-import * as fs from 'fs/promises';
+import { promises as fs } from "fs";
 import * as tmp from 'tmp';
 import { addMessageHandler, removeMessageHandler, sendMessage } from '../comms';
 import { ResponseType } from '../types';
