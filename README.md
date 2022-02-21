@@ -19,7 +19,7 @@ Use the command `Open a sample node.js notebook` to open a sample notebook to ge
 
 ## Getting started
 * For a REPL experience use the command `Open Node.js REPL`
-    * Consider installing the [Jupyter](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) extension for an enhance user interface (toolbars).
+    * Consider installing the [Jupyter](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) extension for an enhanced user interface (toolbars).
 * For a notebook experience, create a file with the extension `*.nnb`, e.g. `sample.nnb`
     * Or use the menu item `New File...` to create a Node.js notebook
 
